@@ -141,7 +141,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- meal list ---- */
 .meals{display:flex;flex-direction:column}
-.meal{display:grid;grid-template-columns:84px 1fr auto auto;gap:12px;align-items:start;padding:8px 0;border-top:1px solid var(--grid)}
+.meal{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:start;padding:8px 0;border-top:1px solid var(--grid)}
 .meal:first-child{border-top:0;padding-top:0}
 .meal .slot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding-top:4px}
 .meal .desc{font-size:15px}
@@ -933,10 +933,9 @@ function drawWeight(){
 function renderMeals(target, showKc){
   target.innerHTML = MEALS.map((m,i)=>`
     <div class="meal${m.novo?" novo":""}">
-      <div class="slot">${m.slot}</div>
       <div>
         <div class="desc">${m.desc}</div>
-        ${m.pendente ? `<div class="mm pend">${m.erro ? m.erro : "estimando…"}</div>`
+        ${m.pendente ? `<div class="mm pend">${m.erro || estadoFila}</div>`
           : showKc ? `<div class="mm num">P ${m.p} · C ${m.c} · G ${m.g}</div>` : ""}
       </div>
       ${showKc?`<div class="kc num">${m.pendente ? "—" : fmt(m.kc)}</div>`:`<div></div>`}
@@ -949,7 +948,7 @@ function renderWorkouts(target, showKc, lista){
       <div>
         ${w.d && w.d !== TODAY_ISO ? `<div class="d">${weekday(w.d)}, ${dayShort(w.d)}</div>` : ""}
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.pendente ? `<span class="pend">${w.erro ? w.erro : "estimando…"}</span>` : w.m}</div>
+        <div class="m">${w.pendente ? `<span class="pend">${w.erro || estadoFila}</span>` : w.m}</div>
       </div>
       ${showKc?`<div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
@@ -1222,12 +1221,44 @@ async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
 }
 
 /* ==================== estado ==================== */
+// cada dia carrega a hora da última mudança, para saber quem é mais recente
+const TS_DIA = {};
+let tsGeral = 0;
+function marcarDia(iso){ TS_DIA[iso] = tsGeral = Date.now(); }
+
 function estadoAtual(){
-  return {versao:1, perfil:PERF, dias:DIA_MEALS, wk:DIA_WK, pesos:WEIGHTS,
-          strava:{desde: STRAVA.desde || null}};
+  return {versao:2, ts:TS_DIA, tsGeral, perfil:PERF, dias:DIA_MEALS, wk:DIA_WK,
+          pesos:WEIGHTS, strava:{desde: STRAVA.desde || null}};
+}
+
+// junta as duas origens escolhendo, por dia, a versão mais nova —
+// em vez de deixar o Drive apagar o que foi registrado offline
+function mesclar(local, remoto){
+  const L = local || {}, R = remoto || {};
+  const isos = new Set([...Object.keys(R.dias || {}), ...Object.keys(L.dias || {}),
+                        ...Object.keys(R.wk || {}), ...Object.keys(L.wk || {})]);
+  let algoLocalMaisNovo = false;
+  isos.forEach(iso => {
+    const tl = (L.ts || {})[iso] || 0, tr = (R.ts || {})[iso] || 0;
+    const usaLocal = tl > tr;
+    const F = usaLocal ? L : R;
+    if(usaLocal && tr) algoLocalMaisNovo = true;
+    if(F.dias?.[iso]) DIA_MEALS[iso] = F.dias[iso];
+    if(F.wk?.[iso])   DIA_WK[iso]   = F.wk[iso];
+    TS_DIA[iso] = Math.max(tl, tr);
+  });
+  const maisNovo = (L.tsGeral || 0) > (R.tsGeral || 0) ? L : R;
+  if(Array.isArray(maisNovo.pesos)) WEIGHTS = maisNovo.pesos;
+  if(maisNovo.perfil) Object.assign(PERF, maisNovo.perfil);
+  if(maisNovo.strava?.desde) STRAVA.desde = maisNovo.strava.desde;
+  tsGeral = Math.max(L.tsGeral || 0, R.tsGeral || 0);
+  sincHoje();
+  return algoLocalMaisNovo || ((L.tsGeral || 0) > (R.tsGeral || 0));
 }
 function aplicarEstado(d){
   if(!d) return;
+  Object.assign(TS_DIA, d.ts || {});
+  tsGeral = Math.max(tsGeral, d.tsGeral || 0);
   Object.entries(d.dias || {}).forEach(([iso, arr]) => DIA_MEALS[iso] = arr);
   Object.entries(d.wk   || {}).forEach(([iso, arr]) => DIA_WK[iso] = arr);
   if(Array.isArray(d.pesos)) WEIGHTS = d.pesos;
@@ -1266,9 +1297,9 @@ async function salvar(){
     gravando = null;
   })();
 }
-const salvarDia = () => salvar();
-const salvarPesos = () => salvar();
-const salvarPerfil = () => salvar();
+const salvarDia = iso => { if(iso) marcarDia(iso); return salvar(); };
+const salvarPesos = () => { tsGeral = Date.now(); return salvar(); };
+const salvarPerfil = () => { tsGeral = Date.now(); return salvar(); };
 
 // um dia é a soma do que está registrado nele
 function recalcDia(iso){
@@ -1501,6 +1532,7 @@ $("fm-wk").onsubmit = ev => {
 
 /* ---------- fila de estimativas ---------- */
 let rodandoFila = false;
+let estadoFila = "estimando…";
 const pendentes = () => {
   const out = [];
   Object.entries(DIA_MEALS).forEach(([iso, arr]) =>
@@ -1573,10 +1605,15 @@ async function tocarFila(){
       if(!pendentes().length) break;
       // nada saiu da fila: o serviço está fora — espera mais antes de insistir
       espera = avancou ? 4000 : Math.min(espera * 2, 60000);
+      estadoFila = `Gemini indisponível — nova tentativa em ${Math.round(espera/1000)}s`;
+      renderAll();
       await dormir(espera);
+      estadoFila = "estimando…";
+      renderAll();
     }
   }finally{
     rodandoFila = false;
+    estadoFila = "estimando…";
   }
 }
 
@@ -1725,7 +1762,6 @@ function renderHist(){
   if(!meals.length) $("h-meals").innerHTML = vazio("refeição", d.d === TODAY_ISO);
   else $("h-meals").innerHTML = meals.map((m,i) => `
     <div class="meal">
-      <div class="slot">${m.slot}</div>
       <div>
         <div class="desc">${m.desc}</div>
         <div class="mm num">P ${m.p} · C ${m.c} · G ${m.g}</div>
@@ -1737,7 +1773,7 @@ function renderHist(){
     <div class="wko">
       <div>
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.pendente ? `<span class="pend">${w.erro ? w.erro : "estimando…"}</span>` : w.m}</div>
+        <div class="m">${w.pendente ? `<span class="pend">${w.erro || estadoFila}</span>` : w.m}</div>
       </div>
       <div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
@@ -2057,11 +2093,14 @@ let avisoDrive = null;
 async function depoisDeEntrar(){
   passo("g-carregando");
   $("g-carregando-msg").textContent = "Buscando seus dados no Drive…";
-  aplicarEstado(lerLocal());     // o que houver no aparelho aparece na hora
+  const local = lerLocal();
+  aplicarEstado(local);          // o que houver no aparelho aparece na hora
   diag("lendo o Drive");
   try{
-    aplicarEstado(await lerDrive());
-    diag("Drive ok");
+    const remoto = await lerDrive();
+    const localGanhou = mesclar(local, remoto);
+    diag("Drive ok" + (localGanhou ? " (o aparelho tinha coisa mais nova)" : ""));
+    if(localGanhou) salvar();    // devolve ao Drive o que só existia aqui
   }catch(e){
     console.warn("Drive", e);
     diag("Drive falhou: " + (e.message || e));
