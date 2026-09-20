@@ -1173,7 +1173,11 @@ async function testarModelo(chave, modelo){
   }catch(e){ return {ok:false, msg: e.message}; }
 }
 
-async function geminiJSON(prompt, imagem, jaTentou){
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+// 500/502/503/504 são sobrecarga passageira do Google: insistir resolve
+const TRANSITORIO = [500, 502, 503, 504];
+
+async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
   if(!geminiKey) throw new Error("sem-chave");
   if(!geminiModelo){
     const d = await descobrirModelo(geminiKey);
@@ -1193,6 +1197,11 @@ async function geminiJSON(prompt, imagem, jaTentou){
     if(r.status === 404 && !jaTentou){
       const d = await descobrirModelo(geminiKey);       // modelo saiu do ar: procura outro
       if(d.modelo){ geminiModelo = d.modelo; guardarGemini(); return geminiJSON(prompt, imagem, true); }
+    }
+    if(TRANSITORIO.includes(r.status) && tentativa < 2){
+      avisarTentativa(tentativa + 1);
+      await dormir(1500 * (tentativa + 1));
+      return geminiJSON(prompt, imagem, jaTentou, tentativa + 1);
     }
     const e = new Error(`gemini ${r.status}`);
     e.status = r.status; e.corpo = corpo;
@@ -1407,9 +1416,16 @@ $("in-foto").onchange = async e => {
 };
 $("foto-tirar").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); limparFoto(); };
 
+// o status aparece enquanto o app insiste, para não parecer travado
+let statusAtual = null;
+function avisarTentativa(n){
+  if(statusAtual) statusAtual.textContent = `Gemini ocupado, tentando de novo (${n}/2)…`;
+}
 function erroMsg(e){
   if(e?.message === "sem-chave") return "Configure a chave do Gemini no Perfil.";
   if(e?.status === 429) return "Limite do Gemini atingido. Tente daqui a pouco.";
+  if(TRANSITORIO.includes(e?.status))
+    return "O Gemini está sobrecarregado agora. Tente de novo em alguns segundos.";
   if(e?.status === 404) return `O modelo "${geminiModelo}" não existe nessa chave. ` +
     `Salve a chave de novo no Perfil para escolher outro.`;
   if(e?.status === 400 || e?.status === 403){
@@ -1431,6 +1447,7 @@ async function comIA(statusEl, botao, trabalho){
   botao.disabled = true;
   statusEl.className = "addstatus";
   statusEl.textContent = "Estimando…";
+  statusAtual = statusEl;
   try{
     await trabalho();
     statusEl.textContent = "";
@@ -1440,6 +1457,7 @@ async function comIA(statusEl, botao, trabalho){
     statusEl.textContent = erroMsg(e);
   }finally{
     botao.disabled = false;
+    statusAtual = null;
   }
 }
 
