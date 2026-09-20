@@ -1061,11 +1061,11 @@ const esperarGIS = () => new Promise(ok => {
 });
 // o Google renova o acesso sem perguntar nada enquanto a sessão dele estiver ativa,
 // por isso não guardamos token em lugar nenhum
-const pedirToken = silencioso => new Promise((ok, falha) => {
+const pedirToken = (silencioso, ms = 20000) => new Promise((ok, falha) => {
   let pronto = false;
   const t = setTimeout(() => {
     if(!pronto){ pronto = true; falha(new Error("token-timeout")); }
-  }, 20000);
+  }, ms);
   const fim = fn => v => { if(pronto) return; pronto = true; clearTimeout(t); fn(v); };
   tokenClient.callback = fim(r => r.access_token ? ok(r) : falha(r));
   tokenClient.error_callback = fim(falha);
@@ -1078,8 +1078,9 @@ async function garantirToken(){
   tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
 }
 
-async function entrar(){
-  const r = await pedirToken(false);
+async function entrar(silencioso = false){
+  // no silencioso o Google responde por iframe, sem abrir nada para o usuário
+  const r = await pedirToken(silencioso, silencioso ? 7000 : 20000);
   accessToken = r.access_token;
   tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
   usuario = await fetch("https://www.googleapis.com/oauth2/v3/userinfo",
@@ -1915,6 +1916,22 @@ async function boot(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID, scope: ESCOPOS, callback: () => {},
   });
+  // quem já entrou antes não deveria ver esta tela de novo
+  try{
+    diag("tentando entrar sem perguntar");
+    await entrar(true);
+    diag("entrou em silêncio: " + (usuario?.email || "?"));
+    await depoisDeEntrar();
+    return;
+  }catch(e){
+    diag("silêncio não rolou (" + (e?.message || e?.type || e) + ") — pedindo login");
+    if(e?.message === "nao-autorizado"){
+      $("g-negado-msg").textContent =
+        `${e.email} não está liberado neste app. Peça para ser incluído.`;
+      passo("g-negado");
+      return;
+    }
+  }
   passo("g-entrar");
 
   $("g-google").onclick = async () => {
