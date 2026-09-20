@@ -86,6 +86,17 @@ header{
 .mais.verde{background:var(--marca-2);color:#143300}
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
 
+/* ---- estado da gravação ---- */
+.sync{font:inherit;font-size:11.5px;font-weight:600;border:0;cursor:pointer;
+  padding:4px 9px 4px 20px;border-radius:99px;position:relative;
+  background:var(--surface-2);color:var(--ink-3);white-space:nowrap}
+.sync::before{content:"";position:absolute;left:8px;top:50%;width:7px;height:7px;
+  border-radius:50%;transform:translateY(-50%);background:var(--sig-good)}
+.sync.salvando::before{background:var(--marca);animation:pulsa 1.2s ease-in-out infinite}
+.sync.local{color:#7a5200}.sync.local::before{background:var(--warn)}
+.sync.erro{color:#fff;background:var(--crit)}.sync.erro::before{background:#fff}
+@media(max-width:600px){.sync{order:4;width:100%;text-align:left}}
+
 /* ---- blocks ---- */
 .grid{display:grid;gap:10px;margin-top:10px}
 @media(min-width:720px){ .grid.two{grid-template-columns:1fr 1fr} .span2{grid-column:1/-1} }
@@ -363,6 +374,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
+    <button class="sync ok" id="sync" hidden>salvo no Drive</button>
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
       <button id="btn-hab" aria-pressed="false">Histórico</button>
@@ -1327,26 +1339,75 @@ function sincHoje(){
 
 const LS_DADOS = "fite.dados";
 function gravarLocal(){
-  try{ localStorage.setItem(LS_DADOS, JSON.stringify(estadoAtual())); }catch(e){}
+  try{ localStorage.setItem(LS_DADOS, JSON.stringify(estadoAtual())); return true; }
+  catch(e){ console.warn("localStorage recusou", e); return false; }
 }
 function lerLocal(){
   try{ return JSON.parse(localStorage.getItem(LS_DADOS) || "null"); }catch(e){ return null; }
 }
 
+/* estado da gravação, sempre visível: a pessoa precisa saber se está salvo */
+let syncEstado = "ok", syncTimer = null, syncEspera = 20000;
+function setSync(estado, texto){
+  syncEstado = estado;
+  const el = $("sync");
+  if(!el) return;
+  el.className = "sync " + estado;
+  el.textContent = texto;
+  el.hidden = false;
+}
+function agendarNovaTentativa(){
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => { syncEspera = Math.min(syncEspera * 2, 300000); salvar(); }, syncEspera);
+}
+
 let gravando = null, precisaGravar = false;
 // uma gravação por vez; mudanças durante uma gravação entram na seguinte
 async function salvar(){
-  gravarLocal();
-  if(gravando){ precisaGravar = true; return; }
+  const localOk = gravarLocal();
+  if(gravando){ precisaGravar = true; return gravando; }
   gravando = (async () => {
     do {
       precisaGravar = false;
-      try{ await gravarDrive(); }
-      catch(e){ console.warn("não gravou no Drive", e); break; }
+      setSync("salvando", "salvando…");
+      try{
+        await gravarDrive();
+        syncEspera = 20000;
+        clearTimeout(syncTimer);
+        setSync("ok", "salvo no Drive");
+      }catch(e){
+        console.warn("não gravou no Drive", e);
+        const semToken = /token|popup|401/i.test(e?.message || "");
+        setSync(localOk ? "local" : "erro",
+          !localOk ? "NÃO SALVOU — toque para tentar"
+          : semToken ? "salvo aqui · toque para enviar ao Drive"
+          : "salvo aqui · Drive fora, tentando de novo");
+        if(!semToken) agendarNovaTentativa();
+        break;
+      }
     } while(precisaGravar);
     gravando = null;
   })();
+  return gravando;
 }
+// toque no indicador: com clique o Google deixa abrir o pop-up, se o token venceu
+async function sincronizarAgora(){
+  if(syncEstado === "salvando") return;
+  try{
+    if(!accessToken || Date.now() >= tokenExpira){
+      const r = await pedirToken(false);
+      accessToken = r.access_token;
+      tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
+      guardarSessao();
+    }
+  }catch(e){ console.warn(e); }
+  salvar();
+}
+// ao voltar para a aba, tenta de novo o que ficou pendente
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible" && syncEstado !== "ok" && syncEstado !== "salvando") salvar();
+});
+
 const salvarDia = iso => { if(iso) marcarDia(iso); return salvar(); };
 const salvarPesos = () => { tsGeral = Date.now(); return salvar(); };
 const salvarPerfil = () => { tsGeral = Date.now(); return salvar(); };
@@ -1462,6 +1523,7 @@ function depoisDeGravar(){
 document.querySelectorAll("[data-close]").forEach(b=>{
   b.onclick = () => $(b.dataset.close).close();
 });
+$("sync").onclick = sincronizarAgora;
 $("bt-meal").onclick  = () => abrir("dlg-meal","st-meal");
 $("bt-wk").onclick    = () => abrir("dlg-wk","st-wk");
 $("hbt-meal").onclick = () => abrir("dlg-meal","st-meal", DAYS[histIdx].d);
@@ -1478,6 +1540,7 @@ function slotPorHora(){
   return "ceia";
 }
 let fotoAtual = null;
+const FOTOS = new Map();   // id do item → imagem, enquanto a estimativa não sai
 async function prepararFoto(file){
   const bmp = await createImageBitmap(file);
   const lado = 1024, esc = Math.min(1, lado / Math.max(bmp.width, bmp.height));
@@ -1554,9 +1617,11 @@ $("fm-meal").onsubmit = ev => {
   const texto = $("in-meal").value.trim();
   if(!texto && !fotoAtual) return;
   // entra na lista imediatamente; a estimativa chega depois
+  const id = novoId();
+  if(fotoAtual) FOTOS.set(id, fotoAtual);      // só em memória: não vai para o arquivo
   (DIA_MEALS[alvoDia] ||= []).push({
-    id: novoId(), slot: slotPorHora(), desc: texto || "Refeição pela foto",
-    kc:0, p:0, c:0, g:0, pendente:true, raw:texto, foto:fotoAtual, novo:true,
+    id, slot: slotPorHora(), desc: texto || "Refeição pela foto",
+    kc:0, p:0, c:0, g:0, pendente:true, raw:texto, temFoto: !!fotoAtual, novo:true,
   });
   depoisDeGravar();
   $("in-meal").value = "";
@@ -1595,8 +1660,9 @@ const pendentes = () => {
 async function estimarItem(p){
   const m = p.item;
   if(p.tipo === "meal"){
+    const foto = FOTOS.get(m.id) || null;
     const r = await geminiJSON(
-      (m.foto
+      (foto
         ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
           (m.raw ? `A pessoa descreveu assim: "${m.raw}"\n` : "") +
           `Estime as porções pelo que aparece no prato.\n`
@@ -1606,13 +1672,13 @@ async function estimarItem(p){
       `Responda só com JSON no formato: ` +
       `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
       `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0}\n` +
-      `p, c, g são gramas de proteína, carboidrato e gordura.`, m.foto);
+      `p, c, g são gramas de proteína, carboidrato e gordura.`, foto);
     Object.assign(m, {
       slot: String(r.slot || m.slot), desc: String(r.desc || m.raw || m.desc),
       kc: Math.round(Number(r.kcal) || 0), p: Math.round(Number(r.p) || 0),
       c: Math.round(Number(r.c) || 0), g: Math.round(Number(r.g) || 0),
     });
-    delete m.pendente; delete m.foto;
+    delete m.pendente; delete m.temFoto; FOTOS.delete(m.id);
   } else {
     const r = await geminiJSON(
       `Classifique este treino e ${m.kcalDito ? "formate-o" : "estime as calorias gastas"}, ` +
