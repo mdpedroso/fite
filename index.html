@@ -1084,16 +1084,22 @@ async function entrar(){
   }
 }
 
+// toda chamada externa passa por aqui — sem exceção, senão volta a travar
+async function fetchPrazo(url, opt = {}, ms = 15000){
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try{ return await fetch(url, {...opt, signal: ctl.signal}); }
+  finally{ clearTimeout(t); }
+}
+
 /* ==================== Google Drive ==================== */
 let arquivoId = null;
 
 async function drive(url, opt = {}){
   await garantirToken();
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 20000);
   try{
-    const r = await fetch(url, {...opt, signal: ctl.signal,
-      headers:{Authorization:"Bearer " + accessToken, ...(opt.headers || {})}});
+    const r = await fetchPrazo(url, {...opt,
+      headers:{Authorization:"Bearer " + accessToken, ...(opt.headers || {})}}, 20000);
     if(!r.ok){
       const corpo = await r.text().catch(() => "");
       let msg = `HTTP ${r.status}`;
@@ -1102,7 +1108,12 @@ async function drive(url, opt = {}){
       throw err;
     }
     return r.status === 204 ? null : r.json();
-  }finally{ clearTimeout(t); }
+  }catch(e){
+    if(e.name === "AbortError")
+      throw new Error("sem resposta de www.googleapis.com em 20s — algo na rede " +
+        "(VPN, DNS, bloqueador) parece estar barrando esse endereço");
+    throw e;
+  }
 }
 async function acharArquivo(){
   const q = encodeURIComponent(`name='${ARQUIVO}' and trashed=false`);
@@ -1139,12 +1150,10 @@ const MODELOS_PADRAO = ["gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash"
 
 // devolve {modelo} ou {erro}; nunca lança, para a tela não travar
 async function descobrirModelo(chave){
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 15000);
   try{
-    const r = await fetch(
+    const r = await fetchPrazo(
       "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
-      {headers:{"x-goog-api-key": chave}, signal: ctl.signal});
+      {headers:{"x-goog-api-key": chave}});
     if(!r.ok){
       const corpo = await r.text().catch(() => "");
       let msg = `HTTP ${r.status}`;
@@ -1167,19 +1176,18 @@ async function descobrirModelo(chave){
     const alt = await testarModelo(chave, MODELOS_PADRAO[0]);
     if(alt) return {modelo: MODELOS_PADRAO[0]};
     return {erro: e.name === "AbortError"
-      ? "O Google demorou demais para responder. Tente de novo."
-      : "Não consegui falar com o Google. Verifique a conexão."};
-  }finally{
-    clearTimeout(t);
+      ? "Sem resposta de generativelanguage.googleapis.com em 15s — algo na " +
+        "rede (VPN, DNS, bloqueador) parece estar barrando esse endereço."
+      : `Não consegui falar com o Google: ${e.message || e}`};
   }
 }
 async function testarModelo(chave, modelo){
   try{
-    const r = await fetch(
+    const r = await fetchPrazo(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
       {method:"POST", headers:{"content-type":"application/json","x-goog-api-key":chave},
        body: JSON.stringify({contents:[{parts:[{text:"ok"}]}],
-         generationConfig:{maxOutputTokens:1}})});
+         generationConfig:{maxOutputTokens:1}})}, 12000);
     return r.ok;
   }catch(e){ return false; }
 }
