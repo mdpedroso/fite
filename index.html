@@ -43,6 +43,7 @@
   --shadow:none;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}   /* vence o display:grid do #gate */
 body{
   margin:0; background:var(--ground); color:var(--ink);
   font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -1050,9 +1051,10 @@ const sha256 = async t => {
 const T0 = Date.now();
 addEventListener("error", e => diag("ERRO: " + (e.message || e.error)));
 addEventListener("unhandledrejection", e => diag("PROMESSA: " + (e.reason?.message || e.reason)));
+const MOSTRAR_DIAG = location.search.includes("diag");
 function diag(txt){
   const el = $("g-diag");
-  if(!el) return;
+  if(!el || !MOSTRAR_DIAG){ console.log("[fite]", txt); return; }
   el.hidden = false;
   const s = ((Date.now() - T0) / 1000).toFixed(1);
   el.textContent += `${s}s  ${txt}\n`;
