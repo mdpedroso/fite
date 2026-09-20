@@ -3,14 +3,13 @@
 São três coisas, uma vez só. Ao final você tem um link que abre no celular
 como app, e sua filha usa o mesmo link com a conta dela.
 
-## 1. GitHub Pages — o endereço
+## 1. GitHub Pages — feito ✓
 
-1. Crie um repositório **público** chamado `fite`.
-2. Suba o arquivo `app/index.html` **na raiz**, com o nome `index.html`.
-3. Settings → Pages → Source: `Deploy from a branch`, branch `main`, pasta `/ (root)`.
-4. Em um minuto sai a URL: `https://<seu-usuario>.github.io/fite/`
+Repositório: https://github.com/mdpedroso/fite
+App: **https://mdpedroso.github.io/fite/**
 
-Anote essa URL — os dois próximos passos precisam dela.
+Para publicar uma versão nova: `git add -A && git commit -m "..." && git push`.
+Em menos de um minuto está no ar.
 
 ## 2. Google — login e Drive
 
@@ -27,7 +26,7 @@ No [Google Cloud Console](https://console.cloud.google.com):
      próprio app criou.
 4. **Credenciais → Criar credenciais → ID do cliente OAuth**:
    - Tipo: **Aplicativo da Web**
-   - **Origens JavaScript autorizadas**: `https://<seu-usuario>.github.io`
+   - **Origens JavaScript autorizadas**: `https://mdpedroso.github.io`
      (só o domínio, sem `/fite`)
    - Criar → copie o **Client ID**
 5. No `index.html`, troque a linha:
@@ -44,13 +43,13 @@ código. Cada pessoa usa a chave dela.
 
 > Vale travar a chave: no Cloud Console → Credenciais → a chave de API →
 > **Restrições de aplicativo** → *Referenciadores HTTP* → adicione
-> `https://<seu-usuario>.github.io/*`. Assim ela só funciona a partir do app.
+> `https://mdpedroso.github.io/*`. Assim ela só funciona a partir do app.
 
 ## 4. Strava — opcional, só seu
 
 Em [strava.com/settings/api](https://www.strava.com/settings/api):
 
-- **Authorization Callback Domain**: `<seu-usuario>.github.io`
+- **Authorization Callback Domain**: `mdpedroso.github.io`
 - Anote **Client ID** e **Client Secret**
 
 No app: aba **Perfil** → Strava → cole os dois, escolha a data de início e
