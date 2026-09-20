@@ -483,11 +483,6 @@ dialog h3{margin:0 0 13px;font-size:12px;font-weight:700;letter-spacing:.07em;
       <span id="foto-label">Anexar foto da refeição</span>
       <button type="button" id="foto-tirar" hidden>remover</button>
     </label>
-    <select id="in-slot">
-      <option value="">qual refeição…</option>
-      <option>café</option><option>lanche manhã</option><option>almoço</option>
-      <option>lanche tarde</option><option>janta</option><option>ceia</option>
-    </select>
     <div class="addactions">
       <button type="submit" class="btn-go">Estimar e adicionar</button>
       <button type="button" class="btn-cancel" data-close="dlg-meal">Cancelar</button>
@@ -641,11 +636,6 @@ dialog h3{margin:0 0 13px;font-size:12px;font-weight:700;letter-spacing:.07em;
       <span id="foto-label">Anexar foto da refeição</span>
       <button type="button" id="foto-tirar" hidden>remover</button>
     </label>
-    <select id="in-slot">
-      <option value="">qual refeição…</option>
-      <option>café</option><option>lanche manhã</option><option>almoço</option>
-      <option>lanche tarde</option><option>janta</option><option>ceia</option>
-    </select>
     <div class="addactions">
       <button type="submit" class="btn-go">Estimar e adicionar</button>
       <button type="button" class="btn-cancel" data-close="dlg-meal">Cancelar</button>
@@ -1215,15 +1205,18 @@ async function geminiJSON(prompt, imagem){
   if(!geminiKey) throw new Error("sem-chave");
   const parts = [{text: prompt}];
   if(imagem) parts.push({inline_data:{mime_type: imagem.mime, data: imagem.b64}});
-  const r = await fetch(
+  if(!geminiModelo) throw new Error("modelo não definido — salve a chave no Perfil");
+  const r = await fetchPrazo(
     `https://generativelanguage.googleapis.com/v1beta/models/${geminiModelo}:generateContent`,
     {method:"POST",
      headers:{"content-type":"application/json", "x-goog-api-key": geminiKey},
      body: JSON.stringify({contents:[{parts}],
-       generationConfig:{responseMimeType:"application/json", temperature:0.2}})});
+       generationConfig:{responseMimeType:"application/json", temperature:0.2}})}, 45000);
   if(!r.ok){
+    const corpo = await r.text().catch(() => "");
     const e = new Error(`gemini ${r.status}`);
-    e.status = r.status; e.corpo = await r.text();
+    e.status = r.status; e.corpo = corpo;
+    console.warn("gemini", r.status, corpo);
     throw e;
   }
   const j = await r.json();
@@ -1394,6 +1387,16 @@ $("bt-wk").onclick    = () => abrir("dlg-wk","st-wk");
 $("hbt-meal").onclick = () => abrir("dlg-meal","st-meal", DAYS[histIdx].d);
 $("hbt-wk").onclick   = () => abrir("dlg-wk","st-wk", DAYS[histIdx].d);
 
+// sem o seletor, a hora dá o palpite quando o Gemini não classifica
+function slotPorHora(){
+  const h = new Date().getHours();
+  if(h < 10) return "café";
+  if(h < 11) return "lanche manhã";
+  if(h < 15) return "almoço";
+  if(h < 18) return "lanche tarde";
+  if(h < 22) return "janta";
+  return "ceia";
+}
 let fotoAtual = null;
 async function prepararFoto(file){
   const bmp = await createImageBitmap(file);
@@ -1423,11 +1426,18 @@ $("foto-tirar").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); lim
 
 function erroMsg(e){
   if(e?.message === "sem-chave") return "Configure a chave do Gemini no Perfil.";
-  if(e?.status === 400 || e?.status === 403) return "Chave do Gemini recusada. Confira no Perfil.";
   if(e?.status === 429) return "Limite do Gemini atingido. Tente daqui a pouco.";
+  if(e?.status === 404) return `O modelo "${geminiModelo}" não existe nessa chave. ` +
+    `Salve a chave de novo no Perfil para escolher outro.`;
+  if(e?.status === 400 || e?.status === 403){
+    let det = "";
+    try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
+    return `Gemini recusou (${e.status})${det ? ": " + det.slice(0,120) : ""}`;
+  }
   if(e instanceof SyntaxError || e?.message === "gemini-vazio")
-    return "Não consegui ler a resposta. Descreva de outro jeito.";
-  return "Falhou ao estimar. Tente de novo.";
+    return "Não consegui ler a resposta do Gemini. Descreva de outro jeito.";
+  if(e?.name === "AbortError") return "O Gemini demorou demais. Tente de novo.";
+  return `Falhou ao estimar: ${e?.message || e}`;
 }
 async function comIA(statusEl, botao, trabalho){
   if(!geminiKey){
@@ -1454,7 +1464,6 @@ $("fm-meal").onsubmit = ev => {
   ev.preventDefault();
   const texto = $("in-meal").value.trim();
   if(!texto && !fotoAtual) return;       // foto sozinha basta
-  const slot = $("in-slot").value;
   comIA($("st-meal"), ev.target.querySelector(".btn-go"), async () => {
     const r = await geminiJSON(
       (fotoAtual
@@ -1463,14 +1472,13 @@ $("fm-meal").onsubmit = ev => {
           `Estime as porções pelo que aparece no prato.\n`
         : `Estime calorias e macronutrientes desta refeição brasileira, para ${perfilTexto()}.\n` +
           `Refeição: "${texto}"\n`) +
-      (slot ? `É a refeição: ${slot}.\n` : "") +
       `Use porções brasileiras típicas quando a quantidade não for dita.\n` +
       `Responda só com JSON no formato: ` +
       `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
       `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0}\n` +
       `p, c, g são gramas de proteína, carboidrato e gordura.`, fotoAtual);
     (DIA_MEALS[alvoDia] ||= []).push({
-      slot: slot || String(r.slot || "lanche"),
+      slot: String(r.slot || slotPorHora()),
       desc: String(r.desc || texto || "Refeição pela foto"),
       kc: Math.round(Number(r.kcal) || 0),
       p: Math.round(Number(r.p) || 0),
@@ -1479,7 +1487,7 @@ $("fm-meal").onsubmit = ev => {
       novo: true,
     });
     depoisDeGravar();
-    $("in-meal").value = ""; $("in-slot").value = "";
+    $("in-meal").value = "";
     limparFoto();
     $("dlg-meal").close();
   });
