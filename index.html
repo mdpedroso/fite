@@ -941,6 +941,25 @@ const LS_GEMINI = "fite.gemini";
 
 /* ==================== entrada ==================== */
 let tokenClient = null, accessToken = null, tokenExpira = 0, usuario = null;
+const LS_SESSAO = "fite.sessao";
+
+// o Google só devolve token por popup, e popup exige clique. Guardamos o token
+// (vale 1h) para que recarregar a página não force login de novo.
+function guardarSessao(){
+  try{
+    localStorage.setItem(LS_SESSAO, JSON.stringify({
+      t: accessToken, exp: tokenExpira, u: usuario,
+    }));
+  }catch(e){}
+}
+function lerSessao(){
+  try{
+    const d = JSON.parse(localStorage.getItem(LS_SESSAO) || "null");
+    if(d?.t && d.exp > Date.now() + 60000) return d;
+  }catch(e){}
+  return null;
+}
+function limparSessao(){ try{ localStorage.removeItem(LS_SESSAO); }catch(e){} }
 
 const sha256 = async t => {
   const b = await crypto.subtle.digest("SHA-256",
@@ -982,9 +1001,10 @@ const pedirToken = (silencioso, ms = 20000) => new Promise((ok, falha) => {
 });
 async function garantirToken(){
   if(accessToken && Date.now() < tokenExpira) return;
-  const r = await pedirToken(true);
+  const r = await pedirToken(true);       // precisa de clique; só chega aqui se expirou
   accessToken = r.access_token;
   tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
+  guardarSessao();
 }
 
 async function entrar(silencioso = false){
@@ -994,7 +1014,9 @@ async function entrar(silencioso = false){
   tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
   usuario = await fetch("https://www.googleapis.com/oauth2/v3/userinfo",
     {headers:{Authorization:"Bearer " + accessToken}}).then(x => x.json());
+  guardarSessao();
   if(!EMAILS_OK.includes(await sha256(usuario.email))){
+    limparSessao();
     try{ google.accounts.oauth2.revoke(accessToken); }catch(e){}
     accessToken = null;
     const erro = new Error("nao-autorizado");
@@ -1023,6 +1045,7 @@ async function drive(url, opt = {}){
       const corpo = await r.text().catch(() => "");
       let msg = `HTTP ${r.status}`;
       try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
+      if(r.status === 401){ limparSessao(); accessToken = null; }
       const err = new Error(msg); err.status = r.status;
       throw err;
     }
@@ -1775,6 +1798,7 @@ function renderIntegracoes(){
   const sair = $("p-sair");
   if(sair) sair.onclick = () => {
     try{ google.accounts.oauth2.revoke(accessToken); }catch(e){}
+    limparSessao();
     location.reload();
   };
 }
@@ -1849,20 +1873,19 @@ async function boot(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID, scope: ESCOPOS, callback: () => {},
   });
-  // quem já entrou antes não deveria ver esta tela de novo
-  try{
-    diag("tentando entrar sem perguntar");
-    await entrar(true);
-    diag("entrou em silêncio: " + (usuario?.email || "?"));
-    await depoisDeEntrar();
-    return;
-  }catch(e){
-    diag("silêncio não rolou (" + (e?.message || e?.type || e) + ") — pedindo login");
-    if(e?.message === "nao-autorizado"){
-      $("g-negado-msg").textContent =
-        `${e.email} não está liberado neste app. Peça para ser incluído.`;
-      passo("g-negado");
+  // sessão ainda válida: entra direto, sem popup nem clique
+  const sessao = lerSessao();
+  if(sessao){
+    accessToken = sessao.t; tokenExpira = sessao.exp; usuario = sessao.u;
+    diag("sessão guardada, válida por mais " +
+      Math.round((sessao.exp - Date.now()) / 60000) + " min");
+    try{
+      await depoisDeEntrar();
       return;
+    }catch(e){
+      diag("sessão guardada não serviu: " + (e?.message || e));
+      limparSessao();
+      accessToken = null;
     }
   }
   passo("g-entrar");
