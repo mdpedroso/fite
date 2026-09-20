@@ -84,6 +84,7 @@ header{
 .mais.azul{background:var(--marca);color:#fff}
 /* o verde da marca é claro demais para texto branco: tinta escura no lugar */
 .mais.verde{background:var(--marca-2);color:#143300}
+.mais.cinza{background:var(--ink-2);color:var(--surface)}
 
 /* ---- blocks ---- */
 .grid{display:grid;gap:10px;margin-top:10px}
@@ -431,12 +432,13 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   <div class="grid">
     <section class="card">
       <h2>Peso <span class="side" id="peso-side"></span></h2>
+      <button class="mais cinza" id="bt-peso" aria-label="Registrar peso">+</button>
       <div class="legend">
         <span><i class="dot" style="background:var(--ink);border-radius:99px"></i>Medido</span>
         <span><i class="dot" style="background:var(--ink-3);width:16px;height:2px;border-radius:1px"></i>Tendência <span id="w-slope" class="num"></span></span>
       </div>
       <div class="chart" id="c-weight"><div class="tip" id="t-weight"></div></div>
-      <button class="addbtn" id="bt-peso">+ Registrar peso</button>
+
     </section>
   </div>
 </div>
