@@ -344,6 +344,10 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
 <!-- ============ MODO COMPLETO ============ -->
 <div id="view-full">
+  <div class="acoes">
+    <button class="acao" id="bt-meal">+ Refeição</button>
+    <button class="acao sec" id="bt-wk">+ Treino</button>
+  </div>
 
   <div class="grid">
     <section class="card">
@@ -378,6 +382,18 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
   </div>
 
+  <div class="grid two">
+    <section class="card">
+      <h2>Refeições <span class="side" id="meals-total"></span></h2>
+      <div class="meals" id="meals"></div>
+    </section>
+
+    <section class="card">
+      <h2>Treinos <span class="side">últimos 7 dias</span></h2>
+      <div class="wk" id="workouts"></div>
+    </section>
+  </div>
+
   <div class="grid">
     <section class="card">
       <h2>Entrada e saída <span class="side" id="grf-side"></span></h2>
@@ -396,121 +412,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       <button class="addbtn" id="bt-peso">+ Registrar peso</button>
     </section>
   </div>
-
-  <div class="grid two">
-    <section class="card">
-      <h2>Refeições <span class="side" id="meals-total"></span></h2>
-      <div class="meals" id="meals"></div>
-      <button class="addbtn" id="bt-meal">+ Adicionar refeição</button>
-    </section>
-
-    <section class="card">
-      <h2>Treinos <span class="side">últimos 7 dias</span></h2>
-      <div class="wk" id="workouts"></div>
-      <button class="addbtn" id="bt-wk">+ Adicionar treino</button>
-    </section>
-  </div>
 </div>
-
-<!-- ============ PERFIL ============ -->
-<div id="view-perf" hidden>
-  <div class="grid two">
-    <section class="card">
-      <h2>Dados</h2>
-      <div class="pform">
-        <label>Sexo
-          <select id="p-sexo"><option value="m">Masculino</option><option value="f">Feminino</option></select>
-        </label>
-        <label>Nascimento <input type="date" id="p-nasc"></label>
-        <label>Altura (cm) <input type="number" id="p-alt" min="100" max="250"></label>
-      </div>
-      <div class="pconta" id="p-conta"></div>
-    </section>
-
-    <section class="card">
-      <h2>O que sai daqui</h2>
-      <div class="pcalc" id="p-calc"></div>
-    </section>
-  </div>
-
-  <div class="grid two">
-    <section class="card">
-      <h2>Gemini <span class="side" id="p-gem-status"></span></h2>
-      <p class="soon">Faz as estimativas de caloria, inclusive a partir de foto.
-        Gere a sua em <a href="https://aistudio.google.com/apikey" target="_blank"
-        rel="noopener">Google AI Studio</a> — é gratuita e fica só neste aparelho.</p>
-      <div class="pform" style="margin-top:12px">
-        <label>Chave de API
-          <input id="p-gem-key" type="password" autocomplete="off"
-            spellcheck="false" placeholder="Cole a chave do Google AI Studio">
-        </label>
-      </div>
-      <button class="addbtn" id="p-gem-salvar">Salvar chave</button>
-    </section>
-
-    <section class="card">
-      <h2>Strava <span class="side" id="p-st-status"></span></h2>
-      <p class="soon">Importa treinos automaticamente. Precisa de um app
-        criado em <a href="https://www.strava.com/settings/api" target="_blank"
-        rel="noopener">strava.com/settings/api</a>.</p>
-      <div class="pform" style="margin-top:12px">
-        <label>Client ID <input id="p-st-id" inputmode="numeric" autocomplete="off"></label>
-        <label>Client Secret <input id="p-st-secret" type="password" autocomplete="off"></label>
-        <label>Importar a partir de <input id="p-st-desde" type="date"></label>
-      </div>
-      <button class="addbtn" id="p-st-conectar">Conectar Strava</button>
-      <button class="addbtn" id="p-st-sync" hidden>Buscar treinos novos</button>
-    </section>
-  </div>
-</div>
-
-</div>
-
-<dialog id="dlg-peso">
-  <button type="button" class="fechar" data-close="dlg-peso" aria-label="Fechar">×</button>
-  <h3>Registrar peso</h3>
-  <form class="addform" id="fm-peso">
-    <label>Data <input type="date" id="in-pdata"></label>
-    <label>Peso (kg) <input type="number" id="in-pkg" step="0.1" min="30" max="300"></label>
-    <div class="addactions">
-      <button type="submit" class="btn-go">Salvar</button>
-      <button type="button" class="btn-del" id="bt-del-peso" hidden>Excluir</button>
-    </div>
-  </form>
-</dialog>
-
-<dialog id="dlg-meal">
-  <button type="button" class="fechar" data-close="dlg-meal" aria-label="Fechar">×</button>
-  <h3>Adicionar refeição</h3>
-  <form class="addform" id="fm-meal">
-    <textarea id="in-meal" rows="2"
-      placeholder="O que você comeu? Ex: prato de feijoada e uma laranja"></textarea>
-    <label class="foto">
-      <input id="in-foto" type="file" accept="image/*" capture="environment" hidden>
-      <span id="foto-label">Anexar foto da refeição</span>
-      <button type="button" id="foto-tirar" hidden>remover</button>
-    </label>
-    <div class="addactions">
-      <button type="submit" class="btn-go">Estimar e adicionar</button>
-      <span class="addstatus" id="st-meal"></span>
-    </div>
-  </form>
-</dialog>
-
-<dialog id="dlg-wk">
-  <button type="button" class="fechar" data-close="dlg-wk" aria-label="Fechar">×</button>
-  <h3>Adicionar treino</h3>
-  <form class="addform" id="fm-wk">
-    <textarea id="in-wk" rows="2"
-      placeholder="Qual atividade e quanto tempo? Ex: corri 8 km em 48 min"></textarea>
-    <input id="in-kcal" type="number" min="0" step="1"
-      placeholder="kcal gastas — deixe vazio para eu estimar">
-    <div class="addactions">
-      <button type="submit" class="btn-go">Adicionar</button>
-      <span class="addstatus" id="st-wk"></span>
-    </div>
-  </form>
-</dialog>
 
 <!-- ============ HISTÓRICO ============ -->
 <div id="view-hab" hidden>
