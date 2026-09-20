@@ -1114,16 +1114,55 @@ async function gravarDrive(dados){
 /* ==================== Gemini ==================== */
 let geminiKey = null, geminiModelo = null;
 
+const MODELOS_PADRAO = ["gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash"];
+
+// devolve {modelo} ou {erro}; nunca lança, para a tela não travar
 async function descobrirModelo(chave){
-  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models",
-    {headers:{"x-goog-api-key": chave}});
-  if(!r.ok) return null;
-  const nomes = ((await r.json()).models || [])
-    .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
-    .map(m => m.name.replace("models/", ""));
-  // flash é o mais barato que serve; sem ele, o primeiro que houver
-  return nomes.find(n => n.includes("flash") && !n.includes("lite")) || nomes[0] || null;
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 15000);
+  try{
+    const r = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+      {headers:{"x-goog-api-key": chave}, signal: ctl.signal});
+    if(!r.ok){
+      const corpo = await r.text().catch(() => "");
+      let msg = `HTTP ${r.status}`;
+      try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
+      if(r.status === 400) msg = "Chave inválida. Confira se copiou inteira.";
+      if(r.status === 403) msg = "Chave sem permissão. Se você restringiu por site, " +
+        "inclua https://mdpedroso.github.io/*";
+      return {erro: msg};
+    }
+    const nomes = ((await r.json()).models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map(m => m.name.replace("models/", ""));
+    const escolhido = MODELOS_PADRAO.find(p => nomes.includes(p))
+      || nomes.find(n => n.includes("flash") && !n.includes("lite"))
+      || nomes[0];
+    return escolhido ? {modelo: escolhido}
+                     : {erro: "A chave funciona, mas nenhum modelo está disponível nela."};
+  }catch(e){
+    // rede caiu, tempo esgotado ou bloqueio local: tenta um modelo conhecido direto
+    const alt = await testarModelo(chave, MODELOS_PADRAO[0]);
+    if(alt) return {modelo: MODELOS_PADRAO[0]};
+    return {erro: e.name === "AbortError"
+      ? "O Google demorou demais para responder. Tente de novo."
+      : "Não consegui falar com o Google. Verifique a conexão."};
+  }finally{
+    clearTimeout(t);
+  }
 }
+async function testarModelo(chave, modelo){
+  try{
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
+      {method:"POST", headers:{"content-type":"application/json","x-goog-api-key":chave},
+       body: JSON.stringify({contents:[{parts:[{text:"ok"}]}],
+         generationConfig:{maxOutputTokens:1}})});
+    return r.ok;
+  }catch(e){ return false; }
+}
+
 async function geminiJSON(prompt, imagem){
   if(!geminiKey) throw new Error("sem-chave");
   const parts = [{text: prompt}];
@@ -1748,18 +1787,20 @@ $("p-gem-salvar").onclick = async () => {
   if(!k) return;
   const bt = $("p-gem-salvar");
   bt.disabled = true; bt.textContent = "Validando…";
-  const modelo = await descobrirModelo(k);
-  if(modelo){
-    geminiKey = k; geminiModelo = modelo;
-    try{ localStorage.setItem(LS_GEMINI, JSON.stringify({k, modelo})); }catch(e){}
-    $("p-gem-key").value = "";
-    bt.textContent = "Chave salva";
+  let r;
+  try{ r = await descobrirModelo(k); }
+  catch(e){ r = {erro: "Falha inesperada"}; }
+  if(r.erro){
+    bt.textContent = r.erro.slice(0, 60);
   } else {
-    bt.textContent = "Chave recusada";
+    geminiKey = k; geminiModelo = r.modelo;
+    try{ localStorage.setItem(LS_GEMINI, JSON.stringify({k, modelo:r.modelo})); }catch(e){}
+    $("p-gem-key").value = "";
+    bt.textContent = `Salva — usando ${r.modelo}`;
   }
   bt.disabled = false;
   renderIntegracoes();
-  setTimeout(() => { bt.textContent = "Salvar chave"; }, 2500);
+  setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
 };
 
 /* ==================== render e boot ==================== */
@@ -1818,14 +1859,17 @@ async function boot(){
     if(!k) return;
     const bt = $("g-salvar-key");
     bt.disabled = true; bt.textContent = "Validando…";
-    const modelo = await descobrirModelo(k);
-    if(!modelo){
-      $("g-key-msg").textContent = "Chave recusada pelo Google. Confira e tente de novo.";
+    $("g-key-msg").textContent = "Falando com o Google…";
+    let r;
+    try{ r = await descobrirModelo(k); }
+    catch(e){ r = {erro: "Falha inesperada: " + (e?.message || e)}; }
+    if(r.erro){
+      $("g-key-msg").textContent = r.erro;
       bt.disabled = false; bt.textContent = "Salvar e continuar";
       return;
     }
-    geminiKey = k; geminiModelo = modelo;
-    try{ localStorage.setItem(LS_GEMINI, JSON.stringify({k, modelo})); }catch(e){}
+    geminiKey = k; geminiModelo = r.modelo;
+    try{ localStorage.setItem(LS_GEMINI, JSON.stringify({k, modelo:r.modelo})); }catch(e){}
     abrirApp();
   };
 }
