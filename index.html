@@ -1272,7 +1272,7 @@ function mesclarEstados(L, R){
     const tl = L.ts?.[iso] || 0, tr = R.ts?.[iso] || 0;
     if(tl && tr && tl !== tr){
       const F = tl > tr ? L : R;
-      dias[iso] = F.dias?.[iso] || []; wk[iso] = F.wk?.[iso] || [];
+      dias[iso] = [...(F.dias?.[iso] || [])]; wk[iso] = [...(F.wk?.[iso] || [])];
     } else {
       dias[iso] = unirListas(L.dias?.[iso], R.dias?.[iso]);
       wk[iso]   = unirListas(L.wk?.[iso],   R.wk?.[iso]);
@@ -1308,13 +1308,21 @@ function mesclar(local, remoto){
   return JSON.stringify(estadoAtual().dias) !== JSON.stringify((remoto || {}).dias || {});
 }
 
+// MEALS/TODAY_WORKOUTS são o mesmo array que o mapa guarda para hoje.
+// Se já forem o mesmo, não há o que copiar — e zerar antes de copiar apagava tudo.
 function sincHoje(){
   DIA_MEALS[TODAY_ISO] ||= [];
   DIA_WK[TODAY_ISO] ||= [];
-  MEALS.length = 0; MEALS.push(...DIA_MEALS[TODAY_ISO]);
-  TODAY_WORKOUTS.length = 0; TODAY_WORKOUTS.push(...DIA_WK[TODAY_ISO]);
-  DIA_MEALS[TODAY_ISO] = MEALS;
-  DIA_WK[TODAY_ISO] = TODAY_WORKOUTS;
+  if(DIA_MEALS[TODAY_ISO] !== MEALS){
+    const src = DIA_MEALS[TODAY_ISO].slice();
+    MEALS.length = 0; MEALS.push(...src);
+    DIA_MEALS[TODAY_ISO] = MEALS;
+  }
+  if(DIA_WK[TODAY_ISO] !== TODAY_WORKOUTS){
+    const src = DIA_WK[TODAY_ISO].slice();
+    TODAY_WORKOUTS.length = 0; TODAY_WORKOUTS.push(...src);
+    DIA_WK[TODAY_ISO] = TODAY_WORKOUTS;
+  }
 }
 
 const LS_DADOS = "fite.dados";
