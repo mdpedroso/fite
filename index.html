@@ -1316,7 +1316,7 @@ function renderToday(){
     `<span><i style="background:var(${v})"></i>${n} <b class="num">${gr} g</b> ` +
     `<em>${Math.round(k/tot*100)}%</em></span>`).join("");
   $("meals-total").textContent = fmt(kin) + " kcal";
-  $("wk-total").textContent = kout ? fmt(kout) + " kcal" : "";
+  $("wk-total").textContent = fmt(kout) + " kcal";
 
   recalcDia(TODAY_ISO);
 }
