@@ -146,6 +146,10 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .meal .desc{font-size:15px}
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
 .meal .mm{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.pend{color:var(--marca);font-style:italic}
+@keyframes pulsa{0%,100%{opacity:.45}50%{opacity:1}}
+.pend{animation:pulsa 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.pend{animation:none}}
 
 /* ---- workouts ---- */
 .wk{display:flex;flex-direction:column}
@@ -479,14 +483,14 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
   <div class="grid two">
     <section class="card">
-      <h2>Refeições <span class="side" id="h-mtotal"></span></h2>
+      <h2>Refeições <span class="tot" id="h-mtotal"></span></h2>
+      <button class="mais azul" id="hbt-meal" aria-label="Adicionar refeição">+</button>
       <div class="meals" id="h-meals"></div>
-      <button class="addbtn" id="hbt-meal">+ Adicionar refeição</button>
     </section>
     <section class="card">
-      <h2>Treino</h2>
+      <h2>Treino <span class="tot" id="h-wtotal"></span></h2>
+      <button class="mais verde" id="hbt-wk" aria-label="Adicionar treino">+</button>
       <div class="wk" id="h-wk"></div>
-      <button class="addbtn" id="hbt-wk">+ Adicionar treino</button>
     </section>
   </div>
 </div>
@@ -930,9 +934,10 @@ function renderMeals(target, showKc){
       <div class="slot">${m.slot}</div>
       <div>
         <div class="desc">${m.desc}</div>
-        ${showKc?`<div class="mm num">P ${m.p} · C ${m.c} · G ${m.g}</div>`:""}
+        ${m.pendente ? `<div class="mm pend">${m.erro ? m.erro : "estimando…"}</div>`
+          : showKc ? `<div class="mm num">P ${m.p} · C ${m.c} · G ${m.g}</div>` : ""}
       </div>
-      ${showKc?`<div class="kc num">${fmt(m.kc)}</div>`:`<div></div>`}
+      ${showKc?`<div class="kc num">${m.pendente ? "—" : fmt(m.kc)}</div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
     </div>`).join("");
 }
@@ -942,7 +947,7 @@ function renderWorkouts(target, showKc, lista){
       <div>
         ${w.d && w.d !== TODAY_ISO ? `<div class="d">${weekday(w.d)}, ${dayShort(w.d)}</div>` : ""}
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.m}</div>
+        <div class="m">${w.pendente ? `<span class="pend">${w.erro ? w.erro : "estimando…"}</span>` : w.m}</div>
       </div>
       ${showKc?`<div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
@@ -1464,34 +1469,17 @@ async function comIA(statusEl, botao, trabalho){
 $("fm-meal").onsubmit = ev => {
   ev.preventDefault();
   const texto = $("in-meal").value.trim();
-  if(!texto && !fotoAtual) return;       // foto sozinha basta
-  comIA($("st-meal"), ev.target.querySelector(".btn-go"), async () => {
-    const r = await geminiJSON(
-      (fotoAtual
-        ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
-          (texto ? `A pessoa descreveu assim: "${texto}"\n` : "") +
-          `Estime as porções pelo que aparece no prato.\n`
-        : `Estime calorias e macronutrientes desta refeição brasileira, para ${perfilTexto()}.\n` +
-          `Refeição: "${texto}"\n`) +
-      `Use porções brasileiras típicas quando a quantidade não for dita.\n` +
-      `Responda só com JSON no formato: ` +
-      `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
-      `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0}\n` +
-      `p, c, g são gramas de proteína, carboidrato e gordura.`, fotoAtual);
-    (DIA_MEALS[alvoDia] ||= []).push({
-      slot: String(r.slot || slotPorHora()),
-      desc: String(r.desc || texto || "Refeição pela foto"),
-      kc: Math.round(Number(r.kcal) || 0),
-      p: Math.round(Number(r.p) || 0),
-      c: Math.round(Number(r.c) || 0),
-      g: Math.round(Number(r.g) || 0),
-      novo: true,
-    });
-    depoisDeGravar();
-    $("in-meal").value = "";
-    limparFoto();
-    $("dlg-meal").close();
+  if(!texto && !fotoAtual) return;
+  // entra na lista imediatamente; a estimativa chega depois
+  (DIA_MEALS[alvoDia] ||= []).push({
+    slot: slotPorHora(), desc: texto || "Refeição pela foto",
+    kc:0, p:0, c:0, g:0, pendente:true, raw:texto, foto:fotoAtual, novo:true,
   });
+  depoisDeGravar();
+  $("in-meal").value = "";
+  limparFoto();
+  $("dlg-meal").close();
+  tocarFila();
 };
 
 $("fm-wk").onsubmit = ev => {
@@ -1499,121 +1487,96 @@ $("fm-wk").onsubmit = ev => {
   const texto = $("in-wk").value.trim();
   if(!texto) return;
   const kcalDito = Number($("in-kcal").value) || 0;
-  comIA($("st-wk"), ev.target.querySelector(".btn-go"), async () => {
+  (DIA_WK[alvoDia] ||= []).unshift({
+    mod:"outro", t:texto, m:"", kc:kcalDito, d:alvoDia,
+    pendente:true, raw:texto, kcalDito, novo:true,
+  });
+  depoisDeGravar();
+  $("in-wk").value = ""; $("in-kcal").value = "";
+  $("dlg-wk").close();
+  tocarFila();
+};
+
+/* ---------- fila de estimativas ---------- */
+let rodandoFila = false;
+const pendentes = () => {
+  const out = [];
+  Object.entries(DIA_MEALS).forEach(([iso, arr]) =>
+    (arr || []).forEach((m, i) => { if(m.pendente) out.push({tipo:"meal", iso, i, item:m}); }));
+  Object.entries(DIA_WK).forEach(([iso, arr]) =>
+    (arr || []).forEach((w, i) => { if(w.pendente) out.push({tipo:"wk", iso, i, item:w}); }));
+  return out;
+};
+
+async function estimarItem(p){
+  const m = p.item;
+  if(p.tipo === "meal"){
     const r = await geminiJSON(
-      `Classifique este treino e ${kcalDito ? "formate-o" : "estime as calorias gastas"}, ` +
+      (m.foto
+        ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
+          (m.raw ? `A pessoa descreveu assim: "${m.raw}"\n` : "") +
+          `Estime as porções pelo que aparece no prato.\n`
+        : `Estime calorias e macronutrientes desta refeição brasileira, para ${perfilTexto()}.\n` +
+          `Refeição: "${m.raw}"\n`) +
+      `Use porções brasileiras típicas quando a quantidade não for dita.\n` +
+      `Responda só com JSON no formato: ` +
+      `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
+      `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0}\n` +
+      `p, c, g são gramas de proteína, carboidrato e gordura.`, m.foto);
+    Object.assign(m, {
+      slot: String(r.slot || m.slot), desc: String(r.desc || m.raw || m.desc),
+      kc: Math.round(Number(r.kcal) || 0), p: Math.round(Number(r.p) || 0),
+      c: Math.round(Number(r.c) || 0), g: Math.round(Number(r.g) || 0),
+    });
+    delete m.pendente; delete m.foto;
+  } else {
+    const r = await geminiJSON(
+      `Classifique este treino e ${m.kcalDito ? "formate-o" : "estime as calorias gastas"}, ` +
       `para ${perfilTexto()}.\n` +
-      `Treino: "${texto}"\n` +
-      (kcalDito ? `As calorias gastas são ${kcalDito} — use exatamente esse valor em kcal.\n` : "") +
+      `Treino: "${m.raw}"\n` +
+      (m.kcalDito ? `As calorias gastas são ${m.kcalDito} — use exatamente esse valor.\n` : "") +
       `Responda só com JSON no formato: ` +
       `{"mod":"musculacao|corrida|bike|crossfit|aerobico|natacao|caminhada|esporte|outro",` +
       `"t":"nome curto do treino","m":"duração e detalhes em uma linha","kcal":0}`);
-    const w = {
-      d: alvoDia,
-      mod: String(r.mod || "outro"),
-      t: String(r.t || texto),
-      m: String(r.m || ""),
-      kc: kcalDito || Math.round(Number(r.kcal) || 0),
-      novo: true,
-    };
-    (DIA_WK[alvoDia] ||= []).unshift(w);
-    depoisDeGravar();
-    $("in-wk").value = ""; $("in-kcal").value = "";
-    $("dlg-wk").close();
-  });
-};
+    Object.assign(m, {
+      mod: String(r.mod || "outro"), t: String(r.t || m.raw),
+      m: String(r.m || ""), kc: m.kcalDito || Math.round(Number(r.kcal) || 0),
+    });
+    delete m.pendente; delete m.kcalDito;
+  }
+  recalcDia(p.iso);
+}
 
-
-/* ---------- perfil ---------- */
-
-function perfParaForm(){
-  $("p-sexo").value = PERF.sexo;
-  $("p-nasc").value = PERF.nasc;
-  $("p-alt").value  = PERF.altura;
+async function tocarFila(){
+  if(rodandoFila || !geminiKey) return;
+  rodandoFila = true;
+  try{
+    let espera = 4000;
+    while(true){
+      const lista = pendentes();
+      if(!lista.length) break;
+      let avancou = false;
+      for(const p of lista){
+        try{
+          await estimarItem(p);
+          avancou = true;
+          salvarDia(p.iso); renderAll();
+          if(!$("view-hab").hidden) renderHist();
+        }catch(e){
+          console.warn("estimativa adiada", e);
+          p.item.erro = erroMsg(e);
+          renderAll();
+        }
+      }
+      if(!pendentes().length) break;
+      // nada saiu da fila: o serviço está fora — espera mais antes de insistir
+      espera = avancou ? 4000 : Math.min(espera * 2, 60000);
+      await dormir(espera);
+    }
+  }finally{
+    rodandoFila = false;
+  }
 }
-function formParaPerf(){
-  PERF.sexo   = $("p-sexo").value;
-  PERF.nasc   = $("p-nasc").value || PERF.nasc;
-  PERF.altura = Number($("p-alt").value)  || PERF.altura;
-  salvarPerfil();
-}
-function renderPerfil(){
-  const imc = pesoAtual() / Math.pow(PERF.altura/100, 2);
-  const linhas = [
-    ["Idade", idade(), "anos"],
-    ["Peso atual", String(pesoAtual()).replace(".",","), "kg · último registro"],
-    ["Metabolismo basal", fmt(bmr()), "em repouso absoluto"],
-    ["Rotina do dia", fmt(BASE - bmr()), "estimado: andar, trabalhar, tarefas"],
-    ["Gasto sem treino", fmt(BASE), "basal + rotina"],
-    ["IMC", imc.toFixed(1).replace(".",","), "kg/m²"],
-  ];
-  $("p-calc").innerHTML = linhas.map(([k,v,u])=>
-    `<div class="r"><span class="k">${k}</span><span class="v">${v}</span>` +
-    `<span class="u">${u}</span></div>`).join("");
-}
-function aplicarPerfil(){
-  formParaPerf();
-  recalcDays();
-  renderPerfil();
-  renderAll();
-}
-["p-sexo","p-nasc","p-alt"].forEach(id=>{
-  $(id).addEventListener("change", aplicarPerfil);
-});
-/* ---------- peso ---------- */
-function renderPesoSide(){
-  if(WEIGHTS.length < 2){ $("peso-side").textContent = ""; return; }
-  const dif = WEIGHTS[WEIGHTS.length-1].kg - WEIGHTS[0].kg;
-  $("peso-side").textContent =
-    `${dif>0?"+":"−"}${Math.abs(dif).toFixed(1).replace(".",",")} kg desde ${dayShort(WEIGHTS[0].d)}`;
-}
-$("bt-peso").onclick = () => {
-  $("in-pdata").value = TODAY;
-  $("in-pkg").value = pesoAtual();
-  sincExcluirPeso();
-  $("dlg-peso").showModal();
-};
-// o botão de excluir só existe quando a data escolhida já tem registro
-function sincExcluirPeso(){
-  const d = $("in-pdata").value;
-  const tem = WEIGHTS.some(w => w.d === d);
-  $("bt-del-peso").hidden = !tem;
-}
-$("in-pdata").addEventListener("change", sincExcluirPeso);
-$("bt-del-peso").onclick = () => {
-  const d = $("in-pdata").value;
-  const i = WEIGHTS.findIndex(w => w.d === d);
-  if(i < 0) return;
-  if(!confirm(`Excluir o peso de ${dayShort(d)}?`)) return;
-  WEIGHTS.splice(i, 1);
-  salvarPesos(); recalcDays(); renderPerfil(); renderAll();
-  $("dlg-peso").close();
-};
-$("fm-peso").onsubmit = ev => {
-  ev.preventDefault();
-  const d = $("in-pdata").value, kg = Number($("in-pkg").value);
-  if(!d || !kg) return;
-  const ex = WEIGHTS.find(w => w.d === d);
-  if(ex) ex.kg = kg; else WEIGHTS.push({d, kg});
-  WEIGHTS.sort((a,b) => a.d < b.d ? -1 : 1);
-  salvarPesos(); recalcDays(); renderPerfil(); renderAll();
-  $("dlg-peso").close();
-};
-
-/* ---------- excluir refeição e treino ---------- */
-$("meals").addEventListener("click", e => {
-  const b = e.target.closest(".del"); if(!b) return;
-  const i = +b.dataset.i, m = MEALS[i];
-  if(!m || !confirm(`Excluir "${m.desc}"?`)) return;
-  MEALS.splice(i, 1); salvarDia(TODAY_ISO); renderAll();
-});
-$("workouts").addEventListener("click", e => {
-  const b = e.target.closest(".del"); if(!b) return;
-  const w = TODAY_WORKOUTS[+b.dataset.i];
-  if(!w || !confirm(`Excluir "${w.t}"?`)) return;
-  TODAY_WORKOUTS.splice(+b.dataset.i, 1);
-  recalcDia(TODAY_ISO); salvarDia(TODAY_ISO); renderAll();
-});
 
 /* ---------- histórico ---------- */
 let histIdx = DAYS.length - 1;
@@ -1665,7 +1628,9 @@ function renderHist(){
     `<em>${Math.round(k/tot*100)}%</em></span>`).join("");
 
   $("h-mtotal").textContent = fmt(kin) + " kcal";
-  $("h-meals").innerHTML = meals.map((m,i) => `
+  $("h-wtotal").textContent = fmt(kout) + " kcal";
+  if(!meals.length) $("h-meals").innerHTML = vazio("refeição");
+  else $("h-meals").innerHTML = meals.map((m,i) => `
     <div class="meal">
       <div class="slot">${m.slot}</div>
       <div>
@@ -1679,11 +1644,11 @@ function renderHist(){
     <div class="wko">
       <div>
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.m}</div>
+        <div class="m">${w.pendente ? `<span class="pend">${w.erro ? w.erro : "estimando…"}</span>` : w.m}</div>
       </div>
       <div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
-    </div>`).join("") : `<div class="hempty">Nenhum treino nesse dia.</div>`;
+    </div>`).join("") : vazio("treino");
 }
 function irPara(i){
   histIdx = Math.max(0, Math.min(DAYS.length-1, i));
