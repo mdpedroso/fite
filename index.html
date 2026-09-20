@@ -93,6 +93,9 @@ section.card{position:relative;background:var(--surface);border:1px solid var(--
 h2{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 11px}
 .mais ~ h2, h2:has(~ .mais){padding-right:36px}
+/* o total herda a fonte do título; só o separador e o peso mudam */
+h2 .tot{opacity:.62;font-weight:600}
+h2 .tot:not(:empty)::before{content:"· "}
 h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink-3)}
 
 /* ---- hero ---- */
@@ -396,13 +399,13 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
   <div class="grid two">
     <section class="card">
-      <h2>Refeições <span class="side" id="meals-total"></span></h2>
+      <h2>Refeições <span class="tot" id="meals-total"></span></h2>
       <button class="mais azul" id="bt-meal" aria-label="Adicionar refeição">+</button>
       <div class="meals" id="meals"></div>
     </section>
 
     <section class="card">
-      <h2>Treinos <span class="side" id="wk-total"></span></h2>
+      <h2>Treinos <span class="tot" id="wk-total"></span></h2>
       <button class="mais verde" id="bt-wk" aria-label="Adicionar treino">+</button>
       <div class="wk" id="workouts"></div>
     </section>
