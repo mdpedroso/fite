@@ -1580,6 +1580,97 @@ async function tocarFila(){
   }
 }
 
+/* ---------- perfil ---------- */
+
+function perfParaForm(){
+  $("p-sexo").value = PERF.sexo;
+  $("p-nasc").value = PERF.nasc;
+  $("p-alt").value  = PERF.altura;
+}
+function formParaPerf(){
+  PERF.sexo   = $("p-sexo").value;
+  PERF.nasc   = $("p-nasc").value || PERF.nasc;
+  PERF.altura = Number($("p-alt").value)  || PERF.altura;
+  salvarPerfil();
+}
+function renderPerfil(){
+  const imc = pesoAtual() / Math.pow(PERF.altura/100, 2);
+  const linhas = [
+    ["Idade", idade(), "anos"],
+    ["Peso atual", String(pesoAtual()).replace(".",","), "kg · último registro"],
+    ["Metabolismo basal", fmt(bmr()), "em repouso absoluto"],
+    ["Rotina do dia", fmt(BASE - bmr()), "estimado: andar, trabalhar, tarefas"],
+    ["Gasto sem treino", fmt(BASE), "basal + rotina"],
+    ["IMC", imc.toFixed(1).replace(".",","), "kg/m²"],
+  ];
+  $("p-calc").innerHTML = linhas.map(([k,v,u])=>
+    `<div class="r"><span class="k">${k}</span><span class="v">${v}</span>` +
+    `<span class="u">${u}</span></div>`).join("");
+}
+function aplicarPerfil(){
+  formParaPerf();
+  recalcDays();
+  renderPerfil();
+  renderAll();
+}
+["p-sexo","p-nasc","p-alt"].forEach(id=>{
+  $(id).addEventListener("change", aplicarPerfil);
+});
+/* ---------- peso ---------- */
+function renderPesoSide(){
+  if(WEIGHTS.length < 2){ $("peso-side").textContent = ""; return; }
+  const dif = WEIGHTS[WEIGHTS.length-1].kg - WEIGHTS[0].kg;
+  $("peso-side").textContent =
+    `${dif>0?"+":"−"}${Math.abs(dif).toFixed(1).replace(".",",")} kg desde ${dayShort(WEIGHTS[0].d)}`;
+}
+$("bt-peso").onclick = () => {
+  $("in-pdata").value = TODAY;
+  $("in-pkg").value = pesoAtual();
+  sincExcluirPeso();
+  $("dlg-peso").showModal();
+};
+// o botão de excluir só existe quando a data escolhida já tem registro
+function sincExcluirPeso(){
+  const d = $("in-pdata").value;
+  const tem = WEIGHTS.some(w => w.d === d);
+  $("bt-del-peso").hidden = !tem;
+}
+$("in-pdata").addEventListener("change", sincExcluirPeso);
+$("bt-del-peso").onclick = () => {
+  const d = $("in-pdata").value;
+  const i = WEIGHTS.findIndex(w => w.d === d);
+  if(i < 0) return;
+  if(!confirm(`Excluir o peso de ${dayShort(d)}?`)) return;
+  WEIGHTS.splice(i, 1);
+  salvarPesos(); recalcDays(); renderPerfil(); renderAll();
+  $("dlg-peso").close();
+};
+$("fm-peso").onsubmit = ev => {
+  ev.preventDefault();
+  const d = $("in-pdata").value, kg = Number($("in-pkg").value);
+  if(!d || !kg) return;
+  const ex = WEIGHTS.find(w => w.d === d);
+  if(ex) ex.kg = kg; else WEIGHTS.push({d, kg});
+  WEIGHTS.sort((a,b) => a.d < b.d ? -1 : 1);
+  salvarPesos(); recalcDays(); renderPerfil(); renderAll();
+  $("dlg-peso").close();
+};
+
+/* ---------- excluir refeição e treino ---------- */
+$("meals").addEventListener("click", e => {
+  const b = e.target.closest(".del"); if(!b) return;
+  const i = +b.dataset.i, m = MEALS[i];
+  if(!m || !confirm(`Excluir "${m.desc}"?`)) return;
+  MEALS.splice(i, 1); salvarDia(TODAY_ISO); renderAll();
+});
+$("workouts").addEventListener("click", e => {
+  const b = e.target.closest(".del"); if(!b) return;
+  const w = TODAY_WORKOUTS[+b.dataset.i];
+  if(!w || !confirm(`Excluir "${w.t}"?`)) return;
+  TODAY_WORKOUTS.splice(+b.dataset.i, 1);
+  recalcDia(TODAY_ISO); salvarDia(TODAY_ISO); renderAll();
+});
+
 /* ---------- histórico ---------- */
 let histIdx = DAYS.length - 1;
 
