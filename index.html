@@ -1086,32 +1086,54 @@ async function drive(url, opt = {}){
     throw e;
   }
 }
+const LS_ARQ = "fite.arquivo";
 async function acharArquivo(){
+  try{ const id = localStorage.getItem(LS_ARQ); if(id) return id; }catch(e){}
   const q = encodeURIComponent(`name='${ARQUIVO}' and trashed=false`);
+  // o mais recente primeiro: se houver duplicatas, lemos o que tem dados
   const r = await drive(`https://www.googleapis.com/drive/v3/files?q=${q}` +
-    `&fields=files(id)&spaces=drive`);
-  return r.files?.[0]?.id || null;
+    `&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&spaces=drive`);
+  const id = r.files?.[0]?.id || null;
+  if(id){ try{ localStorage.setItem(LS_ARQ, id); }catch(e){} }
+  return id;
 }
 async function lerDrive(){
   arquivoId ||= await acharArquivo();
   if(!arquivoId) return null;
-  return drive(`https://www.googleapis.com/drive/v3/files/${arquivoId}?alt=media`);
+  try{
+    return await drive(`https://www.googleapis.com/drive/v3/files/${arquivoId}?alt=media`);
+  }catch(e){
+    if(e.status === 404){        // o id guardado morreu (arquivo apagado): procura de novo
+      try{ localStorage.removeItem(LS_ARQ); }catch(x){}
+      arquivoId = null;
+      arquivoId = await acharArquivo();
+      if(!arquivoId) return null;
+      return await drive(`https://www.googleapis.com/drive/v3/files/${arquivoId}?alt=media`);
+    }
+    throw e;
+  }
 }
-async function gravarDrive(dados){
-  const corpo = JSON.stringify(dados);
-  arquivoId ||= await acharArquivo();
+// nunca sobrescreve às cegas: lê o que está lá, junta com o daqui, e só então grava
+async function gravarDrive(){
+  let remoto = null;
+  try{ remoto = await lerDrive(); }catch(e){ diag("leitura antes de gravar falhou: " + e.message); }
+  const final = mesclarEstados(estadoAtual(), remoto);
+  adotarEstado(final);
+  gravarLocal();
+  const corpo = JSON.stringify(final);
   if(arquivoId){
     await drive(`https://www.googleapis.com/upload/drive/v3/files/${arquivoId}?uploadType=media`,
       {method:"PATCH", headers:{"Content-Type":"application/json"}, body: corpo});
     return;
   }
-  const B = "rotinaboundary";
+  const B = "fiteboundary";
   const meta = JSON.stringify({name: ARQUIVO, mimeType:"application/json"});
   const r = await drive("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
     {method:"POST", headers:{"Content-Type":`multipart/related; boundary=${B}`},
      body: `--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
            `--${B}\r\nContent-Type: application/json\r\n\r\n${corpo}\r\n--${B}--`});
   arquivoId = r.id;
+  try{ localStorage.setItem(LS_ARQ, r.id); }catch(e){}
 }
 
 /* ==================== Gemini ==================== */
@@ -1225,47 +1247,67 @@ async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
 const TS_DIA = {};
 let tsGeral = 0;
 function marcarDia(iso){ TS_DIA[iso] = tsGeral = Date.now(); }
+const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 function estadoAtual(){
-  return {versao:2, ts:TS_DIA, tsGeral, perfil:PERF, dias:DIA_MEALS, wk:DIA_WK,
+  return {versao:2, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
           pesos:WEIGHTS, strava:{desde: STRAVA.desde || null}};
 }
 
-// junta as duas origens escolhendo, por dia, a versão mais nova —
-// em vez de deixar o Drive apagar o que foi registrado offline
-function mesclar(local, remoto){
-  const L = local || {}, R = remoto || {};
-  const isos = new Set([...Object.keys(R.dias || {}), ...Object.keys(L.dias || {}),
-                        ...Object.keys(R.wk || {}), ...Object.keys(L.wk || {})]);
-  let algoLocalMaisNovo = false;
-  isos.forEach(iso => {
-    const tl = (L.ts || {})[iso] || 0, tr = (R.ts || {})[iso] || 0;
-    const usaLocal = tl > tr;
-    const F = usaLocal ? L : R;
-    if(usaLocal && tr) algoLocalMaisNovo = true;
-    if(F.dias?.[iso]) DIA_MEALS[iso] = F.dias[iso];
-    if(F.wk?.[iso])   DIA_WK[iso]   = F.wk[iso];
-    TS_DIA[iso] = Math.max(tl, tr);
+// identidade de um item, para juntar listas sem duplicar
+const chaveItem = x => x.id || [x.desc || x.t || "", x.kc || 0, x.raw || ""].join("|");
+function unirListas(a, b){
+  const out = [...(a || [])], vistos = new Set(out.map(chaveItem));
+  (b || []).forEach(x => { const k = chaveItem(x); if(!vistos.has(k)){ out.push(x); vistos.add(k); } });
+  return out;
+}
+
+// devolve um estado novo a partir de dois. Regra por dia: se os dois têm carimbo
+// e são diferentes, o mais novo vence (respeita exclusões); senão, junta sem perder.
+function mesclarEstados(L, R){
+  L = L || {}; R = R || {};
+  const ks = o => Object.keys(o || {});
+  const dias = {}, wk = {}, ts = {};
+  new Set([...ks(L.dias), ...ks(R.dias), ...ks(L.wk), ...ks(R.wk)]).forEach(iso => {
+    const tl = L.ts?.[iso] || 0, tr = R.ts?.[iso] || 0;
+    if(tl && tr && tl !== tr){
+      const F = tl > tr ? L : R;
+      dias[iso] = F.dias?.[iso] || []; wk[iso] = F.wk?.[iso] || [];
+    } else {
+      dias[iso] = unirListas(L.dias?.[iso], R.dias?.[iso]);
+      wk[iso]   = unirListas(L.wk?.[iso],   R.wk?.[iso]);
+    }
+    ts[iso] = Math.max(tl, tr);
   });
-  const maisNovo = (L.tsGeral || 0) > (R.tsGeral || 0) ? L : R;
-  if(Array.isArray(maisNovo.pesos)) WEIGHTS = maisNovo.pesos;
-  if(maisNovo.perfil) Object.assign(PERF, maisNovo.perfil);
-  if(maisNovo.strava?.desde) STRAVA.desde = maisNovo.strava.desde;
-  tsGeral = Math.max(L.tsGeral || 0, R.tsGeral || 0);
-  sincHoje();
-  return algoLocalMaisNovo || ((L.tsGeral || 0) > (R.tsGeral || 0));
+  const gl = L.tsGeral || 0, gr = R.tsGeral || 0;
+  const N = gl >= gr ? L : R, V = gl >= gr ? R : L;
+  return {versao:2, ts, tsGeral: Math.max(gl, gr), dias, wk,
+          pesos: (N.pesos && N.pesos.length) ? N.pesos : (V.pesos || []),
+          perfil: {...(V.perfil || {}), ...(N.perfil || {})},
+          strava: N.strava?.desde ? N.strava : (V.strava || {})};
 }
-function aplicarEstado(d){
-  if(!d) return;
-  Object.assign(TS_DIA, d.ts || {});
-  tsGeral = Math.max(tsGeral, d.tsGeral || 0);
-  Object.entries(d.dias || {}).forEach(([iso, arr]) => DIA_MEALS[iso] = arr);
-  Object.entries(d.wk   || {}).forEach(([iso, arr]) => DIA_WK[iso] = arr);
-  if(Array.isArray(d.pesos)) WEIGHTS = d.pesos;
-  if(d.perfil) Object.assign(PERF, d.perfil);
-  if(d.strava?.desde) STRAVA.desde = d.strava.desde;
+
+// coloca um estado inteiro na memória (substitui, não acumula)
+function adotarEstado(e){
+  Object.keys(DIA_MEALS).forEach(k => delete DIA_MEALS[k]);
+  Object.keys(DIA_WK).forEach(k => delete DIA_WK[k]);
+  Object.keys(TS_DIA).forEach(k => delete TS_DIA[k]);
+  Object.assign(DIA_MEALS, e.dias || {});
+  Object.assign(DIA_WK, e.wk || {});
+  Object.assign(TS_DIA, e.ts || {});
+  tsGeral = e.tsGeral || 0;
+  WEIGHTS = Array.isArray(e.pesos) ? e.pesos : [];
+  if(e.perfil) Object.assign(PERF, e.perfil);
+  if(e.strava?.desde) STRAVA.desde = e.strava.desde;
   sincHoje();
 }
+function aplicarEstado(d){ if(d) adotarEstado(mesclarEstados(estadoAtual(), d)); else sincHoje(); }
+function mesclar(local, remoto){
+  const antes = JSON.stringify(estadoAtual().dias);
+  adotarEstado(mesclarEstados(estadoAtual(), remoto));
+  return JSON.stringify(estadoAtual().dias) !== JSON.stringify((remoto || {}).dias || {});
+}
+
 function sincHoje(){
   DIA_MEALS[TODAY_ISO] ||= [];
   DIA_WK[TODAY_ISO] ||= [];
@@ -1291,7 +1333,7 @@ async function salvar(){
   gravando = (async () => {
     do {
       precisaGravar = false;
-      try{ await gravarDrive(estadoAtual()); }
+      try{ await gravarDrive(); }
       catch(e){ console.warn("não gravou no Drive", e); break; }
     } while(precisaGravar);
     gravando = null;
@@ -1505,7 +1547,7 @@ $("fm-meal").onsubmit = ev => {
   if(!texto && !fotoAtual) return;
   // entra na lista imediatamente; a estimativa chega depois
   (DIA_MEALS[alvoDia] ||= []).push({
-    slot: slotPorHora(), desc: texto || "Refeição pela foto",
+    id: novoId(), slot: slotPorHora(), desc: texto || "Refeição pela foto",
     kc:0, p:0, c:0, g:0, pendente:true, raw:texto, foto:fotoAtual, novo:true,
   });
   depoisDeGravar();
@@ -1521,7 +1563,7 @@ $("fm-wk").onsubmit = ev => {
   if(!texto) return;
   const kcalDito = Number($("in-kcal").value) || 0;
   (DIA_WK[alvoDia] ||= []).unshift({
-    mod:"outro", t:texto, m:"", kc:kcalDito, d:alvoDia,
+    id: novoId(), mod:"outro", t:texto, m:"", kc:kcalDito, d:alvoDia,
     pendente:true, raw:texto, kcalDito, novo:true,
   });
   depoisDeGravar();
@@ -2094,13 +2136,19 @@ async function depoisDeEntrar(){
   passo("g-carregando");
   $("g-carregando-msg").textContent = "Buscando seus dados no Drive…";
   const local = lerLocal();
-  aplicarEstado(local);          // o que houver no aparelho aparece na hora
+  if(local) adotarEstado(local); else sincHoje();   // o aparelho aparece na hora
+  diag(`local: ${Object.keys(local?.dias || {}).length} dia(s), hoje=${(local?.dias?.[TODAY_ISO] || []).length} item(ns)`);
   diag("lendo o Drive");
   try{
     const remoto = await lerDrive();
-    const localGanhou = mesclar(local, remoto);
-    diag("Drive ok" + (localGanhou ? " (o aparelho tinha coisa mais nova)" : ""));
-    if(localGanhou) salvar();    // devolve ao Drive o que só existia aqui
+    diag(`drive: ${remoto ? Object.keys(remoto.dias || {}).length + " dia(s), hoje=" +
+      (remoto.dias?.[TODAY_ISO] || []).length + " item(ns)" : "sem arquivo"}`);
+    const antes = JSON.stringify(estadoAtual().dias);
+    adotarEstado(mesclarEstados(estadoAtual(), remoto));
+    gravarLocal();
+    const remotoDesatualizado = JSON.stringify(estadoAtual().dias) !== JSON.stringify(remoto?.dias || {});
+    diag(`mesclado: hoje=${MEALS.length} refeição(ões)` + (remotoDesatualizado ? " — Drive será atualizado" : ""));
+    if(remotoDesatualizado) salvar();
   }catch(e){
     console.warn("Drive", e);
     diag("Drive falhou: " + (e.message || e));
