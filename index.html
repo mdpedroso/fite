@@ -69,6 +69,23 @@ header{
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 .seg button:focus-visible{outline:2px solid var(--in);outline-offset:1px}
 
+/* ---- ações no cabeçalho ---- */
+/* mesma borda em degradê do botão de login: fundo no padding-box, cor no border-box */
+.acoes{display:flex;gap:8px}
+.acao{--b:var(--surface);
+  font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;
+  padding:8px 14px;border-radius:8px;cursor:pointer;color:var(--marca);
+  border:1.5px solid transparent;
+  background:linear-gradient(var(--b),var(--b)) padding-box,
+             linear-gradient(115deg,var(--marca) 0%,var(--marca-2) 100%) border-box;
+  transition:box-shadow .15s}
+.acao:hover{box-shadow:0 2px 9px rgba(14,91,125,.2)}
+.acao:active{--b:var(--surface-2)}
+@media(max-width:600px){
+  .acoes{order:3;width:100%}
+  .acao{flex:1;padding:10px 12px;font-size:14px}
+}
+
 /* ---- blocks ---- */
 .grid{display:grid;gap:10px;margin-top:10px}
 @media(min-width:720px){ .grid.two{grid-template-columns:1fr 1fr} .span2{grid-column:1/-1} }
@@ -332,6 +349,10 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
+    <div class="acoes">
+      <button class="acao" id="bt-meal">+ Refeição</button>
+      <button class="acao" id="bt-wk">+ Treino</button>
+    </div>
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
       <button id="btn-hab" aria-pressed="false">Histórico</button>
@@ -344,11 +365,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
 <!-- ============ MODO COMPLETO ============ -->
 <div id="view-full">
-  <div class="acoes">
-    <button class="acao" id="bt-meal">+ Refeição</button>
-    <button class="acao sec" id="bt-wk">+ Treino</button>
-  </div>
-
   <div class="grid">
     <section class="card">
       <h2 id="day-title"></h2>
@@ -389,7 +405,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
 
     <section class="card">
-      <h2>Treinos <span class="side">últimos 7 dias</span></h2>
+      <h2>Treinos <span class="side" id="wk-total"></span></h2>
       <div class="wk" id="workouts"></div>
     </section>
   </div>
@@ -917,7 +933,7 @@ function renderWorkouts(target, showKc, lista){
   target.innerHTML = lista.map((w,i)=>`
     <div class="wko${w.novo?" novo":""}">
       <div>
-        <div class="d">${weekday(w.d)}, ${dayShort(w.d)}</div>
+        ${w.d && w.d !== TODAY_ISO ? `<div class="d">${weekday(w.d)}, ${dayShort(w.d)}</div>` : ""}
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
         <div class="m">${w.m}</div>
       </div>
@@ -1299,6 +1315,7 @@ function renderToday(){
     `<span><i style="background:var(${v})"></i>${n} <b class="num">${gr} g</b> ` +
     `<em>${Math.round(k/tot*100)}%</em></span>`).join("");
   $("meals-total").textContent = fmt(kin) + " kcal";
+  $("wk-total").textContent = kout ? fmt(kout) + " kcal" : "";
 
   recalcDia(TODAY_ISO);
 }
@@ -1315,7 +1332,9 @@ function renderAll(){
   renderToday();
   renderGrfSide();
   renderMeals($("meals"), true);
-  renderWorkouts($("workouts"), true, workoutsRecentes());
+  if(!MEALS.length) $("meals").innerHTML = '<div class="hempty">Nada registrado hoje.</div>';
+  renderWorkouts($("workouts"), true, TODAY_WORKOUTS);
+  if(!TODAY_WORKOUTS.length) $("workouts").innerHTML = '<div class="hempty">Nenhum treino hoje.</div>';
   renderPesoSide();
   mountCharts();
 }
@@ -1565,12 +1584,10 @@ $("meals").addEventListener("click", e => {
 });
 $("workouts").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
-  const lista = workoutsRecentes(), w = lista[+b.dataset.i];
+  const w = TODAY_WORKOUTS[+b.dataset.i];
   if(!w || !confirm(`Excluir "${w.t}"?`)) return;
-  const arr = DIA_WK[w.d] || [];
-  const j = arr.findIndex(x => x.t === w.t && x.kc === w.kc);
-  if(j >= 0) arr.splice(j, 1);
-  salvarDia(w.d); renderAll();
+  TODAY_WORKOUTS.splice(+b.dataset.i, 1);
+  recalcDia(TODAY_ISO); salvarDia(TODAY_ISO); renderAll();
 });
 
 /* ---------- histórico ---------- */
