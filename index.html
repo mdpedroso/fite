@@ -181,6 +181,10 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .hday:hover{color:var(--ink)}
 .hday.on{background:var(--in);color:#fff;font-weight:600}
 .hempty{color:var(--ink-3);font-size:14px;padding:6px 0}
+.nada{padding:16px 4px 10px;text-align:center}
+.nada-t{font-size:14.5px;font-weight:600;color:var(--ink-2)}
+.nada-s{font-size:13px;color:var(--ink-3);margin-top:4px}
+.nada-s b{color:var(--marca);font-size:15px}
 
 #aviso{background:var(--warn);color:#3a2a00;font-size:13px;font-weight:600;
   padding:9px 16px;text-align:center;line-height:1.45}
@@ -1326,9 +1330,9 @@ function renderAll(){
   renderToday();
   renderGrfSide();
   renderMeals($("meals"), true);
-  if(!MEALS.length) $("meals").innerHTML = '<div class="hempty">Nada registrado hoje.</div>';
+  if(!MEALS.length) $("meals").innerHTML = vazio("refeição");
   renderWorkouts($("workouts"), true, TODAY_WORKOUTS);
-  if(!TODAY_WORKOUTS.length) $("workouts").innerHTML = '<div class="hempty">Nenhum treino hoje.</div>';
+  if(!TODAY_WORKOUTS.length) $("workouts").innerHTML = vazio("treino");
   renderPesoSide();
   mountCharts();
 }
@@ -1838,6 +1842,12 @@ $("p-gem-salvar").onclick = async () => {
 };
 
 /* ==================== render e boot ==================== */
+// o estado vazio aponta para o botão + em vez de só constatar a ausência
+const vazio = o => `<div class="nada">
+  <div class="nada-t">Nenhum${o === "refeição" ? "a" : ""} ${o} registrad${o === "refeição" ? "a" : "o"} hoje</div>
+  <div class="nada-s">Toque no <b>+</b> para adicionar</div>
+</div>`;
+
 function renderTudo(){
   const etapas = [
     ["perfil-form", perfParaForm],
