@@ -1722,7 +1722,7 @@ function renderHist(){
 
   $("h-mtotal").textContent = fmt(kin) + " kcal";
   $("h-wtotal").textContent = fmt(kout) + " kcal";
-  if(!meals.length) $("h-meals").innerHTML = vazio("refeição");
+  if(!meals.length) $("h-meals").innerHTML = vazio("refeição", d.d === TODAY_ISO);
   else $("h-meals").innerHTML = meals.map((m,i) => `
     <div class="meal">
       <div class="slot">${m.slot}</div>
@@ -1741,7 +1741,7 @@ function renderHist(){
       </div>
       <div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
-    </div>`).join("") : vazio("treino");
+    </div>`).join("") : vazio("treino", d.d === TODAY_ISO);
 }
 function irPara(i){
   histIdx = Math.max(0, Math.min(DAYS.length-1, i));
@@ -1928,10 +1928,14 @@ $("p-gem-salvar").onclick = async () => {
 
 /* ==================== render e boot ==================== */
 // o estado vazio aponta para o botão + em vez de só constatar a ausência
-const vazio = o => `<div class="nada">
-  <div class="nada-t">Nenhum${o === "refeição" ? "a" : ""} ${o} registrad${o === "refeição" ? "a" : "o"} hoje</div>
-  <div class="nada-s">Toque no <b>+</b> para adicionar</div>
-</div>`;
+const vazio = (o, hoje) => {
+  const fem = o === "refeição";
+  return `<div class="nada">
+    <div class="nada-t">Nenhum${fem ? "a" : ""} ${o} registrad${fem ? "a" : "o"} ` +
+      `${hoje ? "hoje" : "nesse dia"}</div>
+    <div class="nada-s">Toque no <b>+</b> para adicionar</div>
+  </div>`;
+};
 
 function renderTudo(){
   const etapas = [
@@ -1939,8 +1943,14 @@ function renderTudo(){
     ["recalc", recalcDays],
     ["perfil", renderPerfil],
     ["hoje", renderToday],
-    ["refeições", () => renderMeals($("meals"), true)],
-    ["treinos", () => renderWorkouts($("workouts"), true, workoutsRecentes())],
+    ["refeições", () => {
+      renderMeals($("meals"), true);
+      if(!MEALS.length) $("meals").innerHTML = vazio("refeição", true);
+    }],
+    ["treinos", () => {
+      renderWorkouts($("workouts"), true, TODAY_WORKOUTS);
+      if(!TODAY_WORKOUTS.length) $("workouts").innerHTML = vazio("treino", true);
+    }],
     ["peso", renderPesoSide],
     ["gráfico-total", renderGrfSide],
     ["integrações", renderIntegracoes],
