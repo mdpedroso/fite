@@ -71,10 +71,11 @@ header{
 
 /* ---- ações no cabeçalho ---- */
 /* mesma borda em degradê do botão de login: fundo no padding-box, cor no border-box */
-.acoes{display:flex;gap:8px}
+/* o auto de cada lado divide o espaço e deixa as ações no meio da barra */
+.acoes{display:flex;gap:8px;justify-content:center;margin-right:auto}
 .acao{--b:var(--surface);
-  font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;
-  padding:8px 14px;border-radius:8px;cursor:pointer;color:var(--marca);
+  font:inherit;font-size:13px;font-weight:600;white-space:nowrap;line-height:1;
+  padding:6px 13px;border-radius:7px;cursor:pointer;color:var(--marca);
   border:1.5px solid transparent;
   background:linear-gradient(var(--b),var(--b)) padding-box,
              linear-gradient(115deg,var(--marca) 0%,var(--marca-2) 100%) border-box;
@@ -82,8 +83,8 @@ header{
 .acao:hover{box-shadow:0 2px 9px rgba(14,91,125,.2)}
 .acao:active{--b:var(--surface-2)}
 @media(max-width:600px){
-  .acoes{order:3;width:100%}
-  .acao{flex:1;padding:10px 12px;font-size:14px}
+  .acoes{order:3;width:100%;margin-right:0}
+  .acao{padding:7px 16px}
 }
 
 /* ---- blocks ---- */
