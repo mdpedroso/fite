@@ -175,7 +175,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .logo{font-family:Archivo,system-ui,sans-serif;font-weight:700;
   letter-spacing:-.035em;color:var(--marca);line-height:1;white-space:nowrap}
 .logo .e{position:relative;display:inline-block}
-.logo .e::before{content:"";position:absolute;left:50%;top:-.34em;
+.logo .e::before{content:"";position:absolute;left:50%;top:-.22em;
   width:.56em;height:.25em;background:var(--marca-2);transform:translateX(-50%);
   clip-path:polygon(50% 0,100% 100%,74% 100%,50% 40%,26% 100%,0 100%)}
 .glogo{font-size:46px;margin-bottom:30px}
@@ -184,20 +184,23 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .gerro{color:var(--crit);font-weight:700;font-size:17px;margin-bottom:10px}
 .gbtn{font:inherit;font-size:15px;font-weight:600;width:100%;padding:12px;
   border:0;border-radius:9px;background:var(--in);color:#fff;cursor:pointer}
-/* botão no padrão do Google Sign-In, claro e escuro */
-.gsi{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;
+/* botão no padrão do Google Sign-In, com a borda nas cores da marca */
+.gsi{--gsi-bg:#fff;
+  display:flex;align-items:center;justify-content:center;gap:12px;width:100%;
   height:48px;padding:0 16px;cursor:pointer;
   font-family:Roboto,Archivo,system-ui,sans-serif;font-size:15px;font-weight:500;
-  letter-spacing:.02em;border-radius:6px;
-  background:#fff;color:#1f1f1f;border:1px solid #747775;
-  transition:box-shadow .15s, background .15s}
-.gsi:hover{box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px rgba(60,64,67,.15)}
-.gsi:active{background:#f2f2f2}
+  letter-spacing:.02em;border-radius:8px;color:#1f1f1f;
+  border:2px solid transparent;
+  background:linear-gradient(var(--gsi-bg),var(--gsi-bg)) padding-box,
+             linear-gradient(115deg,var(--marca) 0%,var(--marca-2) 100%) border-box;
+  transition:box-shadow .15s,--gsi-bg .15s}
+.gsi:hover{box-shadow:0 2px 10px rgba(14,91,125,.22)}
+.gsi:active{--gsi-bg:#f4f6f5}
 .gsi:disabled{opacity:.6;cursor:default;box-shadow:none}
 .gsi-logo{width:20px;height:20px;flex:none}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .gsi{
-  background:#131314;color:#e3e3e3;border-color:#8e918f} }
-:root[data-theme="dark"] .gsi{background:#131314;color:#e3e3e3;border-color:#8e918f}
+  --gsi-bg:#17181a;color:#e3e3e3} }
+:root[data-theme="dark"] .gsi{--gsi-bg:#17181a;color:#e3e3e3}
 .gbtn:disabled{opacity:.5;cursor:default}
 .gbtn.ghost{background:var(--surface-2);color:var(--ink-2);margin-top:12px}
 .gpassos{text-align:left;color:var(--ink-2);font-size:14px;line-height:1.6;
