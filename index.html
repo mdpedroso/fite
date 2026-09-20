@@ -168,6 +168,9 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .hday.on{background:var(--in);color:#fff;font-weight:600}
 .hempty{color:var(--ink-3);font-size:14px;padding:6px 0}
 
+#aviso{background:var(--warn);color:#3a2a00;font-size:13px;font-weight:600;
+  padding:9px 16px;text-align:center;line-height:1.45}
+
 /* ---- portão de entrada ---- */
 #gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;
   background:var(--ground);padding:24px}
@@ -182,6 +185,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .gsub{color:var(--ink-2);font-size:15px;margin:0 0 18px;line-height:1.55}
 .gnote{color:var(--ink-3);font-size:12.5px;margin:13px 0 0;line-height:1.5}
 .gerro{color:var(--crit);font-weight:700;font-size:17px;margin-bottom:10px}
+.gerro-inline{color:var(--crit)}
 .gbtn{font:inherit;font-size:15px;font-weight:600;width:100%;padding:12px;
   border:0;border-radius:9px;background:var(--in);color:#fff;cursor:pointer}
 /* botão no padrão do Google Sign-In, com a borda nas cores da marca */
@@ -283,6 +287,7 @@ dialog h3{margin:0 0 13px;font-size:12px;font-weight:700;letter-spacing:.07em;
         </svg>
         <span>Fazer login com o Google</span>
       </button>
+      <p class="gnote gerro-inline" id="g-erro" hidden></p>
     </div>
 
     <div class="gstep" id="g-negado" hidden>
@@ -312,6 +317,7 @@ dialog h3{margin:0 0 13px;font-size:12px;font-weight:700;letter-spacing:.07em;
 </div>
 
 <div id="app" hidden>
+<div id="aviso" hidden></div>
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
@@ -1047,8 +1053,13 @@ const esperarGIS = () => new Promise(ok => {
 // o Google renova o acesso sem perguntar nada enquanto a sessão dele estiver ativa,
 // por isso não guardamos token em lugar nenhum
 const pedirToken = silencioso => new Promise((ok, falha) => {
-  tokenClient.callback = r => r.access_token ? ok(r) : falha(r);
-  tokenClient.error_callback = e => falha(e);
+  let pronto = false;
+  const t = setTimeout(() => {
+    if(!pronto){ pronto = true; falha(new Error("token-timeout")); }
+  }, 20000);
+  const fim = fn => v => { if(pronto) return; pronto = true; clearTimeout(t); fn(v); };
+  tokenClient.callback = fim(r => r.access_token ? ok(r) : falha(r));
+  tokenClient.error_callback = fim(falha);
   tokenClient.requestAccessToken({prompt: silencioso ? "" : ""});
 });
 async function garantirToken(){
@@ -1078,10 +1089,20 @@ let arquivoId = null;
 
 async function drive(url, opt = {}){
   await garantirToken();
-  const r = await fetch(url, {...opt,
-    headers:{Authorization:"Bearer " + accessToken, ...(opt.headers || {})}});
-  if(!r.ok) throw new Error(`drive ${r.status}: ${await r.text()}`);
-  return r.status === 204 ? null : r.json();
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 20000);
+  try{
+    const r = await fetch(url, {...opt, signal: ctl.signal,
+      headers:{Authorization:"Bearer " + accessToken, ...(opt.headers || {})}});
+    if(!r.ok){
+      const corpo = await r.text().catch(() => "");
+      let msg = `HTTP ${r.status}`;
+      try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
+      const err = new Error(msg); err.status = r.status;
+      throw err;
+    }
+    return r.status === 204 ? null : r.json();
+  }finally{ clearTimeout(t); }
 }
 async function acharArquivo(){
   const q = encodeURIComponent(`name='${ARQUIVO}' and trashed=false`);
@@ -1207,9 +1228,18 @@ function sincHoje(){
   DIA_WK[TODAY_ISO] = TODAY_WORKOUTS;
 }
 
+const LS_DADOS = "fite.dados";
+function gravarLocal(){
+  try{ localStorage.setItem(LS_DADOS, JSON.stringify(estadoAtual())); }catch(e){}
+}
+function lerLocal(){
+  try{ return JSON.parse(localStorage.getItem(LS_DADOS) || "null"); }catch(e){ return null; }
+}
+
 let gravando = null, precisaGravar = false;
 // uma gravação por vez; mudanças durante uma gravação entram na seguinte
 async function salvar(){
+  gravarLocal();
   if(gravando){ precisaGravar = true; return; }
   gravando = (async () => {
     do {
@@ -1821,6 +1851,10 @@ function renderTudo(){
 function abrirApp(){
   $("gate").hidden = true;
   $("app").hidden = false;
+  if(avisoDrive){
+    $("aviso").textContent = avisoDrive;
+    $("aviso").hidden = false;
+  }
   renderTudo();
   try{ setView(localStorage.getItem("fite.aba") || "btn-full"); }catch(e){ setView("btn-full"); }
 }
@@ -1845,11 +1879,18 @@ async function boot(){
       await entrar();
       await depoisDeEntrar();
     }catch(e){
+      console.warn("entrada", e);
       bt.disabled = false; rotulo.textContent = "Fazer login com o Google";
+      passo("g-entrar");
       if(e?.message === "nao-autorizado"){
         $("g-negado-msg").textContent =
           `${e.email} não está liberado neste app. Peça para ser incluído.`;
         passo("g-negado");
+      }else{
+        $("g-erro").textContent = e?.message === "token-timeout"
+          ? "O Google não respondeu. Verifique se o navegador bloqueou o pop-up."
+          : `Não consegui entrar: ${e?.message || e?.type || e}`;
+        $("g-erro").hidden = false;
       }
     }
   };
@@ -1874,11 +1915,20 @@ async function boot(){
   };
 }
 
+let avisoDrive = null;
 async function depoisDeEntrar(){
   passo("g-carregando");
   $("g-carregando-msg").textContent = "Buscando seus dados no Drive…";
-  try{ aplicarEstado(await lerDrive()); }
-  catch(e){ console.warn("Drive", e); }
+  aplicarEstado(lerLocal());     // o que houver no aparelho aparece na hora
+  try{
+    aplicarEstado(await lerDrive());
+  }catch(e){
+    console.warn("Drive", e);
+    avisoDrive = e.status === 403 && /has not been used|disabled/i.test(e.message || "")
+      ? "A Drive API não está ativada no projeto do Google Cloud. " +
+        "O app abre, mas não salva até você ativar."
+      : `Não consegui ler o Drive (${e.message || e}). O app abre, mas não salva.`;
+  }
   sincHoje();
 
   // se voltamos de uma autorização do Strava, o código está na URL
