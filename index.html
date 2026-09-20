@@ -16,6 +16,8 @@
   --sig-good:#0a8a0a; --sig-mid:#c28400; --sig-bad:#c62f2f;
   --deficit:#2a78d6; --surplus:#d03b3b;
   --marca:#0e5b7d; --marca-2:#8cc63f;
+  --consumo:#e35b28;
+  --gasto:#5b9bd5; --gasto-2:#2a6db5; --gasto-3:#123f73;
   --shadow:0 1px 2px rgba(11,11,11,.05);
 }
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
@@ -28,6 +30,8 @@
   --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
   --deficit:#3987e5; --surplus:#e66767;
   --marca:#3d9dc4; --marca-2:#9fd94f;
+  --consumo:#e0683a;
+  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
   --shadow:none;
 }}
 :root[data-theme="dark"]{
@@ -40,6 +44,8 @@
   --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
   --deficit:#3987e5; --surplus:#e66767;
   --marca:#3d9dc4; --marca-2:#9fd94f;
+  --consumo:#e0683a;
+  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
   --shadow:none;
 }
 *{box-sizing:border-box}
@@ -113,12 +119,12 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .flowrow{display:grid;grid-template-columns:128px 1fr auto;align-items:center;gap:10px}
 .flowrow .lbl{font-size:13px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:6px}
 .dot{width:9px;height:9px;border-radius:2px;flex:none}
-.dot.split{width:22px;background:linear-gradient(90deg,var(--out) 0 33%,var(--out-2) 33% 66%,var(--out-3) 66% 100%)}
+.dot.split{width:22px;background:linear-gradient(90deg,var(--gasto) 0 33%,var(--gasto-2) 33% 66%,var(--gasto-3) 66% 100%)}
 .track{height:12px;background:var(--surface-2);border-radius:3px;overflow:hidden}
 .fill{height:100%;border-radius:3px}
 .segbar{display:flex;height:100%;gap:2px}
 .segbar div{height:100%;border-radius:3px;min-width:2px}
-.flowrow .v{font-size:14.5px;font-weight:600}
+.flowrow .v{font-size:14.5px;font-weight:600;text-align:right;min-width:52px}
 .flownote{font-size:12.5px;color:var(--ink-3);margin-top:2px}
 
 /* ---- macros ---- */
@@ -149,7 +155,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .wko .t{font-size:15px;font-weight:600;margin-top:1px;display:flex;align-items:center;gap:7px}
 .wko .wico{color:var(--ink-2);display:flex}
 .wko .m{font-size:13px;color:var(--ink-2);margin-top:2px}
-.wko .kc{font-size:15px;font-weight:600;color:var(--out);text-align:right;white-space:nowrap}
+.wko .kc{font-size:15px;font-weight:600;color:var(--gasto-2);text-align:right;white-space:nowrap}
 
 .del{font:inherit;font-size:19px;line-height:1;background:none;border:0;cursor:pointer;
   color:var(--ink-3);padding:1px 5px;border-radius:5px;opacity:.4;align-self:start}
@@ -376,7 +382,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
           </div>
           <div class="flow">
             <div class="flowrow">
-              <div class="lbl"><i class="dot" style="background:var(--in)"></i>Consumi</div>
+              <div class="lbl"><i class="dot" style="background:var(--consumo)"></i>Consumi</div>
               <div class="track"><div class="fill" id="h-inbar" style="background:var(--in)"></div></div>
               <div class="v num" id="h-in"></div>
             </div>
@@ -450,8 +456,8 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
           </div>
           <div class="flow">
             <div class="flowrow">
-              <div class="lbl"><i class="dot" style="background:var(--in)"></i>Consumi</div>
-              <div class="track"><div class="fill" id="h-hinbar" style="background:var(--in)"></div></div>
+              <div class="lbl"><i class="dot" style="background:var(--consumo)"></i>Consumi</div>
+              <div class="track"><div class="fill" id="h-hinbar" style="background:var(--consumo)"></div></div>
               <div class="v num" id="h-hin"></div>
             </div>
             <div class="flowrow">
@@ -761,9 +767,9 @@ function drawEnergy(){
   DAYS.forEach((r,i)=>{
     if(r.vazio) return;              // dia sem registro não vira barra
     svg.appendChild(el("rect",{x:cx(i)-bar/2, y:Y(r.in), width:bar,
-      height:Math.max(2, Y(0)-Y(r.in)-2), rx:2.5, fill:css("--in")}));
+      height:Math.max(2, Y(0)-Y(r.in)-2), rx:2.5, fill:css("--consumo")}));
     svg.appendChild(el("rect",{x:cx(i)-bar/2, y:Y(0)+2, width:bar,
-      height:Math.max(2, Y(-r.spend)-Y(0)-2), rx:2.5, fill:css("--out")}));
+      height:Math.max(2, Y(-r.spend)-Y(0)-2), rx:2.5, fill:css("--gasto-2")}));
   });
 
   let ligado = false;
@@ -1295,13 +1301,13 @@ function renderToday(){
 
   const mx = Math.max(kin, spend) || 1;
   $("h-inbar").parentElement.innerHTML =
-    `<div class="fill" style="width:${(kin/mx*100).toFixed(1)}%;background:var(--in)" id="h-inbar"></div>`;
+    `<div class="fill" style="width:${(kin/mx*100).toFixed(1)}%;background:var(--consumo)" id="h-inbar"></div>`;
   // basal é só o repouso; a rotina do dia é o que o fator de atividade acrescenta
   const kBasal = bmr(), kRotina = BASE - kBasal;
   $("h-outbar").innerHTML =
-    `<div style="width:${(kBasal/mx*100).toFixed(1)}%;background:var(--out)"></div>` +
-    `<div style="width:${(kRotina/mx*100).toFixed(1)}%;background:var(--out-2)"></div>` +
-    (kout ? `<div style="width:${(kout/mx*100).toFixed(1)}%;background:var(--out-3)"></div>` : "");
+    `<div style="width:${(kBasal/mx*100).toFixed(1)}%;background:var(--gasto)"></div>` +
+    `<div style="width:${(kRotina/mx*100).toFixed(1)}%;background:var(--gasto-2)"></div>` +
+    (kout ? `<div style="width:${(kout/mx*100).toFixed(1)}%;background:var(--gasto-3)"></div>` : "");
   $("h-note").textContent =
     `Basal ${fmt(kBasal)} · rotina ${fmt(kRotina)}` +
     (kout ? ` · treino ${fmt(kout)}` : " · sem treino hoje");
@@ -1624,9 +1630,9 @@ function renderHist(){
   $("h-hout").textContent = fmt(spend);
   $("h-hinbar").style.width = (kin/mx*100).toFixed(1) + "%";
   $("h-houtbar").innerHTML =
-    `<div style="width:${(kBasal/mx*100).toFixed(1)}%;background:var(--out)"></div>` +
-    `<div style="width:${(kRotina/mx*100).toFixed(1)}%;background:var(--out-2)"></div>` +
-    (kout ? `<div style="width:${(kout/mx*100).toFixed(1)}%;background:var(--out-3)"></div>` : "");
+    `<div style="width:${(kBasal/mx*100).toFixed(1)}%;background:var(--gasto)"></div>` +
+    `<div style="width:${(kRotina/mx*100).toFixed(1)}%;background:var(--gasto-2)"></div>` +
+    (kout ? `<div style="width:${(kout/mx*100).toFixed(1)}%;background:var(--gasto-3)"></div>` : "");
   $("h-hnote").textContent = `Basal ${fmt(kBasal)} · rotina ${fmt(kRotina)}` +
     (kout ? ` · treino ${fmt(kout)}` : " · sem treino");
 
