@@ -1,0 +1,4 @@
+.strava.json
+__pycache__/
+data/
+.DS_Store
