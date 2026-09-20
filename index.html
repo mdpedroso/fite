@@ -210,6 +210,9 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .gpassos{text-align:left;color:var(--ink-2);font-size:14px;line-height:1.6;
   margin:0 0 16px;padding-left:20px}
 .gpassos a{color:var(--in)}
+#g-diag{text-align:left;font-family:ui-monospace,Menlo,monospace;font-size:11px;
+  line-height:1.6;color:var(--ink-3);background:var(--surface-2);border-radius:8px;
+  padding:10px;margin-top:18px;max-height:190px;overflow:auto;white-space:pre-wrap}
 #g-key{font:inherit;font-size:15px;width:100%;padding:11px;margin-bottom:11px;
   border:1px solid var(--axis);border-radius:9px;background:var(--surface-2);color:var(--ink)}
 
@@ -313,6 +316,8 @@ dialog h3{margin:0 0 13px;font-size:12px;font-weight:700;letter-spacing:.07em;
     <div class="gstep" id="g-carregando" hidden>
       <p class="gsub" id="g-carregando-msg">Carregando…</p>
     </div>
+
+    <pre id="g-diag" hidden></pre>
   </div>
 </div>
 
@@ -1042,6 +1047,16 @@ const sha256 = async t => {
     new TextEncoder().encode(String(t).trim().toLowerCase()));
   return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,"0")).join("");
 };
+const T0 = Date.now();
+function diag(txt){
+  const el = $("g-diag");
+  if(!el) return;
+  el.hidden = false;
+  const s = ((Date.now() - T0) / 1000).toFixed(1);
+  el.textContent += `${s}s  ${txt}\n`;
+  el.scrollTop = el.scrollHeight;
+  console.log("[fite]", s + "s", txt);
+}
 function passo(id){
   ["g-entrar","g-negado","g-gemini","g-carregando"].forEach(x => $(x).hidden = x !== id);
 }
@@ -1857,13 +1872,14 @@ function renderTudo(){
 }
 
 function abrirApp(){
+  try{ renderTudo(); }
+  catch(e){ diag("render falhou: " + (e.message || e)); throw e; }
   $("gate").hidden = true;
   $("app").hidden = false;
   if(avisoDrive){
     $("aviso").textContent = avisoDrive;
     $("aviso").hidden = false;
   }
-  renderTudo();
   try{ setView(localStorage.getItem("fite.aba") || "btn-full"); }catch(e){ setView("btn-full"); }
 }
 
@@ -1873,8 +1889,10 @@ async function boot(){
     if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; }
   }catch(e){}
 
+  diag("iniciando");
   passo("g-carregando");
   await esperarGIS();
+  diag("biblioteca do Google carregada");
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID, scope: ESCOPOS, callback: () => {},
   });
@@ -1884,7 +1902,9 @@ async function boot(){
     const bt = $("g-google"), rotulo = bt.querySelector("span");
     bt.disabled = true; rotulo.textContent = "Abrindo…";
     try{
+      diag("pedindo autorização ao Google");
       await entrar();
+      diag("autorizado: " + (usuario?.email || "?"));
       await depoisDeEntrar();
     }catch(e){
       console.warn("entrada", e);
@@ -1909,9 +1929,11 @@ async function boot(){
     const bt = $("g-salvar-key");
     bt.disabled = true; bt.textContent = "Validando…";
     $("g-key-msg").textContent = "Falando com o Google…";
+    diag("validando a chave do Gemini");
     let r;
     try{ r = await descobrirModelo(k); }
     catch(e){ r = {erro: "Falha inesperada: " + (e?.message || e)}; }
+    diag("resposta: " + (r.erro || "modelo " + r.modelo));
     if(r.erro){
       $("g-key-msg").textContent = r.erro;
       bt.disabled = false; bt.textContent = "Salvar e continuar";
@@ -1928,10 +1950,13 @@ async function depoisDeEntrar(){
   passo("g-carregando");
   $("g-carregando-msg").textContent = "Buscando seus dados no Drive…";
   aplicarEstado(lerLocal());     // o que houver no aparelho aparece na hora
+  diag("lendo o Drive");
   try{
     aplicarEstado(await lerDrive());
+    diag("Drive ok");
   }catch(e){
     console.warn("Drive", e);
+    diag("Drive falhou: " + (e.message || e));
     avisoDrive = e.status === 403 && /has not been used|disabled/i.test(e.message || "")
       ? "A Drive API não está ativada no projeto do Google Cloud. " +
         "O app abre, mas não salva até você ativar."
@@ -1946,7 +1971,8 @@ async function depoisDeEntrar(){
     try{ await stVoltou(code); }catch(e){ console.warn("strava", e); }
   }
 
-  if(!geminiKey){ passo("g-gemini"); return; }
+  if(!geminiKey){ diag("sem chave do Gemini"); passo("g-gemini"); return; }
+  diag("abrindo o app");
   abrirApp();
 }
 
