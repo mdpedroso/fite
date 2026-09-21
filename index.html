@@ -90,6 +90,19 @@ header{
 /* o verde da marca é claro demais para branco: tinta escura no lugar */
 .mais.verde{background:var(--marca-2);color:#143300}
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
+/* tirar dúvida: mesmo contorno do atualizar, com "?" no lugar da cruz */
+.mais.duvida{right:46px;background:var(--surface-2);color:var(--ink-2);border:1.5px solid var(--grid);
+  font-size:15px;font-weight:700;line-height:1;font-family:inherit}
+.mais.duvida::before,.mais.duvida::after{display:none}
+.consulta{background:var(--surface-2);border-radius:10px;padding:12px 14px;margin:2px 0 4px}
+.consulta .kc{font-size:26px;font-weight:600;letter-spacing:-.02em}
+.consulta .kc small{font-size:14px;font-weight:500;color:var(--ink-3);margin-left:4px}
+.consulta .mac{font-size:13px;color:var(--ink-2);margin-top:2px}
+.consulta .como{font-size:13px;color:var(--ink-2);margin-top:8px}
+.consulta ul{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--grid);font-size:13px}
+.consulta li{display:flex;justify-content:space-between;gap:12px;padding:2px 0;color:var(--ink-2)}
+.consulta li b{font-weight:600;color:var(--ink);white-space:nowrap}
+.consulta .via{font-size:11.5px;color:var(--ink-3);margin-top:8px}
 /* atualizar treinos do relógio: contorno, seta em SVG, à esquerda do + */
 .mais.gira{right:46px;background:var(--surface-2);color:var(--ink-2);border:1.5px solid var(--grid)}
 .mais.gira::before,.mais.gira::after{display:none}
@@ -122,7 +135,7 @@ section.card{position:relative;background:var(--surface);border:1px solid var(--
 h2{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 11px}
 .mais ~ h2, h2:has(~ .mais){padding-right:34px}
-h2:has(~ .mais.gira:not([hidden])){padding-right:70px}
+h2:has(~ .mais.gira:not([hidden])), h2:has(~ .mais.duvida){padding-right:70px}
 /* o total herda a fonte do título; só o separador e o peso mudam */
 h2 .tot{opacity:.62;font-weight:600}
 h2 .tot:not(:empty)::before{content:"· "}
@@ -463,6 +476,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   <div class="grid two">
     <section class="card">
       <h2>Refeições <span class="tot" id="meals-total"></span></h2>
+      <button class="mais duvida" id="bt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
       <button class="mais azul" id="bt-meal" aria-label="Adicionar refeição">+</button>
       <div class="meals" id="meals"></div>
     </section>
@@ -554,6 +568,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   <div class="grid two">
     <section class="card">
       <h2>Refeições <span class="tot" id="h-mtotal"></span></h2>
+      <button class="mais duvida" id="hbt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
       <button class="mais azul" id="hbt-meal" aria-label="Adicionar refeição">+</button>
       <div class="meals" id="h-meals"></div>
     </section>
@@ -676,8 +691,9 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       <img id="foto-img" alt="prévia da foto">
       <button type="button" id="foto-tirar">remover</button>
     </div>
+    <div class="consulta" id="consulta" hidden></div>
     <div class="addactions">
-      <button type="submit" class="btn-go">Estimar e adicionar</button>
+      <button type="submit" class="btn-go" id="bt-meal-go">Estimar e adicionar</button>
       <span class="addstatus" id="st-meal"></span>
     </div>
   </form>
@@ -1068,7 +1084,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921160930";
+const VERSAO = "20260921193005";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -1953,6 +1969,17 @@ const perfilTexto = () =>
   `${PERF.sexo==="m"?"homem":"mulher"}, ${idade()} anos, ${pesoAtual()} kg, ${PERF.altura} cm`;
 
 let alvoDia = TODAY_ISO;     // em que dia o modal vai gravar
+let modoConsulta = false;
+function abrirRefeicao(consulta, dia){
+  modoConsulta = consulta;
+  $("dlg-meal").querySelector("h3").textContent = consulta ? "Tirar dúvida" : "Adicionar refeição";
+  $("bt-meal-go").textContent = consulta ? "Estimar" : "Estimar e adicionar";
+  $("in-meal").placeholder = consulta
+    ? "Quanto tem? Ex: uma coxinha e um suco de laranja"
+    : "O que você comeu? Ex: prato de feijoada e uma laranja";
+  $("consulta").hidden = true; $("consulta").innerHTML = "";
+  abrir("dlg-meal", "st-meal", dia);
+}
 function abrir(dlgId, statusId, dia){
   alvoDia = dia || TODAY_ISO;
   $(statusId).textContent = ""; $(statusId).className = "addstatus";
@@ -1968,9 +1995,11 @@ document.querySelectorAll("[data-close]").forEach(b=>{
   b.onclick = () => $(b.dataset.close).close();
 });
 $("sync").onclick = sincronizarAgora;
-$("bt-meal").onclick  = () => abrir("dlg-meal","st-meal");
+$("bt-meal").onclick  = () => abrirRefeicao(false);
+$("bt-duvida").onclick  = () => abrirRefeicao(true);
+$("hbt-duvida").onclick = () => abrirRefeicao(true);
 $("bt-wk").onclick    = () => abrir("dlg-wk","st-wk");
-$("hbt-meal").onclick = () => abrir("dlg-meal","st-meal", histIso);
+$("hbt-meal").onclick = () => abrirRefeicao(false, histIso);
 $("hbt-wk").onclick   = () => abrir("dlg-wk","st-wk", histIso);
 
 // sem o seletor, a hora dá o palpite quando o Gemini não classifica
@@ -2160,6 +2189,7 @@ $("fm-meal").onsubmit = ev => {
   ev.preventDefault();
   const texto = $("in-meal").value.trim();
   if(!texto && !fotoAtual) return;
+  if(modoConsulta){ consultar(texto, fotoAtual); return; }   // só mostra, não registra
   // entra na lista imediatamente; a estimativa chega depois
   const id = novoId();
   if(fotoAtual){ FOTOS.set(id, fotoAtual); idb.set(id, fotoAtual); }   // nunca vai para o Drive
@@ -2173,6 +2203,31 @@ $("fm-meal").onsubmit = ev => {
   $("dlg-meal").close();
   tocarFila();
 };
+
+// tira-dúvida: estima na hora e mostra no próprio modal; nada entra no dia
+async function consultar(texto, foto){
+  const bt = $("bt-meal-go"), st = $("st-meal"), box = $("consulta");
+  if(!(geminiKey || openaiKey || groqKey)){
+    st.textContent = "Configure uma chave de IA no Perfil."; st.className = "addstatus err"; return;
+  }
+  bt.disabled = true; st.className = "addstatus"; st.textContent = "Estimando…";
+  try{
+    const r = await estimarJSON(promptRefeicao(texto, foto, true), foto);
+    const n = v => Math.round(Number(v) || 0), esc = t => String(t || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const itens = Array.isArray(r.itens) ? r.itens.filter(i => i && i.nome) : [];
+    box.innerHTML =
+      `<div class="kc num">${fmt(n(r.kcal))}<small>kcal</small></div>` +
+      `<div class="mac">P ${n(r.p)} g · C ${n(r.c)} g · G ${n(r.g)} g</div>` +
+      (r.desc ? `<div class="como">${esc(r.desc)}</div>` : "") +
+      (itens.length ? `<ul>${itens.map(i => `<li><span>${esc(i.nome)}</span><b class="num">${fmt(n(i.kcal))} kcal</b></li>`).join("")}</ul>` : "") +
+      `<div class="via">estimativa${ultimoMotor ? " · " + esc(ultimoMotor) : ""} · não foi registrado</div>`;
+    box.hidden = false;
+    st.textContent = "";
+  }catch(e){
+    st.textContent = erroMsg(e); st.className = "addstatus err";
+  }
+  bt.disabled = false;
+}
 
 $("fm-wk").onsubmit = ev => {
   ev.preventDefault();
@@ -2258,6 +2313,22 @@ const pendentes = () => {
   return out;
 };
 
+// o mesmo pedido serve para registrar e para tirar dúvida; na dúvida vem também o detalhe por item
+function promptRefeicao(raw, foto, comItens){
+  return (foto
+      ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
+        (raw ? `A pessoa descreveu assim: "${raw}"\n` : "") +
+        `Estime as porções pelo que aparece no prato.\n`
+      : `Estime calorias e macronutrientes desta refeição brasileira, para ${perfilTexto()}.\n` +
+        `Refeição: "${raw}"\n`) +
+    `Use porções brasileiras típicas quando a quantidade não for dita.\n` +
+    `Responda só com JSON no formato: ` +
+    `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
+    `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0` +
+    (comItens ? `,"itens":[{"nome":"item com a porção assumida","kcal":0}]` : "") + `}\n` +
+    `p, c, g são gramas de proteína, carboidrato e gordura.` +
+    (comItens ? ` Em "itens", liste cada alimento com a porção que você assumiu; a soma deve bater com "kcal".` : "");
+}
 async function estimarItem(p){
   const m = p.item;
   if(p.tipo === "meal"){
@@ -2266,18 +2337,7 @@ async function estimarItem(p){
     if(!foto && !m.raw){
       const e = new Error("sem-material"); e.permanente = true; throw e;
     }
-    const r = await estimarJSON(
-      (foto
-        ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
-          (m.raw ? `A pessoa descreveu assim: "${m.raw}"\n` : "") +
-          `Estime as porções pelo que aparece no prato.\n`
-        : `Estime calorias e macronutrientes desta refeição brasileira, para ${perfilTexto()}.\n` +
-          `Refeição: "${m.raw}"\n`) +
-      `Use porções brasileiras típicas quando a quantidade não for dita.\n` +
-      `Responda só com JSON no formato: ` +
-      `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
-      `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0}\n` +
-      `p, c, g são gramas de proteína, carboidrato e gordura.`, foto);
+    const r = await estimarJSON(promptRefeicao(m.raw, foto, false), foto);
     Object.assign(m, {
       via: ultimoMotor,
       slot: String(r.slot || m.slot),
