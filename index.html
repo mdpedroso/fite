@@ -1027,6 +1027,10 @@ function lerSessao(){
   }catch(e){}
   return null;
 }
+// a mesma sessão, mesmo vencida: serve para saber QUEM é, não para acessar o Drive
+function lerSessaoVencida(){
+  try{ return JSON.parse(localStorage.getItem(LS_SESSAO) || "null"); }catch(e){ return null; }
+}
 function limparSessao(){ try{ localStorage.removeItem(LS_SESSAO); }catch(e){} }
 
 const sha256 = async t => {
@@ -1346,7 +1350,7 @@ async function openaiJSON(prompt, imagem){
 /* ==================== Groq ==================== */
 const LS_GROQ = "fite.groq";
 let groqKey = null;
-const GROQ_TEXTO = "llama-3.3-70b-versatile", GROQ_FOTO = "qwen/qwen3.8-27b";
+const GROQ_TEXTO = "llama-3.3-70b-versatile", GROQ_FOTO = "meta-llama/llama-4-scout-17b-16e-instruct";
 function guardarGroq(){ try{ localStorage.setItem(LS_GROQ, JSON.stringify({k:groqKey})); }catch(e){} }
 async function validarGroq(chave){
   try{
@@ -1543,12 +1547,20 @@ async function sincronizarAgora(){
   if(syncEstado === "salvando") return;
   try{
     if(!accessToken || Date.now() >= tokenExpira){
+      setSync("salvando", "reconectando…");
       const r = await pedirToken(false);
       accessToken = r.access_token;
       tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
       guardarSessao();
+      // reconectou: o que houver no Drive entra na mescla antes de gravar
+      try{ adotarEstado(mesclarEstados(estadoAtual(), await lerDrive())); renderTudo(); }
+      catch(e){ console.warn("Drive ao reconectar", e); }
     }
-  }catch(e){ console.warn(e); }
+  }catch(e){
+    console.warn(e);
+    setSync("local", "não reconectou · toque para tentar de novo");
+    return;
+  }
   salvar();
 }
 // ao voltar para a aba, tenta de novo o que ficou pendente
@@ -1722,6 +1734,7 @@ let statusAtual = null;
 function avisarTentativa(n){
   if(statusAtual) statusAtual.textContent = `Gemini ocupado, tentando de novo (${n}/2)…`;
 }
+const corpoMsg = e => { try{ const j = JSON.parse(e?.corpo || "{}"); return j.error?.message || j.error?.code || ""; }catch(x){ return ""; } };
 function erroMsg(e){
   if(e?.message === "todos-falharam") return e.detalhes.join("  ·  ");
   if(e?.message === "sem-chave") return "Configure uma chave (Gemini, ChatGPT ou Groq) no Perfil.";
@@ -1729,6 +1742,7 @@ function erroMsg(e){
     if(e.status === 401) return "Groq: chave recusada — confira no Perfil";
     if(e.status === 429) return "Groq: limite de requisições — tenta de novo sozinho";
     if(TRANSITORIO.includes(e.status)) return "Groq: instável agora — tenta de novo sozinho";
+    return `Groq: ${e.status}${corpoMsg(e) ? " — " + corpoMsg(e).slice(0, 80) : ""}`;
   }
   if(e?.prov === "openai"){
     let cod = "";
@@ -1737,6 +1751,8 @@ function erroMsg(e){
     if(e.status === 429) return cod === "insufficient_quota"
       ? "ChatGPT: sem crédito na conta OpenAI (é pré-pago)"
       : "ChatGPT: limite de requisições — tenta de novo sozinho";
+    if(TRANSITORIO.includes(e.status)) return "ChatGPT: instável agora — tenta de novo sozinho";
+    return `ChatGPT: ${e.status}${corpoMsg(e) ? " — " + corpoMsg(e).slice(0, 80) : ""}`;
     if(TRANSITORIO.includes(e.status)) return "O ChatGPT está instável agora. Tente de novo.";
   }
   if(e?.status === 429){
@@ -1752,8 +1768,8 @@ function erroMsg(e){
     try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
     return `Gemini: ${e.status}${det ? " — " + det.slice(0, 70) : " sobrecarregado"}`;
   }
-  if(e?.status === 404) return `O modelo "${geminiModelo}" não existe nessa chave. ` +
-    `Salve a chave de novo no Perfil para escolher outro.`;
+  if(e?.status === 404) return `Gemini: o modelo "${geminiModelo}" não existe nessa chave — ` +
+    `salve a chave de novo no Perfil`;
   if(e?.status === 400 || e?.status === 403){
     let det = "";
     try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
@@ -2383,6 +2399,16 @@ async function boot(){
       limparSessao();
       accessToken = null;
     }
+  }
+  // sessão vencida mas com dados no aparelho: o app abre; o Drive reconecta num toque
+  const velha = lerSessaoVencida(), localVelho = lerLocal();
+  if(velha?.u?.email && localVelho && EMAILS_OK.includes(await sha256(velha.u.email))){
+    usuario = velha.u; accessToken = null; tokenExpira = 0;
+    adotarEstado(localVelho);
+    diag("sessão vencida: abrindo com os dados do aparelho");
+    abrirApp();
+    setSync("local", "sessão do Google venceu · toque para reconectar");
+    return;
   }
   passo("g-entrar");
 
