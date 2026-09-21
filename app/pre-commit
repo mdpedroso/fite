@@ -1,0 +1,6 @@
+#!/bin/sh
+# carimba a versão no index.html e em versao.txt; o app compara os dois para avisar de versão nova
+V=$(date +%Y%m%d%H%M%S)
+sed -i '' "s/^const VERSAO = \"[^\"]*\";/const VERSAO = \"$V\";/" index.html
+printf '%s\n' "$V" > versao.txt
+git add index.html versao.txt

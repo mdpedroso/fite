@@ -229,6 +229,10 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 #aviso{background:var(--warn);color:#3a2a00;font-size:13px;font-weight:600;
   padding:9px 16px;text-align:center;line-height:1.45}
+/* tarja de versão nova: a página publicada mudou desde que esta abriu */
+#nova-versao{display:block;width:100%;border:0;font:inherit;font-size:13px;font-weight:600;
+  background:var(--marca);color:#fff;padding:10px 16px;text-align:center;line-height:1.45;cursor:pointer}
+#nova-versao[hidden]{display:none}
 
 /* ---- portão de entrada ---- */
 #gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;
@@ -392,6 +396,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
 <div id="app" hidden>
 <div id="aviso" hidden></div>
+<button id="nova-versao" hidden>Essa página tem versão nova. Toque para atualizar.</button>
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
@@ -1041,6 +1046,21 @@ function renderWorkouts(target, showKc, lista){
     </div>`).join("");
 }
 const $ = id => document.getElementById(id);
+
+/* ==================== versão publicada ==================== */
+// VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
+// se for outra, a tarja aparece e o toque recarrega.
+const VERSAO = "20260921130456";
+async function conferirVersao(){
+  try{
+    const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
+    if(!r.ok) return;
+    const v = (await r.text()).trim();
+    if(v && v !== VERSAO) $("nova-versao").hidden = false;
+  }catch(e){}
+}
+$("nova-versao").onclick = () => { gravarLocal(); location.reload(); };
+setInterval(conferirVersao, 5*60*1000);
 
 /* ==================== configuração ==================== */
 // criado no Google Cloud Console; a origem do GitHub Pages precisa estar autorizada nele
@@ -1761,6 +1781,7 @@ document.addEventListener("visibilitychange", () => {
   if(syncEstado !== "ok" && syncEstado !== "salvando") salvar();
   tocarFila();
   icuAuto();
+  conferirVersao();
 });
 
 const salvarDia = iso => { if(iso) marcarDia(iso); return salvar(); };
@@ -2765,6 +2786,7 @@ function abrirApp(){
   try{ setView(localStorage.getItem("fite.aba") || "btn-full"); }catch(e){ setView("btn-full"); }
   tocarFila();          // o que ficou pendente de outra sessão retoma agora
   icuAuto();            // treinos novos do relógio, sem precisar ir ao perfil
+  conferirVersao();     // a página no ar pode ser mais nova que esta
   const fotoVelha = !groqFoto && Date.now() - groqTestadoEm > 6*3600*1000;
   if(groqKey && (!groqTexto || fotoVelha))   // sem texto, ou sem foto há tempo: tenta de novo
     descobrirGroq(groqKey).then(d => {

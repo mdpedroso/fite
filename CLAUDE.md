@@ -31,6 +31,12 @@ Decisões que valem lembrar:
   Quem protege os dados é o login do Google.
 - O painel Artifact (`app/dashboard.html`) virou referência de design. Não é
   mais o produto.
+- **Versão publicada**: o hook `app/pre-commit` (instalado em
+  `.git/hooks/pre-commit`) carimba `const VERSAO` no `index.html` e grava
+  `versao.txt` a cada commit. O app compara os dois e mostra a tarja "versão
+  nova" com recarga. Se o hook sumir, `cp app/pre-commit .git/hooks/ && chmod +x`.
+- Commits só valem depois de conferidos no site publicado; o GitHub Pages
+  às vezes demora minutos para publicar (`.nojekyll` evita o build Jekyll).
 
 ## Os dois lugares onde os dados vivem
 
