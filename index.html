@@ -1084,7 +1084,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921193541";
+const VERSAO = "20260921195812";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -2229,13 +2229,12 @@ async function consultar(texto, foto){
   bt.disabled = true; st.className = "addstatus"; st.textContent = "Estimando…";
   try{
     const r = await estimarJSON(promptRefeicao(texto, foto, true), foto);
-    const n = v => Math.round(Number(v) || 0), esc = t => String(t || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-    const itens = Array.isArray(r.itens) ? r.itens.filter(i => i && i.nome) : [];
+    const tot = totaisRefeicao(r), esc = x => String(x || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     box.innerHTML =
-      `<div class="kc num">${fmt(n(r.kcal))}<small>kcal</small></div>` +
-      `<div class="mac">P ${n(r.p)} g · C ${n(r.c)} g · G ${n(r.g)} g</div>` +
+      `<div class="kc num">${fmt(tot.kcal)}<small>kcal</small></div>` +
+      `<div class="mac">P ${tot.p} g · C ${tot.c} g · G ${tot.g} g</div>` +
       (r.desc ? `<div class="como">${esc(r.desc)}</div>` : "") +
-      (itens.length ? `<ul>${itens.map(i => `<li><span>${esc(i.nome)}</span><b class="num">${fmt(n(i.kcal))} kcal</b></li>`).join("")}</ul>` : "") +
+      (tot.itens.length ? `<ul>${tot.itens.map(i => `<li><span>${esc(i.nome)}</span><b class="num">${fmt(i.kcal)} kcal</b></li>`).join("")}</ul>` : "") +
       `<div class="via">estimativa${ultimoMotor ? " · " + esc(ultimoMotor) : ""} · não foi registrado</div>`;
     box.hidden = false;
     st.textContent = "";
@@ -2330,7 +2329,7 @@ const pendentes = () => {
 };
 
 // o mesmo pedido serve para registrar e para tirar dúvida; na dúvida vem também o detalhe por item
-function promptRefeicao(raw, foto, comItens){
+function promptRefeicao(raw, foto){
   return (foto
       ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
         (raw ? `A pessoa descreveu assim: "${raw}"\n` : "") +
@@ -2340,10 +2339,20 @@ function promptRefeicao(raw, foto, comItens){
     `Use porções brasileiras típicas quando a quantidade não for dita.\n` +
     `Responda só com JSON no formato: ` +
     `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
-    `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0` +
-    (comItens ? `,"itens":[{"nome":"item com a porção assumida","kcal":0}]` : "") + `}\n` +
-    `p, c, g são gramas de proteína, carboidrato e gordura.` +
-    (comItens ? ` Em "itens", liste cada alimento com a porção que você assumiu; a soma deve bater com "kcal".` : "");
+    `"desc":"descrição curta da refeição",` +
+    `"itens":[{"nome":"alimento com a porção assumida","kcal":0,"p":0,"c":0,"g":0}]}\n` +
+    `Liste cada alimento separado em "itens", com a porção que você assumiu. ` +
+    `p, c, g são gramas de proteína, carboidrato e gordura de cada item. ` +
+    `Se a pessoa informou as calorias de um item, use exatamente esse valor. Não some nada: o total é calculado depois.`;
+}
+// modelo de linguagem erra conta: o total da refeição é a soma dos itens, feita aqui
+function totaisRefeicao(r){
+  const n = v => Math.round(Number(v) || 0);
+  const itens = (Array.isArray(r.itens) ? r.itens : []).filter(i => i && i.nome)
+    .map(i => ({nome: String(i.nome), kcal: n(i.kcal), p: n(i.p), c: n(i.c), g: n(i.g)}));
+  if(!itens.length) return {itens, kcal: n(r.kcal), p: n(r.p), c: n(r.c), g: n(r.g)};   // resposta no formato antigo
+  const soma = k => itens.reduce((a, i) => a + i[k], 0);
+  return {itens, kcal: soma("kcal"), p: soma("p"), c: soma("c"), g: soma("g")};
 }
 async function estimarItem(p){
   const m = p.item;
@@ -2354,14 +2363,15 @@ async function estimarItem(p){
       const e = new Error("sem-material"); e.permanente = true; throw e;
     }
     const r = await estimarJSON(promptRefeicao(m.raw, foto, false), foto);
+    const t = totaisRefeicao(r);
     Object.assign(m, {
       via: ultimoMotor,
       slot: String(r.slot || m.slot),
       desc: m.raw || String(r.desc || m.desc),      // o que a pessoa escreveu manda
       interp: String(r.desc || ""),                   // como o modelo entendeu, para conferir
-      kc: Math.round(Number(r.kcal) || 0), p: Math.round(Number(r.p) || 0),
-      c: Math.round(Number(r.c) || 0), g: Math.round(Number(r.g) || 0),
+      kc: t.kcal, p: t.p, c: t.c, g: t.g,
     });
+    if(t.itens.length) m.itens = t.itens.map(i => ({n: i.nome, kc: i.kcal}));
     delete m.pendente;          // a foto fica: vira miniatura e vai para o Drive
   } else {
     const r = await estimarJSON(
