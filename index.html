@@ -1084,7 +1084,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921193406";
+const VERSAO = "20260921193541";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -1969,8 +1969,18 @@ const perfilTexto = () =>
   `${PERF.sexo==="m"?"homem":"mulher"}, ${idade()} anos, ${pesoAtual()} kg, ${PERF.altura} cm`;
 
 let alvoDia = TODAY_ISO;     // em que dia o modal vai gravar
-let modoConsulta = false;
+let modoConsulta = false, sobrouDeConsulta = false;
+function limparRefeicao(){
+  $("in-meal").value = ""; limparFoto();
+  $("consulta").hidden = true; $("consulta").innerHTML = "";
+  $("st-meal").textContent = "";
+}
 function abrirRefeicao(consulta, dia){
+  // o tira-dúvida sempre abre em branco, e o que sobrou dele não vaza para o "+".
+  // Não dá para depender só do evento "close": o navegador o entrega num quadro de
+  // animação, que não acontece com a aba em segundo plano.
+  if(consulta || sobrouDeConsulta) limparRefeicao();
+  sobrouDeConsulta = consulta;
   modoConsulta = consulta;
   $("dlg-meal").querySelector("h3").textContent = consulta ? "Tirar dúvida" : "Adicionar refeição";
   $("bt-meal-go").textContent = consulta ? "Estimar" : "Estimar e adicionar";
@@ -1983,10 +1993,8 @@ function abrirRefeicao(consulta, dia){
 // fechou o tira-dúvida (X, Esc ou fora): volta em branco na próxima vez
 $("dlg-meal").addEventListener("close", () => {
   if(!modoConsulta) return;
-  $("in-meal").value = ""; limparFoto();
-  $("consulta").hidden = true; $("consulta").innerHTML = "";
-  $("st-meal").textContent = "";
-  modoConsulta = false;
+  limparRefeicao();
+  modoConsulta = sobrouDeConsulta = false;
 });
 function abrir(dlgId, statusId, dia){
   alvoDia = dia || TODAY_ISO;
