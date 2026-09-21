@@ -1350,8 +1350,16 @@ async function openaiJSON(prompt, imagem){
 /* ==================== Groq ==================== */
 const LS_GROQ = "fite.groq";
 let groqKey = null, groqTexto = null, groqFoto = null;
+let groqTestadoEm = 0;
 function guardarGroq(){
-  try{ localStorage.setItem(LS_GROQ, JSON.stringify({k:groqKey, texto:groqTexto, foto:groqFoto})); }catch(e){}
+  try{ localStorage.setItem(LS_GROQ, JSON.stringify({k:groqKey, texto:groqTexto, foto:groqFoto,
+    fotoSemJSON:groqFotoSemJSON, fotoMotivo:groqFotoMotivo, testadoEm:groqTestadoEm})); }catch(e){}
+}
+function adotarGroq(d){
+  groqTexto = d.texto; groqFoto = d.foto || null;
+  groqFotoSemJSON = !!d.fotoSemJSON; groqFotoMotivo = d.fotoMotivo || "";
+  groqTestadoEm = d.testadoEm || Date.now();
+  guardarGroq();
 }
 // nome de modelo não se confia: a chave diz o que tem, e um teste real diz o que responde
 // ordem de preferência; o que a chave não tiver é pulado, e tudo é testado antes de valer
@@ -1361,19 +1369,32 @@ const GROQ_PREF_TEXTO = ["openai/gpt-oss-120b","llama-3.3-70b-versatile","qwen/q
 const GROQ_PREF_FOTO  = ["qwen/qwen3.8-27b","qwen/qwen3.6-27b",
                          "meta-llama/llama-4-scout-17b-16e-instruct",
                          "meta-llama/llama-4-maverick-17b-128e-instruct"];
-const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+const PNG_TESTE = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGM4MS2KJMQwqmFUw/DVAABYjrgQrDk0aAAAAABJRU5ErkJggg==";   // 16×16 válido: alguns modelos rejeitam imagem minúscula
+let groqFotoSemJSON = false, groqFotoMotivo = "";
+// devolve {ok} ou {ok:false, motivo}; para foto, tenta com e sem modo JSON
 async function testarGroq(chave, modelo, comImagem){
-  try{
+  const tentar = async (jsonMode) => {
     const conteudo = comImagem
-      ? [{type:"text", text:"Responda com um JSON: {\"ok\":true}"},
-         {type:"image_url", image_url:{url:"data:image/png;base64," + PNG_1PX}}]
+      ? [{type:"text", text:"Descreva a imagem em um JSON: {\"desc\": \"...\"}"},
+         {type:"image_url", image_url:{url:"data:image/png;base64," + PNG_TESTE}}]
       : "Responda com um JSON: {\"ok\":true}";
+    const body = {model: modelo, max_tokens: 60,
+      messages:[{role:"user", content: conteudo}]};
+    if(jsonMode) body.response_format = {type:"json_object"};
     const r = await fetchPrazo("https://api.groq.com/openai/v1/chat/completions", {
       method:"POST", headers:{"content-type":"application/json", Authorization:"Bearer " + chave},
-      body: JSON.stringify({model: modelo, max_tokens: 20, response_format:{type:"json_object"},
-        messages:[{role:"user", content: conteudo}]})}, 15000);
-    return r.ok;
-  }catch(e){ return false; }
+      body: JSON.stringify(body)}, 20000);
+    if(r.ok) return {ok:true, jsonMode};
+    const corpo = await r.text().catch(() => "");
+    let msg = `HTTP ${r.status}`;
+    try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
+    return {ok:false, status:r.status, motivo: msg};
+  };
+  try{
+    let r = await tentar(true);
+    if(!r.ok && comImagem && r.status === 400) r = await tentar(false);   // sem modo JSON, lemos tolerante
+    return r;
+  }catch(e){ return {ok:false, motivo: e.name === "AbortError" ? "sem resposta em 20s" : e.message}; }
 }
 async function descobrirGroq(chave){
   let ids = [];
@@ -1386,26 +1407,32 @@ async function descobrirGroq(chave){
   }catch(e){ return {erro: e.name === "AbortError" ? "O Groq não respondeu em 15s." : e.message}; }
   if(!ids.length) return {erro: "A chave não lista nenhum modelo de texto."};
 
-  let texto = null;
+  let texto = null, ultimoTexto = "";
   for(const c of [...GROQ_PREF_TEXTO.filter(p => ids.includes(p)), ...ids].slice(0, 8)){
-    if(await testarGroq(chave, c, false)){ texto = c; break; }
+    const r = await testarGroq(chave, c, false);
+    if(r.ok){ texto = c; break; }
+    ultimoTexto = r.motivo || ultimoTexto;
   }
-  if(!texto) return {erro: "Nenhum modelo de texto respondeu nessa chave."};
-  let foto = null;
-  for(const c of GROQ_PREF_FOTO.filter(v => ids.includes(v))){
-    if(await testarGroq(chave, c, true)){ foto = c; break; }
+  if(!texto) return {erro: "Nenhum modelo de texto respondeu" + (ultimoTexto ? ": " + ultimoTexto.slice(0, 80) : ".")};
+  let foto = null, fotoSemJSON = false, fotoMotivo = "";
+  const candFoto = GROQ_PREF_FOTO.filter(v => ids.includes(v));
+  if(!candFoto.length) fotoMotivo = "a chave não lista modelo de visão";
+  for(const c of candFoto){
+    const r = await testarGroq(chave, c, true);
+    if(r.ok){ foto = c; fotoSemJSON = !r.jsonMode; break; }
+    fotoMotivo = `${c.replace(/^.*\//, "")}: ${r.motivo}`;
   }
-  return {texto, foto};
+  return {texto, foto, fotoSemJSON, fotoMotivo, testadoEm: Date.now()};
 }
 async function groqJSON(prompt, imagem, jaTentou){
   if(!groqKey) throw new Error("sem-chave");
   if(!groqTexto){
     const d = await descobrirGroq(groqKey);
     if(d.erro){ const e = new Error("groq-sem-modelo"); e.prov = "groq"; e.detalhe = d.erro; throw e; }
-    groqTexto = d.texto; groqFoto = d.foto; guardarGroq();
+    adotarGroq(d);
   }
   if(imagem && !groqFoto){            // sem modelo de visão nesta chave: os outros cobrem
-    const e = new Error("groq-sem-visao"); e.prov = "groq"; throw e;
+    const e = new Error("groq-sem-visao"); e.prov = "groq"; e.detalhe = groqFotoMotivo; throw e;
   }
   const conteudo = imagem
     ? [{type:"text", text:prompt},
@@ -1415,7 +1442,7 @@ async function groqJSON(prompt, imagem, jaTentou){
     method:"POST",
     headers:{"content-type":"application/json", Authorization:"Bearer " + groqKey},
     body: JSON.stringify({model: imagem ? groqFoto : groqTexto, temperature:0.2,
-      response_format:{type:"json_object"},
+      ...(imagem && groqFotoSemJSON ? {} : {response_format:{type:"json_object"}}),
       messages:[{role:"system", content:"Responda apenas com um objeto JSON válido, sem texto fora dele."},
                 {role:"user", content: conteudo}]}),
   }, 30000);
@@ -1804,7 +1831,7 @@ function erroMsg(e){
   if(e?.message === "sem-chave") return "Configure uma chave (Gemini, ChatGPT ou Groq) no Perfil.";
   if(e?.prov === "groq"){
     if(e.message === "groq-sem-modelo") return "Groq: " + (e.detalhe || "sem modelo disponível");
-    if(e.message === "groq-sem-visao") return "Groq: esta chave não tem modelo de foto";
+    if(e.message === "groq-sem-visao") return "Groq sem foto" + (e.detalhe ? ": " + e.detalhe.slice(0, 90) : "");
     if(e.status === 401) return "Groq: chave recusada — confira no Perfil";
     if(e.status === 429) return "Groq: limite de requisições — tenta de novo sozinho";
     if(TRANSITORIO.includes(e.status)) return "Groq: instável agora — tenta de novo sozinho";
@@ -2317,7 +2344,7 @@ function renderIntegracoes(){
   $("p-oai-status").textContent = openaiKey ? "conectado" : "não configurado";
   $("p-groq-status").textContent = !groqKey ? "não configurado"
     : !groqTexto ? "descobrindo modelos…"
-    : groqTexto.replace(/^.*\//, "") + (groqFoto ? " · foto ok" : " · sem foto");
+    : groqTexto.replace(/^.*\//, "") + (groqFoto ? " · foto ok" : " · sem foto" + (groqFotoMotivo ? ": " + groqFotoMotivo.slice(0, 60) : ""));
   $("p-groq-key").placeholder = groqKey ? "•••••••• (trocar)" : "Cole a chave do Groq (gsk_…)";
   $("p-oai-key").placeholder = openaiKey ? "•••••••• (trocar)" : "Cole a chave da OpenAI (sk-…)";
   $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
@@ -2349,7 +2376,7 @@ $("p-groq-salvar").onclick = async () => {
   bt.disabled = true; bt.textContent = "Validando…";
   const r = await descobrirGroq(k);
   if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
-  else{ groqKey = k; groqTexto = r.texto; groqFoto = r.foto; guardarGroq();
+  else{ groqKey = k; adotarGroq(r);
         $("p-groq-key").value = ""; bt.textContent = `Salva — ${r.texto}`; reiniciarFila(); }
   bt.disabled = false;
   renderIntegracoes();
@@ -2437,9 +2464,10 @@ function abrirApp(){
   }
   try{ setView(localStorage.getItem("fite.aba") || "btn-full"); }catch(e){ setView("btn-full"); }
   tocarFila();          // o que ficou pendente de outra sessão retoma agora
-  if(groqKey && !groqTexto)   // chave salva antes da descoberta de modelos existir
+  const fotoVelha = !groqFoto && Date.now() - groqTestadoEm > 6*3600*1000;
+  if(groqKey && (!groqTexto || fotoVelha))   // sem texto, ou sem foto há tempo: tenta de novo
     descobrirGroq(groqKey).then(d => {
-      if(d.texto){ groqTexto = d.texto; groqFoto = d.foto; guardarGroq(); renderIntegracoes(); reiniciarFila(); }
+      if(d.texto){ adotarGroq(d); renderIntegracoes(); reiniciarFila(); }
     });
 }
 
@@ -2450,7 +2478,8 @@ async function boot(){
     const o = JSON.parse(localStorage.getItem(LS_OPENAI) || "null");
     if(o?.k) openaiKey = o.k;
     const q = JSON.parse(localStorage.getItem(LS_GROQ) || "null");
-    if(q?.k){ groqKey = q.k; groqTexto = q.texto || null; groqFoto = q.foto || null; }
+    if(q?.k){ groqKey = q.k; groqTexto = q.texto || null; groqFoto = q.foto || null;
+              groqFotoSemJSON = !!q.fotoSemJSON; groqFotoMotivo = q.fotoMotivo || ""; groqTestadoEm = q.testadoEm || 0; }
   }catch(e){}
 
   diag("iniciando");
