@@ -91,15 +91,15 @@ header{
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
 
 /* ---- estado da gravação: mesma pele das abas ---- */
-.sync{font:inherit;font-size:12.5px;font-weight:600;border:0;cursor:pointer;
+.seg .sync{font:inherit;font-size:12.5px;font-weight:600;border:0;cursor:pointer;
   padding:5px 11px 5px 22px;border-radius:5px;position:relative;white-space:nowrap;
   background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
-.sync::before{content:"";position:absolute;left:9px;top:50%;width:7px;height:7px;
+.seg .sync::before{content:"";position:absolute;left:9px;top:50%;width:7px;height:7px;
   border-radius:50%;transform:translateY(-50%);background:var(--sig-good)}
-.sync.salvando::before{background:var(--marca);animation:pulsa 1.2s ease-in-out infinite}
-.sync.local{color:#7a5200}.sync.local::before{background:var(--warn)}
-.sync.erro{color:#fff;background:var(--crit)}.sync.erro::before{background:#fff}
-@media(max-width:600px){#sync-wrap{order:4;width:100%}.sync{width:100%;text-align:left}}
+.seg .sync.salvando::before{background:var(--marca);animation:pulsa 1.2s ease-in-out infinite}
+.seg .sync.local{color:#7a5200}.seg .sync.local::before{background:var(--warn)}
+.seg .sync.erro{color:#fff;background:var(--crit)}.seg .sync.erro::before{background:#fff}
+@media(max-width:600px){#sync-wrap{order:4;width:100%}.seg .sync{width:100%;text-align:left}}
 
 /* ---- blocks ---- */
 .grid{display:grid;gap:10px;margin-top:10px}
@@ -2480,8 +2480,8 @@ async function icuSincronizar(){
       if(km >= 0.2 && ["corrida","bike","caminhada","natacao"].includes(mod))
         det.push(km.toFixed(1).replace(".", ",") + " km");
       if(min) det.push(min >= 60 ? `${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}` : `${min} min`);
-      if(mod === "corrida" && a.average_speed){ const sp = 1000 / a.average_speed;
-        det.push(`${Math.floor(sp/60)}:${String(Math.round(sp%60)).padStart(2,"0")} /km`); }
+      if(mod === "corrida" && a.average_speed){ const sp = Math.round(1000 / a.average_speed);
+        det.push(`${Math.floor(sp/60)}:${String(sp%60).padStart(2,"0")} /km`); }
       arr.push({id: novoId(), mod, t: a.name || MOD_NOME[mod], m: det.join(" · "),
                 kc: a.calories ? Math.round(a.calories) : estimarKcal(mod, min),
                 icu: a.id, raw: a.name || ""});
