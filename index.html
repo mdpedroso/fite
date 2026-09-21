@@ -1354,10 +1354,13 @@ function guardarGroq(){
   try{ localStorage.setItem(LS_GROQ, JSON.stringify({k:groqKey, texto:groqTexto, foto:groqFoto})); }catch(e){}
 }
 // nome de modelo não se confia: a chave diz o que tem, e um teste real diz o que responde
-const GROQ_PREF_TEXTO = ["llama-3.3-70b-versatile","openai/gpt-oss-120b","openai/gpt-oss-20b",
-                         "llama-3.1-8b-instant","meta-llama/llama-4-scout-17b-16e-instruct"];
-const GROQ_PREF_FOTO  = ["meta-llama/llama-4-scout-17b-16e-instruct",
-                         "meta-llama/llama-4-maverick-17b-128e-instruct","qwen/qwen3.6-27b"];
+// ordem de preferência; o que a chave não tiver é pulado, e tudo é testado antes de valer
+const GROQ_PREF_TEXTO = ["openai/gpt-oss-120b","llama-3.3-70b-versatile","qwen/qwen3.8-27b",
+                         "qwen/qwen3.6-27b","openai/gpt-oss-20b","llama-3.1-8b-instant",
+                         "meta-llama/llama-4-scout-17b-16e-instruct"];
+const GROQ_PREF_FOTO  = ["qwen/qwen3.8-27b","qwen/qwen3.6-27b",
+                         "meta-llama/llama-4-scout-17b-16e-instruct",
+                         "meta-llama/llama-4-maverick-17b-128e-instruct"];
 const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 async function testarGroq(chave, modelo, comImagem){
   try{
@@ -1379,7 +1382,7 @@ async function descobrirGroq(chave){
       {headers:{Authorization:"Bearer " + chave}}, 15000);
     if(!r.ok) return {erro: r.status === 401 ? "Chave recusada. Confira se copiou inteira." : `HTTP ${r.status}`};
     ids = ((await r.json()).data || []).map(m => m.id)
-      .filter(id => !/whisper|guard|tts|safeguard|compound|allam|embed/i.test(id));
+      .filter(id => !/whisper|guard|tts|orpheus|safeguard|compound|allam|embed/i.test(id));
   }catch(e){ return {erro: e.name === "AbortError" ? "O Groq não respondeu em 15s." : e.message}; }
   if(!ids.length) return {erro: "A chave não lista nenhum modelo de texto."};
 
