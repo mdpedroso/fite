@@ -880,7 +880,7 @@ function drawEnergy(){
       fill:css("--ink"),stroke:css("--surface"),"stroke-width":2})); });
 
   // --- sob o eixo: dia, saldo colorido, ponto de treino ---
-  const fsDay = Math.max(8, Math.min(13, bw*0.5));
+  const fsDay = Math.max(8, Math.min(13, bw*0.26));   // "seg 14" (6 glifos mono) dentro da barra
   const fsBal = Math.max(6.5, Math.min(15, bw*0.27));   // "−2916" (5 glifos mono) cabe na largura da barra
   svg.appendChild(el("line",{x1:P.l,x2:W-P.r,y1:yDay-15,y2:yDay-15,
     stroke:css("--grid"),"stroke-width":1}));
@@ -893,7 +893,7 @@ function drawEnergy(){
   rowLabel(yTrain, "Treino", fsLbl);
 
   DS.forEach((r,i)=>{
-    txt(cx(i), yDay, dt(r.d).getDate(), css("--ink-3"), fsDay, null, true);
+    txt(cx(i), yDay, `${weekday(r.d)} ${dt(r.d).getDate()}`, css("--ink-3"), fsDay, null, true);
     if(!r.vazio) txt(cx(i), yBal, (r.bal>0?"+":"−")+Math.abs(r.bal), css(balColor(r.bal)), fsBal, null, true);
     if(r.out){
       const sz = Math.max(13, Math.min(27, bw*0.70));
@@ -1050,7 +1050,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921134326";
+const VERSAO = "20260921134505";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
