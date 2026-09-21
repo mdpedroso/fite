@@ -559,6 +559,20 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
 
     <section class="card">
+      <h2>Groq <span class="side" id="p-groq-status"></span></h2>
+      <p class="soon">Terceiro motor, gratuito e muito rápido. Chave em
+        <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>
+        — fica só neste aparelho.</p>
+      <div class="pform" style="margin-top:12px">
+        <label>Chave de API
+          <input id="p-groq-key" type="password" autocomplete="off"
+            spellcheck="false" placeholder="Cole a chave do Groq (gsk_…)">
+        </label>
+      </div>
+      <button class="addbtn" id="p-groq-salvar">Salvar chave</button>
+    </section>
+
+    <section class="card">
       <h2>Strava <span class="side" id="p-st-status"></span></h2>
       <p class="soon">Importa treinos automaticamente. Precisa de um app
         criado em <a href="https://www.strava.com/settings/api" target="_blank"
@@ -1329,12 +1343,50 @@ async function openaiJSON(prompt, imagem){
   return lerJSON(txt, "openai");
 }
 
+/* ==================== Groq ==================== */
+const LS_GROQ = "fite.groq";
+let groqKey = null;
+const GROQ_TEXTO = "llama-3.3-70b-versatile", GROQ_FOTO = "qwen/qwen3.8-27b";
+function guardarGroq(){ try{ localStorage.setItem(LS_GROQ, JSON.stringify({k:groqKey})); }catch(e){} }
+async function validarGroq(chave){
+  try{
+    const r = await fetchPrazo("https://api.groq.com/openai/v1/models",
+      {headers:{Authorization:"Bearer " + chave}}, 15000);
+    if(r.ok) return {ok:true};
+    return {erro: r.status === 401 ? "Chave recusada. Confira se copiou inteira." : `HTTP ${r.status}`};
+  }catch(e){ return {erro: e.name === "AbortError" ? "O Groq não respondeu em 15s." : e.message}; }
+}
+async function groqJSON(prompt, imagem){
+  if(!groqKey) throw new Error("sem-chave");
+  const conteudo = imagem
+    ? [{type:"text", text:prompt},
+       {type:"image_url", image_url:{url:`data:${imagem.mime};base64,${imagem.b64}`}}]
+    : prompt;
+  const r = await fetchPrazo("https://api.groq.com/openai/v1/chat/completions", {
+    method:"POST",
+    headers:{"content-type":"application/json", Authorization:"Bearer " + groqKey},
+    body: JSON.stringify({model: imagem ? GROQ_FOTO : GROQ_TEXTO, temperature:0.2,
+      response_format:{type:"json_object"},
+      messages:[{role:"system", content:"Responda apenas com um objeto JSON válido, sem texto fora dele."},
+                {role:"user", content: conteudo}]}),
+  }, 30000);
+  if(!r.ok){
+    const corpo = await r.text().catch(() => "");
+    const e = new Error(`groq ${r.status}`); e.status = r.status; e.corpo = corpo; e.prov = "groq";
+    throw e;
+  }
+  const txt = (await r.json()).choices?.[0]?.message?.content;
+  if(!txt) throw new Error("groq-vazio");
+  return lerJSON(txt, "groq");
+}
+
 // dispara para todos os motores configurados e fica com o primeiro que responder
 let ultimoMotor = null;
 async function estimarJSON(prompt, imagem){
   const corridas = [];
   if(geminiKey) corridas.push(geminiJSON(prompt, imagem).then(r => ({r, prov:"gemini"})));
   if(openaiKey) corridas.push(openaiJSON(prompt, imagem).then(r => ({r, prov:"openai"})));
+  if(groqKey)   corridas.push(groqJSON(prompt, imagem).then(r => ({r, prov:"groq"})));
   if(!corridas.length) throw new Error("sem-chave");
   try{
     const {r, prov} = await Promise.any(corridas);
@@ -1672,7 +1724,12 @@ function avisarTentativa(n){
 }
 function erroMsg(e){
   if(e?.message === "todos-falharam") return e.detalhes.join("  ·  ");
-  if(e?.message === "sem-chave") return "Configure a chave do Gemini ou do ChatGPT no Perfil.";
+  if(e?.message === "sem-chave") return "Configure uma chave (Gemini, ChatGPT ou Groq) no Perfil.";
+  if(e?.prov === "groq"){
+    if(e.status === 401) return "Groq: chave recusada — confira no Perfil";
+    if(e.status === 429) return "Groq: limite de requisições — tenta de novo sozinho";
+    if(TRANSITORIO.includes(e.status)) return "Groq: instável agora — tenta de novo sozinho";
+  }
   if(e?.prov === "openai"){
     let cod = "";
     try{ cod = JSON.parse(e.corpo || "{}").error?.code || ""; }catch(x){}
@@ -1682,7 +1739,14 @@ function erroMsg(e){
       : "ChatGPT: limite de requisições — tenta de novo sozinho";
     if(TRANSITORIO.includes(e.status)) return "O ChatGPT está instável agora. Tente de novo.";
   }
-  if(e?.status === 429) return "Gemini: cota do plano gratuito esgotada — tenta de novo sozinho";
+  if(e?.status === 429){
+    // o corpo do Google diz o plano: "FreeTier" no texto = chave sem faturamento na API
+    let det = "";
+    try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
+    const gratuito = /free/i.test(det + (e.corpo || ""));
+    return "Gemini: limite atingido" + (gratuito ? " (chave no plano gratuito da API)" : "") +
+      (det ? " — " + det.slice(0, 80) : "") + " — tenta de novo sozinho";
+  }
   if(TRANSITORIO.includes(e?.status)){
     let det = "";
     try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
@@ -1701,9 +1765,9 @@ function erroMsg(e){
   return `Falhou ao estimar: ${e?.message || e}`;
 }
 async function comIA(statusEl, botao, trabalho){
-  if(!(geminiKey || openaiKey)){
+  if(!(geminiKey || openaiKey || groqKey)){
     statusEl.className = "addstatus err";
-    statusEl.textContent = "Configure a chave do Gemini ou do ChatGPT no Perfil.";
+    statusEl.textContent = "Configure uma chave (Gemini, ChatGPT ou Groq) no Perfil.";
     return;
   }
   botao.disabled = true;
@@ -1764,7 +1828,7 @@ setInterval(() => {
     const it = pendentes().find(p => p.item.id === el.dataset.pend)?.item;
     if(!it || it.erro || !it.desde || estadoFila !== "estimando…") return;
     const seg = Math.round((Date.now() - it.desde) / 1000);
-    const quem = [geminiKey && "Gemini", openaiKey && "ChatGPT"].filter(Boolean).join(" + ");
+    const quem = [geminiKey && "Gemini", openaiKey && "ChatGPT", groqKey && "Groq"].filter(Boolean).join(" + ");
     el.textContent = `estimando com ${quem}… ${seg}s`;
   });
 }, 1000);
@@ -1824,7 +1888,7 @@ async function estimarItem(p){
 }
 
 async function tocarFila(){
-  if(rodandoFila || !(geminiKey || openaiKey)) return;
+  if(rodandoFila || !(geminiKey || openaiKey || groqKey)) return;
   rodandoFila = true;
   const gen = filaGeracao;
   const morta = () => gen !== filaGeracao;   // outra rodada assumiu
@@ -2167,6 +2231,8 @@ function renderIntegracoes(){
   const c = stCfg();
   $("p-gem-status").textContent = geminiKey ? "conectado" : "não configurado";
   $("p-oai-status").textContent = openaiKey ? "conectado" : "não configurado";
+  $("p-groq-status").textContent = groqKey ? "conectado" : "não configurado";
+  $("p-groq-key").placeholder = groqKey ? "•••••••• (trocar)" : "Cole a chave do Groq (gsk_…)";
   $("p-oai-key").placeholder = openaiKey ? "•••••••• (trocar)" : "Cole a chave da OpenAI (sk-…)";
   $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
   $("p-st-id").value = c.id || "";
@@ -2190,6 +2256,18 @@ function renderIntegracoes(){
 $("p-st-conectar").onclick = stConectar;
 $("p-st-sync").onclick = stSincronizar;
 $("p-st-desde").addEventListener("change", () => { STRAVA.desde = $("p-st-desde").value; salvar(); });
+$("p-groq-salvar").onclick = async () => {
+  const k = $("p-groq-key").value.trim();
+  if(!k) return;
+  const bt = $("p-groq-salvar");
+  bt.disabled = true; bt.textContent = "Validando…";
+  const r = await validarGroq(k);
+  if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
+  else{ groqKey = k; guardarGroq(); $("p-groq-key").value = ""; bt.textContent = "Chave salva"; reiniciarFila(); }
+  bt.disabled = false;
+  renderIntegracoes();
+  setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
+};
 $("p-oai-salvar").onclick = async () => {
   const k = $("p-oai-key").value.trim();
   if(!k) return;
@@ -2280,6 +2358,8 @@ async function boot(){
     if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; geminiCandidatos = g.candidatos || []; }
     const o = JSON.parse(localStorage.getItem(LS_OPENAI) || "null");
     if(o?.k) openaiKey = o.k;
+    const q = JSON.parse(localStorage.getItem(LS_GROQ) || "null");
+    if(q?.k) groqKey = q.k;
   }catch(e){}
 
   diag("iniciando");
