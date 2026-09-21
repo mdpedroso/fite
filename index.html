@@ -190,7 +190,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 @media(min-width:720px){
   .meal{align-items:center}
   .meal .mrow{align-items:center;min-width:0}
-  .meal .mrow > div{display:flex;align-items:baseline;gap:20px;flex:1;min-width:0}
+  .meal .mrow > div{display:flex;align-items:center;gap:20px;flex:1;min-width:0}   /* descrição longa quebra; macros e kcal ficam no meio */
   .meal .desc{flex:1;min-width:0}
   .meal .mm{margin-top:0;flex:none;width:190px;white-space:nowrap}
   .meal .mm.pend{width:auto;max-width:48%;white-space:normal;text-align:right}
@@ -1103,7 +1103,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921205404";
+const VERSAO = "20260921205512";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
