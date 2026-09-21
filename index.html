@@ -210,22 +210,13 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   border-radius:8px;border:1px solid var(--axis);background:var(--surface-2);
   color:var(--ink);cursor:pointer}
 .hnav button:disabled{opacity:.3;cursor:default}
-.hnav .t{flex:none;position:relative;width:min(340px,calc(100% - 92px));text-align:center;font-size:12px;
-  font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);cursor:pointer;
-  padding:6px 0;border-radius:8px}
-.hnav .t:hover{background:var(--surface-2);color:var(--ink)}
-.hnav .t .cal{margin-left:6px;font-size:10px;opacity:.7}
-/* o input de data fica invisível por cima do título: tocar no título abre o calendário nativo */
-.hnav .t input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;
+.hnav .t{flex:none;width:min(340px,calc(100% - 134px));text-align:center;font-size:12px;
+  font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+/* calendário: o input de data fica invisível por cima do botão, e o toque abre o seletor nativo */
+.hnav .cal{position:relative;margin-left:4px;color:var(--ink-2)}
+.hnav .cal svg{width:17px;height:17px;display:block;margin:auto}
+.hnav .cal input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;
   font-size:16px;-webkit-appearance:none;appearance:none}
-.hdays{display:grid;grid-template-columns:repeat(15,1fr);gap:3px;margin-bottom:16px}
-.hday{font:inherit;font-family:"IBM Plex Mono",monospace;font-size:11px;padding:7px 0;
-  border-radius:6px;border:0;background:var(--surface-2);color:var(--ink-3);cursor:pointer}
-.hday:hover{color:var(--ink)}
-.hday{position:relative}
-.hday.tem::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;
-  border-radius:50%;background:currentColor;opacity:.55}
-.hday.on{background:var(--in);color:#fff;font-weight:600}
 .hempty{color:var(--ink-3);font-size:14px;padding:6px 0}
 .nada{padding:16px 4px 10px;text-align:center}
 .nada-t{font-size:14.5px;font-weight:600;color:var(--ink-2)}
@@ -490,13 +481,13 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     <section class="card">
       <div class="hnav">
         <button id="h-prev" aria-label="Dia anterior">‹</button>
-        <div class="t" title="Escolher uma data">
-          <span id="h-title"></span><span class="cal">▾</span>
-          <input type="date" id="h-data" aria-label="Escolher uma data">
-        </div>
+        <div class="t" id="h-title"></div>
         <button id="h-next" aria-label="Próximo dia">›</button>
+        <button class="cal" title="Escolher uma data" aria-label="Escolher uma data">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <input type="date" id="h-data" aria-label="Escolher uma data">
+        </button>
       </div>
-      <div class="hdays" id="h-days"></div>
       <div class="today">
         <div>
           <div class="hero">
@@ -2328,10 +2319,9 @@ $("workouts").addEventListener("click", e => {
 });
 
 /* ---------- histórico ---------- */
-// o histórico não tem limite para trás: a faixa de 15 dias desliza conforme se anda
-let histIso = TODAY_ISO, histFim = TODAY_ISO;   // dia selecionado; último dia da faixa
+// o histórico não tem limite para trás: setas andam um dia, o calendário pula direto
+let histIso = TODAY_ISO;
 const somaDias = (iso, n) => isoDe(new Date(dt(iso).getTime() + n*86400000));
-const temRegistro = iso => (DIA_MEALS[iso]||[]).length || (DIA_WK[iso]||[]).length;
 
 // hoje vem dos dados vivos; os demais, do pool
 const mealsDoDia = iso => DIA_MEALS[iso] || [];
@@ -2353,10 +2343,6 @@ function renderHist(){
   $("h-title").textContent = dayTitle(d.d);
   $("h-next").disabled = histIso >= TODAY_ISO;
   $("h-data").value = histIso; $("h-data").max = TODAY_ISO;
-  const faixa = Array.from({length: JANELA}, (_, i) => somaDias(histFim, i - (JANELA-1)));
-  $("h-days").innerHTML = faixa.map(iso =>
-    `<button class="hday${iso===histIso?" on":""}${temRegistro(iso)?" tem":""}" data-d="${iso}" ` +
-    `title="${dt(iso).toLocaleDateString("pt-BR",{day:"numeric",month:"short"})}">${dt(iso).getDate()}</button>`).join("");
 
   const semNada = kin === 0;
   $("h-hbal").textContent = semNada ? "—" : (bal>0?"+":"−") + fmt(Math.abs(bal));
@@ -2410,18 +2396,11 @@ function renderHist(){
 }
 function irPara(iso){
   histIso = iso > TODAY_ISO ? TODAY_ISO : iso;
-  if(histIso > histFim) histFim = histIso;                                  // saiu pela direita
-  else if(histIso < somaDias(histFim, -(JANELA-1))) histFim = somaDias(histIso, JANELA-1);   // pela esquerda
-  if(histFim > TODAY_ISO) histFim = TODAY_ISO;
   renderHist();
 }
 $("h-prev").onclick  = () => irPara(somaDias(histIso, -1));
 $("h-next").onclick  = () => irPara(somaDias(histIso, 1));
 $("h-data").addEventListener("change", e => { if(e.target.value) irPara(e.target.value); });
-$("h-days").addEventListener("click", e => {
-  const b = e.target.closest(".hday");
-  if(b) irPara(b.dataset.d);
-});
 $("h-meals").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
   const iso = histIso, arr = DIA_MEALS[iso] || [], m = arr[+b.dataset.i];
