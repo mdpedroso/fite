@@ -45,19 +45,19 @@ código. Cada pessoa usa a chave dela.
 > **Restrições de aplicativo** → *Referenciadores HTTP* → adicione
 > `https://mdpedroso.github.io/*`. Assim ela só funciona a partir do app.
 
-## 4. Strava — opcional, só seu
+## 4. Treinos automáticos — intervals.icu (opcional, gratuito)
 
-Em [strava.com/settings/api](https://www.strava.com/settings/api):
+O Strava passou a cobrar pela API e o Garmin não atende pessoa física. O
+caminho gratuito é o [intervals.icu](https://intervals.icu): ele se conecta
+ao Garmin (ou Strava, Polar, Coros…) por conta própria e tem API com chave
+pessoal.
 
-- **Authorization Callback Domain**: `mdpedroso.github.io`
-- Anote **Client ID** e **Client Secret**
+1. Crie a conta em intervals.icu e, em **Settings**, conecte o Garmin.
+2. Ainda em Settings, role até **Developer** → **API Key** → copie.
+3. No FiTê: **Perfil → Treinos automáticos** → cole a chave, escolha a
+   data de início e **Conectar**. Depois é só **Buscar treinos novos**.
 
-No app: aba **Perfil** → Strava → cole os dois, escolha a data de início e
-**Conectar**. Ele vai ao Strava, você autoriza, volta conectado. Depois é só
-**Buscar treinos novos**.
-
-O Client Secret fica guardado **no seu aparelho**, nunca no código — por isso
-não há problema no repositório ser público.
+A chave fica **no seu aparelho**, nunca no código.
 
 ---
 
@@ -85,4 +85,4 @@ de uso familiar, não para guardar segredo.
 | o app | GitHub Pages, público |
 | seus dados | `fite.json`, no seu Drive |
 | chave do Gemini | seu aparelho |
-| credenciais do Strava | seu aparelho |
+| chave do intervals.icu | seu aparelho |

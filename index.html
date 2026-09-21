@@ -90,6 +90,17 @@ header{
 .mais.verde{background:var(--marca-2);color:#143300}
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
 
+/* ---- estado da gravação: mesma pele das abas ---- */
+.sync{font:inherit;font-size:12.5px;font-weight:600;border:0;cursor:pointer;
+  padding:5px 11px 5px 22px;border-radius:5px;position:relative;white-space:nowrap;
+  background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.sync::before{content:"";position:absolute;left:9px;top:50%;width:7px;height:7px;
+  border-radius:50%;transform:translateY(-50%);background:var(--sig-good)}
+.sync.salvando::before{background:var(--marca);animation:pulsa 1.2s ease-in-out infinite}
+.sync.local{color:#7a5200}.sync.local::before{background:var(--warn)}
+.sync.erro{color:#fff;background:var(--crit)}.sync.erro::before{background:#fff}
+@media(max-width:600px){#sync-wrap{order:4;width:100%}.sync{width:100%;text-align:left}}
+
 /* ---- blocks ---- */
 .grid{display:grid;gap:10px;margin-top:10px}
 @media(min-width:720px){ .grid.two{grid-template-columns:1fr 1fr} .span2{grid-column:1/-1} }
@@ -370,7 +381,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
-    <button class="sync ok" id="sync" hidden>salvo no Drive</button>
+    <div class="seg" id="sync-wrap" hidden><button class="sync ok" id="sync">salvo no Drive</button></div>
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
       <button id="btn-hab" aria-pressed="false">Histórico</button>
@@ -571,17 +582,17 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
 
     <section class="card">
-      <h2>Strava <span class="side" id="p-st-status"></span></h2>
-      <p class="soon">Importa treinos automaticamente. Precisa de um app
-        criado em <a href="https://www.strava.com/settings/api" target="_blank"
-        rel="noopener">strava.com/settings/api</a>.</p>
+      <h2>Treinos automáticos <span class="side" id="p-icu-status"></span></h2>
+      <p class="soon">Puxa do <a href="https://intervals.icu" target="_blank" rel="noopener">intervals.icu</a>,
+        que é gratuito e se conecta ao Garmin. Lá em <b>Settings → Developer</b> tem a
+        chave de API. Ela fica só neste aparelho.</p>
       <div class="pform" style="margin-top:12px">
-        <label>Client ID <input id="p-st-id" inputmode="numeric" autocomplete="off"></label>
-        <label>Client Secret <input id="p-st-secret" type="password" autocomplete="off"></label>
-        <label>Importar a partir de <input id="p-st-desde" type="date"></label>
+        <label>Chave de API <input id="p-icu-key" type="password" autocomplete="off" spellcheck="false"
+          placeholder="Cole a chave do intervals.icu"></label>
+        <label>Importar a partir de <input id="p-icu-desde" type="date"></label>
       </div>
-      <button class="addbtn" id="p-st-conectar">Conectar Strava</button>
-      <button class="addbtn" id="p-st-sync" hidden>Buscar treinos novos</button>
+      <button class="addbtn" id="p-icu-conectar">Conectar</button>
+      <button class="addbtn" id="p-icu-sync" hidden>Buscar treinos novos</button>
     </section>
   </div>
 </div>
@@ -654,7 +665,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <script>
 /* ---------- perfil e janela de dias ---------- */
 const PERF = { sexo:"m", nasc:"1982-05-06", altura:185 };
-const STRAVA = { desde:null, atleta:null };
+const TREINOS = { desde:null };
 const FATOR_ROTINA = 1.4;   // meio-termo entre sedentário e ativo, sem treino embutido
 
 // hoje é a data real, no fuso de São Paulo
@@ -1512,7 +1523,7 @@ const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(
 
 function estadoAtual(){
   return {versao:2, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
-          pesos:WEIGHTS, strava:{desde: STRAVA.desde || null}, lixoFotos:[...LIXO_FOTOS]};
+          pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, lixoFotos:[...LIXO_FOTOS]};
 }
 
 // identidade de um item, para juntar listas sem duplicar
@@ -1546,7 +1557,7 @@ function mesclarEstados(L, R){
           lixoFotos: [...new Set([...(L.lixoFotos || []), ...(R.lixoFotos || [])])],
           pesos: (N.pesos && N.pesos.length) ? N.pesos : (V.pesos || []),
           perfil: {...(V.perfil || {}), ...(N.perfil || {})},
-          strava: N.strava?.desde ? N.strava : (V.strava || {})};
+          treinos: (N.treinos || N.strava)?.desde ? (N.treinos || N.strava) : (V.treinos || V.strava || {})};
 }
 
 // coloca um estado inteiro na memória (substitui, não acumula)
@@ -1560,7 +1571,8 @@ function adotarEstado(e){
   tsGeral = e.tsGeral || 0;
   WEIGHTS = Array.isArray(e.pesos) ? e.pesos : [];
   if(e.perfil) Object.assign(PERF, e.perfil);
-  if(e.strava?.desde) STRAVA.desde = e.strava.desde;
+  const tr = e.treinos || e.strava;
+  if(tr?.desde) TREINOS.desde = tr.desde;
   LIXO_FOTOS = Array.isArray(e.lixoFotos) ? e.lixoFotos : [];
   sincHoje();
 }
@@ -1605,7 +1617,7 @@ function setSync(estado, texto){
   if(!el) return;
   el.className = "sync " + estado;
   el.textContent = texto;
-  el.hidden = false;
+  $("sync-wrap").hidden = false;
 }
 function agendarNovaTentativa(){
   clearTimeout(syncTimer);
@@ -2404,105 +2416,96 @@ function setView(botao){
 }
 ABAS.forEach(([b])=> $(b).onclick = () => setView(b));
 
-/* ==================== Strava ==================== */
-const LS_ST = "fite.strava";
-const ST_MOD = {
-  Run:"corrida", TrailRun:"corrida", VirtualRun:"corrida",
+/* ==================== intervals.icu ==================== */
+const LS_ICU = "fite.intervals";
+const ICU = "https://intervals.icu/api/v1";
+// os tipos são os mesmos do Strava/Garmin
+const ICU_MOD = {
+  Run:"corrida", TrailRun:"corrida", VirtualRun:"corrida", Treadmill:"corrida",
   Ride:"bike", VirtualRide:"bike", MountainBikeRide:"bike", GravelRide:"bike", EBikeRide:"bike",
-  Swim:"natacao", WeightTraining:"musculacao", Crossfit:"crossfit",
+  Swim:"natacao", OpenWaterSwim:"natacao", WeightTraining:"musculacao", Crossfit:"crossfit",
   Walk:"caminhada", Hike:"caminhada",
   Workout:"funcional", HighIntensityIntervalTraining:"funcional",
   Elliptical:"aerobico", StairStepper:"aerobico", Rowing:"aerobico",
   Soccer:"esporte", Tennis:"esporte", Basketball:"esporte",
 };
-const stCfg = () => { try{ return JSON.parse(localStorage.getItem(LS_ST) || "{}"); }catch(e){ return {}; } };
-const stGrava = c => { try{ localStorage.setItem(LS_ST, JSON.stringify(c)); }catch(e){} };
-const urlApp = () => location.origin + location.pathname;
-
-function stConectar(){
-  const c = stCfg();
-  c.id = $("p-st-id").value.trim();
-  c.secret = $("p-st-secret").value.trim();
-  STRAVA.desde = $("p-st-desde").value || null;
-  if(!c.id || !c.secret){ alert("Preencha Client ID e Client Secret."); return; }
-  stGrava(c); salvar();
-  location.href = "https://www.strava.com/oauth/authorize?" + new URLSearchParams({
-    client_id: c.id, response_type: "code", redirect_uri: urlApp(),
-    approval_prompt: "auto", scope: "activity:read_all",
-  });
+const icuCfg = () => { try{ return JSON.parse(localStorage.getItem(LS_ICU) || "{}"); }catch(e){ return {}; } };
+const icuGrava = c => { try{ localStorage.setItem(LS_ICU, JSON.stringify(c)); }catch(e){} };
+// Basic auth com usuário fixo "API_KEY", como a documentação manda
+const icuAuth = k => "Basic " + btoa("API_KEY:" + k);
+async function icuGet(caminho, chave){
+  const r = await fetchPrazo(ICU + caminho, {headers:{Authorization: icuAuth(chave)}}, 20000);
+  if(!r.ok){
+    const e = new Error(r.status === 401 || r.status === 403 ? "chave recusada" : `HTTP ${r.status}`);
+    e.status = r.status; throw e;
+  }
+  return r.json();
 }
-// o Strava devolve um refresh_token novo a cada renovação e invalida o anterior
-async function stToken(extra){
-  const c = stCfg();
-  const r = await fetch("https://www.strava.com/oauth/token", {
-    method:"POST", headers:{"content-type":"application/x-www-form-urlencoded"},
-    body: new URLSearchParams({client_id:c.id, client_secret:c.secret, ...extra}),
-  });
-  if(!r.ok) throw new Error("strava token " + r.status);
-  const t = await r.json();
-  c.refresh = t.refresh_token || c.refresh;
-  c.atleta = t.athlete?.firstname || c.atleta;
-  stGrava(c);
-  return t.access_token;
+async function icuConectar(){
+  const k = $("p-icu-key").value.trim() || icuCfg().k;
+  if(!k){ alert("Cole a chave de API do intervals.icu."); return; }
+  const bt = $("p-icu-conectar");
+  bt.disabled = true; bt.textContent = "Conectando…";
+  try{
+    const a = await icuGet("/athlete/0", k);        // 0 = o dono da chave
+    icuGrava({k, atleta: a.name || a.id || "conectado", id: a.id});
+    TREINOS.desde = $("p-icu-desde").value || TREINOS.desde;
+    salvar();
+    $("p-icu-key").value = "";
+    bt.textContent = "Conectado";
+  }catch(e){
+    bt.textContent = e.message === "chave recusada" ? "Chave recusada" : "Falhou: " + e.message;
+  }
+  bt.disabled = false;
+  renderIntegracoes();
+  setTimeout(() => { bt.textContent = icuCfg().k ? "Reconectar" : "Conectar"; }, 3500);
 }
-async function stVoltou(code){
-  await stToken({code, grant_type:"authorization_code"});
-  history.replaceState({}, "", urlApp());
-}
-async function stSincronizar(){
-  const c = stCfg();
-  if(!c.refresh) return;
-  const bt = $("p-st-sync");
+async function icuSincronizar(){
+  const c = icuCfg();
+  if(!c.k) return;
+  const bt = $("p-icu-sync");
   bt.disabled = true; bt.textContent = "Buscando…";
   try{
-    const tk = await stToken({grant_type:"refresh_token", refresh_token:c.refresh});
-    const desde = STRAVA.desde || DAYS[0].d;
-    const after = Math.floor(new Date(desde + "T00:00:00").getTime() / 1000);
-    const lista = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=100`,
-      {headers:{Authorization:"Bearer " + tk}}).then(r => r.json());
-
+    const desde = TREINOS.desde || DAYS[0].d;
+    const lista = await icuGet(`/athlete/0/activities?oldest=${desde}&limit=500`, c.k);
     let novos = 0;
     for(const a of lista){
-      const iso = new Date(a.start_date).toLocaleDateString("sv-SE");
+      const iso = String(a.start_date_local || a.start_date || "").slice(0, 10);
+      if(!iso) continue;
       const arr = DIA_WK[iso] ||= [];
-      if(arr.some(w => w.strava === a.id)) continue;     // já importado
-      const mod = ST_MOD[a.sport_type || a.type] || "outro";
-      let kc = null;
-      try{
-        kc = (await fetch(`https://www.strava.com/api/v3/activities/${a.id}`,
-          {headers:{Authorization:"Bearer " + tk}}).then(r => r.json())).calories;
-      }catch(e){}
+      if(arr.some(w => w.icu === a.id)) continue;          // já importado
+      const mod = ICU_MOD[a.type] || "outro";
       const km = (a.distance || 0) / 1000, min = Math.round((a.moving_time || 0) / 60);
       const det = [];
       if(km >= 0.2 && ["corrida","bike","caminhada","natacao"].includes(mod))
         det.push(km.toFixed(1).replace(".", ",") + " km");
-      det.push(min >= 60 ? `${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}` : `${min} min`);
-      arr.push({mod, t: a.name || MOD_NOME[mod], m: det.join(" · "),
-                kc: kc ? Math.round(kc) : estimarKcal(mod, min), strava: a.id});
-      recalcDia(iso);
+      if(min) det.push(min >= 60 ? `${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}` : `${min} min`);
+      if(mod === "corrida" && a.average_speed){ const sp = 1000 / a.average_speed;
+        det.push(`${Math.floor(sp/60)}:${String(Math.round(sp%60)).padStart(2,"0")} /km`); }
+      arr.push({id: novoId(), mod, t: a.name || MOD_NOME[mod], m: det.join(" · "),
+                kc: a.calories ? Math.round(a.calories) : estimarKcal(mod, min),
+                icu: a.id, raw: a.name || ""});
+      marcarDia(iso); recalcDia(iso);
       novos++;
     }
     await salvar();
     renderTudo();
-    bt.textContent = novos ? `${novos} treino${novos>1?"s":""} importado${novos>1?"s":""}`
-                           : "Nada novo por lá";
+    bt.textContent = novos ? `${novos} treino${novos>1?"s":""} importado${novos>1?"s":""}` : "Nada novo por lá";
   }catch(e){
     console.warn(e);
-    bt.textContent = "Falhou — tente de novo";
+    bt.textContent = e.message === "chave recusada" ? "Chave recusada — reconecte" : "Falhou: " + e.message;
   }finally{
     bt.disabled = false;
-    setTimeout(() => { bt.textContent = "Buscar treinos novos"; }, 3000);
+    setTimeout(() => { bt.textContent = "Buscar treinos novos"; }, 3500);
   }
 }
-// o Strava só traz calorias quando o aparelho mediu; sem isso, MET × peso × tempo
+// sem calorias medidas pelo aparelho: MET × peso × tempo
 function estimarKcal(mod, min){
   const MET = {corrida:9.8, bike:7.5, natacao:7.0, musculacao:5.0, crossfit:8.0,
                caminhada:3.5, funcional:6.0, aerobico:6.5, esporte:7.0, outro:5.5};
   return Math.round((MET[mod] || 5.5) * 3.5 * pesoAtual() / 200 * min);
 }
 function renderIntegracoes(){
-  const c = stCfg();
   $("p-gem-status").textContent = geminiKey ? "conectado" : "não configurado";
   $("p-oai-status").textContent = openaiKey ? "conectado" : "não configurado";
   $("p-groq-status").textContent = !groqKey ? "não configurado"
@@ -2511,12 +2514,12 @@ function renderIntegracoes(){
   $("p-groq-key").placeholder = groqKey ? "•••••••• (trocar)" : "Cole a chave do Groq (gsk_…)";
   $("p-oai-key").placeholder = openaiKey ? "•••••••• (trocar)" : "Cole a chave da OpenAI (sk-…)";
   $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
-  $("p-st-id").value = c.id || "";
-  $("p-st-secret").value = c.secret || "";
-  $("p-st-desde").value = STRAVA.desde || "";
-  $("p-st-status").textContent = c.refresh ? "conectado" : "não conectado";
-  $("p-st-sync").hidden = !c.refresh;
-  $("p-st-conectar").textContent = c.refresh ? "Reconectar" : "Conectar Strava";
+  const ic = icuCfg();
+  $("p-icu-desde").value = TREINOS.desde || "";
+  $("p-icu-status").textContent = ic.k ? (ic.atleta ? `conectado · ${ic.atleta}` : "conectado") : "não conectado";
+  $("p-icu-sync").hidden = !ic.k;
+  $("p-icu-conectar").textContent = ic.k ? "Reconectar" : "Conectar";
+  $("p-icu-key").placeholder = ic.k ? "•••••••• (trocar)" : "Cole a chave do intervals.icu";
   if(usuario) $("brand-quem").textContent =
     "· " + (usuario.given_name || usuario.name || "");
   if(usuario) $("p-conta").innerHTML =
@@ -2529,9 +2532,9 @@ function renderIntegracoes(){
     location.reload();
   };
 }
-$("p-st-conectar").onclick = stConectar;
-$("p-st-sync").onclick = stSincronizar;
-$("p-st-desde").addEventListener("change", () => { STRAVA.desde = $("p-st-desde").value; salvar(); });
+$("p-icu-conectar").onclick = icuConectar;
+$("p-icu-sync").onclick = icuSincronizar;
+$("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-desde").value; salvar(); });
 $("p-groq-salvar").onclick = async () => {
   const k = $("p-groq-key").value.trim();
   if(!k) return;
@@ -2754,12 +2757,6 @@ async function depoisDeEntrar(){
   }
   sincHoje();
 
-  // se voltamos de uma autorização do Strava, o código está na URL
-  const code = new URLSearchParams(location.search).get("code");
-  if(code){
-    $("g-carregando-msg").textContent = "Conectando o Strava…";
-    try{ await stVoltou(code); }catch(e){ console.warn("strava", e); }
-  }
 
   if(!geminiKey){ diag("sem chave do Gemini"); passo("g-gemini"); return; }
   diag("abrindo o app");

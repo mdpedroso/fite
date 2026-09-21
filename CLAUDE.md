@@ -18,13 +18,13 @@ Nunca reescrever ou apagar linhas de `data/`. Correção é um evento novo com
 
 `app/index.html` é o app de verdade: HTML único, publicado no GitHub Pages,
 que conecta em **Google Drive** (base), **Gemini** (estimativas, inclusive por
-foto) e **Strava** (treinos). Passos de publicação em `SETUP.md`.
+foto) e **intervals.icu** (treinos, via Garmin). Passos de publicação em `SETUP.md`.
 
 Decisões que valem lembrar:
 
 - O app **não guarda token do Google**: o acesso é renovado em silêncio
   enquanto a sessão Google do aparelho estiver ativa.
-- Chave do Gemini e credenciais do Strava ficam **no aparelho**, nunca no
+- Chaves do Gemini/ChatGPT/Groq e do intervals.icu ficam **no aparelho**, nunca no
   código — o repositório é público.
 - O escopo do Drive é `drive.file`: o app só enxerga o que ele mesmo criou.
 - A lista de e-mails (`EMAILS_OK`, por hash) é sinalização, não segurança.
