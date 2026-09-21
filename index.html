@@ -932,7 +932,7 @@ function drawEnergy(){
 
   bindTip(host, document.getElementById("t-energy"), (px,w,py,hpx)=>{
     const i = Math.floor(((px/w*W) - P.l)/bw);
-    if(i<0||i>=DS.length) return null;
+    if(!(i>=0 && i<DS.length)) return null;   // também cobre NaN (gráfico com largura 0)
     const r = DS[i];
     if(r.vazio || r.oculto){
       return { x: cx(i)/W*w, html:
@@ -1068,7 +1068,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921160702";
+const VERSAO = "20260921160930";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
