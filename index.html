@@ -1498,7 +1498,9 @@ async function sincronizarAgora(){
 }
 // ao voltar para a aba, tenta de novo o que ficou pendente
 document.addEventListener("visibilitychange", () => {
-  if(document.visibilityState === "visible" && syncEstado !== "ok" && syncEstado !== "salvando") salvar();
+  if(document.visibilityState !== "visible") return;
+  if(syncEstado !== "ok" && syncEstado !== "salvando") salvar();
+  tocarFila();
 });
 
 const salvarDia = iso => { if(iso) marcarDia(iso); return salvar(); };
@@ -2261,6 +2263,7 @@ function abrirApp(){
     $("aviso").hidden = false;
   }
   try{ setView(localStorage.getItem("fite.aba") || "btn-full"); }catch(e){ setView("btn-full"); }
+  tocarFila();          // o que ficou pendente de outra sessão retoma agora
 }
 
 async function boot(){
