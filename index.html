@@ -1162,9 +1162,10 @@ async function gravarDrive(){
 }
 
 /* ==================== Gemini ==================== */
-let geminiKey = null, geminiModelo = null;
+let geminiKey = null, geminiModelo = null, geminiCandidatos = [];
 function guardarGemini(){
-  try{ localStorage.setItem(LS_GEMINI, JSON.stringify({k:geminiKey, modelo:geminiModelo})); }catch(e){}
+  try{ localStorage.setItem(LS_GEMINI,
+    JSON.stringify({k:geminiKey, modelo:geminiModelo, candidatos:geminiCandidatos})); }catch(e){}
 }
 
 const MODELOS_PADRAO = ["gemini-2.5-flash","gemini-flash-latest","gemini-2.0-flash",
@@ -1206,7 +1207,7 @@ async function descobrirModelo(chave){
   let ultimo = "";
   for(const m of candidatos.slice(0, 6)){
     const r = await testarModelo(chave, m);
-    if(r.ok) return {modelo: m};
+    if(r.ok) return {modelo: m, candidatos: candidatos.slice(0, 6)};
     ultimo = r.msg || ultimo;
   }
   return {erro: `Nenhum modelo respondeu${ultimo ? ": " + ultimo.slice(0,110) : "."}`};
@@ -1256,6 +1257,15 @@ async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
       await dormir(1500 * (tentativa + 1));
       return geminiJSON(prompt, imagem, jaTentou, tentativa + 1);
     }
+    if(TRANSITORIO.includes(r.status) && !jaTentou){
+      const outro = geminiCandidatos.find(m => m !== geminiModelo);
+      if(outro){                       // este modelo está lotado: tenta outro pool
+        console.warn(`gemini ${geminiModelo} em ${r.status}; trocando para ${outro}`);
+        geminiCandidatos = [outro, ...geminiCandidatos.filter(m => m !== outro)];
+        geminiModelo = outro; guardarGemini();
+        return geminiJSON(prompt, imagem, true, 0);
+      }
+    }
     const e = new Error(`gemini ${r.status}`);
     e.status = r.status; e.corpo = corpo;
     console.warn("gemini", r.status, corpo);
@@ -1264,7 +1274,19 @@ async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
   const j = await r.json();
   const txt = j.candidates?.[0]?.content?.parts?.[0]?.text;
   if(!txt) throw new Error("gemini-vazio");
-  return JSON.parse(txt);
+  return lerJSON(txt, "gemini");
+}
+
+// o modo JSON das APIs já impede texto fora do objeto; isto é rede de segurança
+function lerJSON(txt, origem){
+  try{ return JSON.parse(txt); }
+  catch(e){
+    const m = String(txt).match(/\{[\s\S]*\}/);
+    if(m){ try{ return JSON.parse(m[0]); }catch(x){} }
+    console.warn(`[${origem}] resposta sem JSON legível:`, txt);
+    const err = new SyntaxError("resposta sem JSON"); err.bruto = String(txt).slice(0, 200);
+    throw err;
+  }
 }
 
 /* ==================== OpenAI (ChatGPT) ==================== */
@@ -1302,7 +1324,7 @@ async function openaiJSON(prompt, imagem){
   }
   const txt = (await r.json()).choices?.[0]?.message?.content;
   if(!txt) throw new Error("openai-vazio");
-  return JSON.parse(txt);
+  return lerJSON(txt, "openai");
 }
 
 // dispara para todos os motores configurados e fica com o primeiro que responder
@@ -1649,8 +1671,11 @@ function erroMsg(e){
     if(TRANSITORIO.includes(e.status)) return "O ChatGPT está instável agora. Tente de novo.";
   }
   if(e?.status === 429) return "Limite do Gemini atingido. Tente daqui a pouco.";
-  if(TRANSITORIO.includes(e?.status))
-    return "O Gemini está sobrecarregado agora. Tente de novo em alguns segundos.";
+  if(TRANSITORIO.includes(e?.status)){
+    let det = "";
+    try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
+    return `Gemini ${e.status}${det ? " — " + det.slice(0, 90) : " (sobrecarregado)"}`;
+  }
   if(e?.status === 404) return `O modelo "${geminiModelo}" não existe nessa chave. ` +
     `Salve a chave de novo no Perfil para escolher outro.`;
   if(e?.status === 400 || e?.status === 403){
@@ -2157,8 +2182,8 @@ $("p-gem-salvar").onclick = async () => {
   if(r.erro){
     bt.textContent = r.erro.slice(0, 60);
   } else {
-    geminiKey = k; geminiModelo = r.modelo;
-    try{ localStorage.setItem(LS_GEMINI, JSON.stringify({k, modelo:r.modelo})); }catch(e){}
+    geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
+    guardarGemini();
     $("p-gem-key").value = "";
     bt.textContent = `Salva — usando ${r.modelo}`;
   }
@@ -2220,7 +2245,7 @@ function abrirApp(){
 async function boot(){
   try{
     const g = JSON.parse(localStorage.getItem(LS_GEMINI) || "null");
-    if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; }
+    if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; geminiCandidatos = g.candidatos || []; }
     const o = JSON.parse(localStorage.getItem(LS_OPENAI) || "null");
     if(o?.k) openaiKey = o.k;
   }catch(e){}
@@ -2290,8 +2315,8 @@ async function boot(){
       bt.disabled = false; bt.textContent = "Salvar e continuar";
       return;
     }
-    geminiKey = k; geminiModelo = r.modelo;
-    try{ localStorage.setItem(LS_GEMINI, JSON.stringify({k, modelo:r.modelo})); }catch(e){}
+    geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
+    guardarGemini();
     abrirApp();
   };
 }
