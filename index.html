@@ -960,7 +960,7 @@ function renderMeals(target, showKc){
     <div class="meal${m.novo?" novo":""}">
       <div>
         <div class="desc">${m.desc}</div>
-        ${m.pendente ? `<div class="mm pend">${m.erro || estadoFila}</div>`
+        ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || estadoFila}</div>`
           : showKc ? `<div class="mm num">P ${m.p} · C ${m.c} · G ${m.g}</div>` : ""}
       </div>
       ${showKc?`<div class="kc num">${m.pendente ? "—" : fmt(m.kc)}</div>`:`<div></div>`}
@@ -973,7 +973,7 @@ function renderWorkouts(target, showKc, lista){
       <div>
         ${w.d && w.d !== TODAY_ISO ? `<div class="d">${weekday(w.d)}, ${dayShort(w.d)}</div>` : ""}
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.pendente ? `<span class="pend">${w.erro || estadoFila}</span>` : w.m}</div>
+        <div class="m">${w.pendente ? `<span class="pend" data-pend="${w.id}">${w.erro || estadoFila}</span>` : w.m}</div>
       </div>
       ${showKc?`<div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
@@ -1240,24 +1240,26 @@ async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
   const parts = [{text: prompt}];
   if(imagem) parts.push({inline_data:{mime_type: imagem.mime, data: imagem.b64}});
   if(!geminiModelo) throw new Error("modelo não definido — salve a chave no Perfil");
+  const emCorrida = !!openaiKey;          // o outro motor cobre: aqui não vale insistir
   const r = await fetchPrazo(
     `https://generativelanguage.googleapis.com/v1beta/models/${geminiModelo}:generateContent`,
     {method:"POST",
      headers:{"content-type":"application/json", "x-goog-api-key": geminiKey},
      body: JSON.stringify({contents:[{parts}],
-       generationConfig:{responseMimeType:"application/json", temperature:0.2}})}, 45000);
+       generationConfig:{responseMimeType:"application/json", temperature:0.2}})},
+    emCorrida ? 20000 : 30000);
   if(!r.ok){
     const corpo = await r.text().catch(() => "");
     if(r.status === 404 && !jaTentou){
       const d = await descobrirModelo(geminiKey);       // modelo saiu do ar: procura outro
       if(d.modelo){ geminiModelo = d.modelo; guardarGemini(); return geminiJSON(prompt, imagem, true); }
     }
-    if(TRANSITORIO.includes(r.status) && tentativa < 2){
+    if(TRANSITORIO.includes(r.status) && tentativa < (emCorrida ? 0 : 2)){
       avisarTentativa(tentativa + 1);
       await dormir(1500 * (tentativa + 1));
       return geminiJSON(prompt, imagem, jaTentou, tentativa + 1);
     }
-    if(TRANSITORIO.includes(r.status) && !jaTentou){
+    if(TRANSITORIO.includes(r.status) && !jaTentou && !emCorrida){
       const outro = geminiCandidatos.find(m => m !== geminiModelo);
       if(outro){                       // este modelo está lotado: tenta outro pool
         console.warn(`gemini ${geminiModelo} em ${r.status}; trocando para ${outro}`);
@@ -1745,8 +1747,22 @@ $("fm-wk").onsubmit = ev => {
 };
 
 /* ---------- fila de estimativas ---------- */
-let rodandoFila = false;
+// relógio leve nos itens pendentes: nunca parece travado
+setInterval(() => {
+  if(document.hidden) return;
+  document.querySelectorAll("[data-pend]").forEach(el => {
+    const it = pendentes().find(p => p.item.id === el.dataset.pend)?.item;
+    if(!it || it.erro || !it.desde || estadoFila !== "estimando…") return;
+    const seg = Math.round((Date.now() - it.desde) / 1000);
+    const quem = [geminiKey && "Gemini", openaiKey && "ChatGPT"].filter(Boolean).join(" + ");
+    el.textContent = `estimando com ${quem}… ${seg}s`;
+  });
+}, 1000);
+
+let rodandoFila = false, filaGeracao = 0;
 let estadoFila = "estimando…";
+// nova chave ou troca de motor: a rodada em andamento é descartada e outra começa já
+function reiniciarFila(){ filaGeracao++; rodandoFila = false; tocarFila(); }
 const pendentes = () => {
   const out = [];
   Object.entries(DIA_MEALS).forEach(([iso, arr]) =>
@@ -1800,15 +1816,20 @@ async function estimarItem(p){
 async function tocarFila(){
   if(rodandoFila || !(geminiKey || openaiKey)) return;
   rodandoFila = true;
+  const gen = filaGeracao;
+  const morta = () => gen !== filaGeracao;   // outra rodada assumiu
   try{
     let espera = 4000;
-    while(true){
+    while(!morta()){
       const lista = pendentes();
       if(!lista.length) break;
       let avancou = false;
       for(const p of lista){
+        if(morta()) return;
+        p.item.desde = Date.now(); delete p.item.erro;
         try{
           await estimarItem(p);
+          if(morta()) return;
           avancou = true;
           salvarDia(p.iso); renderAll();
           if(!$("view-hab").hidden) renderHist();
@@ -1824,12 +1845,12 @@ async function tocarFila(){
       estadoFila = `Gemini indisponível — nova tentativa em ${Math.round(espera/1000)}s`;
       renderAll();
       await dormir(espera);
+      if(morta()) return;
       estadoFila = "estimando…";
       renderAll();
     }
   }finally{
-    rodandoFila = false;
-    estadoFila = "estimando…";
+    if(!morta()){ rodandoFila = false; estadoFila = "estimando…"; }
   }
 }
 
@@ -1989,7 +2010,7 @@ function renderHist(){
     <div class="wko">
       <div>
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.pendente ? `<span class="pend">${w.erro || estadoFila}</span>` : w.m}</div>
+        <div class="m">${w.pendente ? `<span class="pend" data-pend="${w.id}">${w.erro || estadoFila}</span>` : w.m}</div>
       </div>
       <div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
@@ -2166,7 +2187,7 @@ $("p-oai-salvar").onclick = async () => {
   bt.disabled = true; bt.textContent = "Validando…";
   const r = await validarOpenai(k);
   if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
-  else{ openaiKey = k; guardarOpenai(); $("p-oai-key").value = ""; bt.textContent = "Chave salva"; tocarFila(); }
+  else{ openaiKey = k; guardarOpenai(); $("p-oai-key").value = ""; bt.textContent = "Chave salva"; reiniciarFila(); }
   bt.disabled = false;
   renderIntegracoes();
   setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
@@ -2183,7 +2204,7 @@ $("p-gem-salvar").onclick = async () => {
     bt.textContent = r.erro.slice(0, 60);
   } else {
     geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
-    guardarGemini();
+    guardarGemini(); reiniciarFila();
     $("p-gem-key").value = "";
     bt.textContent = `Salva — usando ${r.modelo}`;
   }
