@@ -1084,7 +1084,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921193005";
+const VERSAO = "20260921193406";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -1980,6 +1980,14 @@ function abrirRefeicao(consulta, dia){
   $("consulta").hidden = true; $("consulta").innerHTML = "";
   abrir("dlg-meal", "st-meal", dia);
 }
+// fechou o tira-dúvida (X, Esc ou fora): volta em branco na próxima vez
+$("dlg-meal").addEventListener("close", () => {
+  if(!modoConsulta) return;
+  $("in-meal").value = ""; limparFoto();
+  $("consulta").hidden = true; $("consulta").innerHTML = "";
+  $("st-meal").textContent = "";
+  modoConsulta = false;
+});
 function abrir(dlgId, statusId, dia){
   alvoDia = dia || TODAY_ISO;
   $(statusId).textContent = ""; $(statusId).className = "addstatus";
