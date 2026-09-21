@@ -803,7 +803,8 @@ const css = v => getComputedStyle(document.body).getPropertyValue(v).trim();
 
 /* critério do saldo: verde déficit, cinza equilíbrio, vermelho superávit */
 const LIMIAR = 250;
-const balColor = b => b <= -LIMIAR ? "--sig-good" : (b >= LIMIAR ? "--sig-bad" : "--ink-3");
+// saldo do dia: azul do déficit, laranja da barra de consumo no superávit, cinza perto de zero
+const balColor = b => b <= -LIMIAR ? "--deficit" : (b >= LIMIAR ? "--consumo" : "--ink-3");
 
 // "Hoje"/"Ontem" só valem perto da data; mais longe, a própria data já situa
 function dayTitle(iso, curto){
@@ -918,7 +919,7 @@ function drawEnergy(){
   // "seg 14" numa linha quando cabe; em barra estreita, dia da semana em cima e número embaixo
   const empilha = bw < 60;
   const fsDay = empilha ? Math.max(8.5, Math.min(11, bw*0.3)) : Math.max(8, Math.min(13, bw*0.26));
-  const fsBal = Math.max(6.5, Math.min(15, bw*0.27));   // "−2916" (5 glifos mono) cabe na largura da barra
+  const fsBal = Math.max(6.5, Math.min(14, bw*0.235));  // "−2916" (5 glifos mono) + a pílula cabem na largura da barra
   svg.appendChild(el("line",{x1:P.l,x2:W-P.r,y1:yDay-15,y2:yDay-15,
     stroke:css("--grid"),"stroke-width":1}));
   // painel próprio fecha saldo e treino como um bloco, separado do gráfico
@@ -936,7 +937,13 @@ function drawEnergy(){
       rot.push(txt(cx(i), yDay+7, dt(r.d).getDate(), corDia, fsDay, null, true));
     } else rot.push(txt(cx(i), yDay, `${weekday(r.d)} ${dt(r.d).getDate()}`, corDia, fsDay, null, true));
     if(r.oculto){ rot.forEach(t => t.setAttribute("opacity", .4)); txt(cx(i), yBal, "—", corDia, fsBal, null, true); return; }
-    if(!r.vazio) txt(cx(i), yBal, (r.bal>0?"+":"−")+Math.abs(r.bal), css(balColor(r.bal)), fsBal, null, true);
+    if(!r.vazio){
+      // pílula cheia com o número em branco: o saldo é o dado principal desta faixa
+      const rot = (r.bal>0?"+":"−")+Math.abs(r.bal);
+      const ph = fsBal*1.8, pw = Math.min(bw-3, rot.length*fsBal*0.6 + 2*Math.max(3.5, fsBal*0.6));
+      svg.appendChild(el("rect",{x:cx(i)-pw/2, y:yBal-ph/2, width:pw, height:ph, rx:ph/2, fill:css(balColor(r.bal))}));
+      txt(cx(i), yBal, rot, "#fff", fsBal, null, true).setAttribute("font-weight", 600);
+    }
     if(r.out){
       const sz = Math.max(13, Math.min(27, bw*0.70));
       const g = el("g",{transform:`translate(${cx(i)-sz/2},${yTrain-sz/2}) scale(${sz/24})`,
@@ -1087,7 +1094,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921200100";
+const VERSAO = "20260921205253";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
