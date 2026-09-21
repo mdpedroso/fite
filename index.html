@@ -218,6 +218,13 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 /* calendário: o input de data fica invisível por cima do botão, e o toque abre o seletor nativo */
 .hnav .cal{position:relative;margin-left:4px;color:var(--ink-2)}
+.hnav .olho{color:var(--ink-2)}
+.hnav .olho svg{width:18px;height:18px;display:block;margin:auto}
+.hnav .olho .fechado{display:none}
+.hnav .olho.on{background:var(--ink-2);border-color:var(--ink-2);color:var(--surface)}
+.hnav .olho.on .aberto{display:none}
+.hnav .olho.on .fechado{display:block}
+.ignorado{background:var(--surface-2);color:var(--ink-2);font-size:13px;padding:8px 12px;border-radius:8px;margin:-2px 0 12px;text-align:center}
 .hnav .cal svg{width:17px;height:17px;display:block;margin:auto}
 .hnav .cal input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;
   font-size:16px;-webkit-appearance:none;appearance:none}
@@ -501,7 +508,12 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
           <input type="date" id="h-data" aria-label="Escolher uma data">
         </button>
+        <button class="olho" id="h-olho" title="Ignorar este dia" aria-label="Ignorar este dia">
+          <svg class="aberto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="fechado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6c1.6 0 3 .3 4.3.9M22 12s-3.5 6-10 6c-1.6 0-3-.3-4.3-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>
+        </button>
       </div>
+      <div class="ignorado" id="h-ignorado" hidden>Dia ignorado — fica fora do gráfico e dos totais. Toque no olho para voltar a contar.</div>
       <div class="today">
         <div>
           <div class="hero">
@@ -715,6 +727,7 @@ for(let i = JANELA-1; i >= 0; i--){
 // estado: um registro por dia, mais a série de pesos
 const DIA_MEALS = {}, DIA_WK = {};
 let LIXO_FOTOS = [];   // ids de fotos no Drive cujas refeições foram excluídas
+let OCULTOS = {};      // iso → true: dia ignorado (esqueci de anotar); fora do gráfico e dos totais
 let WEIGHTS = [];
 const MEALS = [];            // atalho para as refeições de hoje
 const TODAY_WORKOUTS = [];   // atalho para os treinos de hoje
@@ -858,7 +871,7 @@ function drawEnergy(){
   }
 
   DS.forEach((r,i)=>{
-    if(r.vazio) return;              // dia sem registro não vira barra
+    if(r.vazio || r.oculto) return;  // dia sem registro (ou ignorado) não vira barra
     svg.appendChild(el("rect",{x:cx(i)-bar/2, y:Y(r.in), width:bar,
       height:Math.max(2, Y(0)-Y(r.in)-2), rx:2.5, fill:css("--consumo")}));
     svg.appendChild(el("rect",{x:cx(i)-bar/2, y:Y(0)+2, width:bar,
@@ -867,6 +880,7 @@ function drawEnergy(){
 
   let ligado = false;
   const d = DS.map((r,i)=>{
+    if(r.oculto) return "";          // ignorado: a linha vai de um vizinho ao outro
     if(r.vazio){ ligado = false; return ""; }
     const cmd = ligado ? "L" : "M"; ligado = true;
     return `${cmd}${cx(i).toFixed(1)},${Y(r.bal).toFixed(1)}`;
@@ -875,7 +889,7 @@ function drawEnergy(){
     "stroke-linejoin":"round","stroke-linecap":"round"}));
   svg.appendChild(el("path",{d,fill:"none",stroke:css("--ink"),"stroke-width":2.5,
     "stroke-linejoin":"round","stroke-linecap":"round"}));
-  DS.forEach((r,i)=>{ if(r.vazio) return;
+  DS.forEach((r,i)=>{ if(r.vazio || r.oculto) return;
     svg.appendChild(el("circle",{cx:cx(i),cy:Y(r.bal),r:W<420?3:4,
       fill:css("--ink"),stroke:css("--surface"),"stroke-width":2})); });
 
@@ -895,10 +909,12 @@ function drawEnergy(){
   rowLabel(yTrain, "Treino", fsLbl);
 
   DS.forEach((r,i)=>{
+    const corDia = css("--ink-3"), rot = [];
     if(empilha){
-      txt(cx(i), yDay-6, weekday(r.d), css("--ink-3"), fsDay, null, true);
-      txt(cx(i), yDay+7, dt(r.d).getDate(), css("--ink-3"), fsDay, null, true);
-    } else txt(cx(i), yDay, `${weekday(r.d)} ${dt(r.d).getDate()}`, css("--ink-3"), fsDay, null, true);
+      rot.push(txt(cx(i), yDay-6, weekday(r.d), corDia, fsDay, null, true));
+      rot.push(txt(cx(i), yDay+7, dt(r.d).getDate(), corDia, fsDay, null, true));
+    } else rot.push(txt(cx(i), yDay, `${weekday(r.d)} ${dt(r.d).getDate()}`, corDia, fsDay, null, true));
+    if(r.oculto){ rot.forEach(t => t.setAttribute("opacity", .4)); txt(cx(i), yBal, "—", corDia, fsBal, null, true); return; }
     if(!r.vazio) txt(cx(i), yBal, (r.bal>0?"+":"−")+Math.abs(r.bal), css(balColor(r.bal)), fsBal, null, true);
     if(r.out){
       const sz = Math.max(13, Math.min(27, bw*0.70));
@@ -920,9 +936,9 @@ function drawEnergy(){
     if(i<0||i>=DS.length){ cross.setAttribute("opacity",0); return null; }
     const r = DS[i];
     cross.setAttribute("x1",cx(i)); cross.setAttribute("x2",cx(i)); cross.setAttribute("opacity",1);
-    if(r.vazio){ cross.setAttribute("opacity",0);
+    if(r.vazio || r.oculto){ cross.setAttribute("opacity",0);
       return { x: cx(i)/W*w, html:
-        `<b>${weekday(r.d)} ${dayShort(r.d)}</b><div style="opacity:.7">nada registrado</div>` }; }
+        `<b>${weekday(r.d)} ${dayShort(r.d)}</b><div style="opacity:.7">${r.oculto ? "dia ignorado" : "nada registrado"}</div>` }; }
     const sy = py/hpx*H;                       // onde o cursor está no viewBox
     const naLinhaTreino = sy > yTrain-16 && sy < yTrain+16;
     const cab = `<b>${weekday(r.d)} ${dayShort(r.d)}</b>`;
@@ -1055,7 +1071,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921135212";
+const VERSAO = "20260921142301";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -1649,7 +1665,7 @@ const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(
 
 function estadoAtual(){
   return {versao:2, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
-          pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, lixoFotos:[...LIXO_FOTOS],
+          pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, lixoFotos:[...LIXO_FOTOS], ocultos:{...OCULTOS},
           chaves: chavesAtuais()};
 }
 
@@ -1666,21 +1682,23 @@ function unirListas(a, b){
 function mesclarEstados(L, R){
   L = L || {}; R = R || {};
   const ks = o => Object.keys(o || {});
-  const dias = {}, wk = {}, ts = {};
-  new Set([...ks(L.dias), ...ks(R.dias), ...ks(L.wk), ...ks(R.wk)]).forEach(iso => {
+  const dias = {}, wk = {}, ts = {}, ocultos = {};
+  new Set([...ks(L.dias), ...ks(R.dias), ...ks(L.wk), ...ks(R.wk), ...ks(L.ocultos), ...ks(R.ocultos)]).forEach(iso => {
     const tl = L.ts?.[iso] || 0, tr = R.ts?.[iso] || 0;
     if(tl && tr && tl !== tr){
       const F = tl > tr ? L : R;
       dias[iso] = [...(F.dias?.[iso] || [])]; wk[iso] = [...(F.wk?.[iso] || [])];
+      if(F.ocultos?.[iso]) ocultos[iso] = true;
     } else {
       dias[iso] = unirListas(L.dias?.[iso], R.dias?.[iso]);
       wk[iso]   = unirListas(L.wk?.[iso],   R.wk?.[iso]);
+      if(L.ocultos?.[iso] || R.ocultos?.[iso]) ocultos[iso] = true;
     }
     ts[iso] = Math.max(tl, tr);
   });
   const gl = L.tsGeral || 0, gr = R.tsGeral || 0;
   const N = gl >= gr ? L : R, V = gl >= gr ? R : L;
-  return {versao:2, ts, tsGeral: Math.max(gl, gr), dias, wk,
+  return {versao:2, ts, tsGeral: Math.max(gl, gr), dias, wk, ocultos,
           lixoFotos: [...new Set([...(L.lixoFotos || []), ...(R.lixoFotos || [])])],
           pesos: (N.pesos && N.pesos.length) ? N.pesos : (V.pesos || []),
           perfil: {...(V.perfil || {}), ...(N.perfil || {})},
@@ -1702,6 +1720,7 @@ function adotarEstado(e){
   const tr = e.treinos || e.strava;
   if(tr?.desde) TREINOS.desde = tr.desde;
   LIXO_FOTOS = Array.isArray(e.lixoFotos) ? e.lixoFotos : [];
+  OCULTOS = {}; Object.entries(e.ocultos || {}).forEach(([k, v]) => { if(v) OCULTOS[k] = true; });
   adotarChaves(e.chaves);
   sincHoje();
 }
@@ -1818,6 +1837,7 @@ const salvarPerfil = () => { tsGeral = Date.now(); return salvar(); };
 function resumoDia(iso){
   const ms = DIA_MEALS[iso] || [], ws = DIA_WK[iso] || [], d = {d: iso};
   d.vazio = !ms.length && !ws.length;
+  d.oculto = !!OCULTOS[iso];
   d.in = ms.reduce((a,m) => a+m.kc, 0);
   d.out = ws.reduce((a,w) => a+w.kc, 0);
   d.mod = ws[0]?.mod; d.wt = ws[0]?.t; d.wm = ws[0]?.m;
@@ -1913,7 +1933,7 @@ function renderToday(){
 }
 
 function renderGrfSide(){
-  const cheios = diasGrafico().filter(d => !d.vazio);
+  const cheios = diasGrafico().filter(d => !d.vazio && !d.oculto);
   if(!cheios.length){ $("grf-side").textContent = "sem registros ainda"; return; }
   const soma = cheios.reduce((a,d) => a+d.bal, 0);
   $("grf-side").textContent =
@@ -2477,6 +2497,10 @@ function renderHist(){
   $("h-title").textContent = dayTitle(d.d);
   $("h-next").disabled = histIso >= TODAY_ISO;
   $("h-data").value = histIso; $("h-data").max = TODAY_ISO;
+  const oculto = !!OCULTOS[histIso];
+  $("h-olho").classList.toggle("on", oculto);
+  $("h-olho").title = $("h-olho").ariaLabel = oculto ? "Voltar a contar este dia" : "Ignorar este dia";
+  $("h-ignorado").hidden = !oculto;
 
   const semNada = kin === 0;
   $("h-hbal").textContent = semNada ? "—" : (bal>0?"+":"−") + fmt(Math.abs(bal));
@@ -2535,6 +2559,11 @@ function irPara(iso){
 $("h-prev").onclick  = () => irPara(somaDias(histIso, -1));
 $("h-next").onclick  = () => irPara(somaDias(histIso, 1));
 $("h-data").addEventListener("change", e => { if(e.target.value) irPara(e.target.value); });
+$("h-olho").onclick = () => {
+  if(OCULTOS[histIso]) delete OCULTOS[histIso]; else OCULTOS[histIso] = true;
+  salvarDia(histIso);
+  renderTudo();
+};
 $("h-meals").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
   const iso = histIso, arr = DIA_MEALS[iso] || [], m = arr[+b.dataset.i];
