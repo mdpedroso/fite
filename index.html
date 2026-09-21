@@ -1050,7 +1050,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921131309";
+const VERSAO = "20260921134326";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -1813,9 +1813,13 @@ function periodoGrafico(){
     ? `${a.getDate()} – ${b.getDate()} ${mes(b)}`
     : `${a.getDate()} ${mes(a)} – ${b.getDate()} ${mes(b)}`;
 }
+// hoje: os últimos 7 dias. Para trás: semanas cheias, de segunda a domingo
 function irSemana(n){
-  GRF_FIM = somaDias(GRF_FIM, 7*n);
-  if(GRF_FIM > TODAY_ISO) GRF_FIM = TODAY_ISO;
+  const dow = dt(GRF_FIM).getDay();                       // 0 = domingo
+  if(n < 0 && GRF_FIM === TODAY_ISO && dow !== 0)
+    GRF_FIM = somaDias(GRF_FIM, -dow);                    // domingo anterior à semana de hoje
+  else GRF_FIM = somaDias(GRF_FIM, 7*n);
+  if(GRF_FIM >= TODAY_ISO) GRF_FIM = TODAY_ISO;
   const h = $("c-energy"); h.querySelector("svg")?.remove();
   drawEnergy(); renderGrfSide();
 }
