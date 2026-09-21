@@ -187,12 +187,16 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .meal .desc{font-size:15px}
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
 .meal .mm{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.mac3 span + span::before{content:"· "}
 @media(min-width:720px){
   .meal{align-items:center}
   .meal .mrow{align-items:center;min-width:0}
   .meal .mrow > div{display:flex;align-items:center;gap:20px;flex:1;min-width:0}   /* descrição longa quebra; macros e kcal ficam no meio */
   .meal .desc{flex:1;min-width:0}
   .meal .mm{margin-top:0;flex:none;width:190px;white-space:nowrap}
+  /* P embaixo de P, C embaixo de C: cada macro tem sua célula de largura fixa */
+  .mac3 span{display:inline-block;width:64px}
+  .mac3 span:first-child{width:50px}
   .meal .mm.pend{width:auto;max-width:48%;white-space:normal;text-align:right}
   .meal .kc{min-width:64px;text-align:right}
 }
@@ -1079,7 +1083,7 @@ function renderMeals(target, showKc){
         <div>
         <div class="desc">${m.desc}</div>
         ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || estadoFila}</div>`
-          : showKc ? `<div class="mm num">P ${m.p} · C ${m.c} · G ${m.g}</div>` : ""}
+          : showKc ? `<div class="mm num mac3"><span>P ${m.p}</span><span>C ${m.c}</span><span>G ${m.g}</span></div>` : ""}
         </div>
       </div>
       ${showKc?`<div class="kc num">${m.pendente ? "—" : fmt(m.kc)}</div>`:`<div></div>`}
@@ -1103,7 +1107,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921205512";
+const VERSAO = "20260921205604";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -2661,7 +2665,7 @@ function renderHist(){
         <div>
         <div class="desc">${m.desc}</div>
         ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || estadoFila}</div>`
-                     : `<div class="mm num">P ${m.p} · C ${m.c} · G ${m.g}</div>`}
+                     : `<div class="mm num mac3"><span>P ${m.p}</span><span>C ${m.c}</span><span>G ${m.g}</span></div>`}
         </div>
       </div>
       <div class="kc num">${fmt(m.kc)}</div>
