@@ -1259,7 +1259,7 @@ async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
       await dormir(1500 * (tentativa + 1));
       return geminiJSON(prompt, imagem, jaTentou, tentativa + 1);
     }
-    if(TRANSITORIO.includes(r.status) && !jaTentou && !emCorrida){
+    if((TRANSITORIO.includes(r.status) || r.status === 429) && !jaTentou){
       const outro = geminiCandidatos.find(m => m !== geminiModelo);
       if(outro){                       // este modelo está lotado: tenta outro pool
         console.warn(`gemini ${geminiModelo} em ${r.status}; trocando para ${outro}`);
@@ -1342,8 +1342,11 @@ async function estimarJSON(prompt, imagem){
     return r;
   }catch(agg){
     const erros = agg.errors || [agg];
-    // se um deles falhou por motivo permanente, é esse que interessa relatar
-    throw erros.find(e => !TRANSITORIO.includes(e?.status)) || erros[0];
+    if(erros.length === 1) throw erros[0];
+    // os dois falharam: a pessoa precisa ver os dois motivos, não um que alterna
+    const e = new Error("todos-falharam");
+    e.detalhes = erros.map(x => erroMsg(x));
+    throw e;
   }
 }
 
@@ -1668,17 +1671,22 @@ function avisarTentativa(n){
   if(statusAtual) statusAtual.textContent = `Gemini ocupado, tentando de novo (${n}/2)…`;
 }
 function erroMsg(e){
+  if(e?.message === "todos-falharam") return e.detalhes.join("  ·  ");
   if(e?.message === "sem-chave") return "Configure a chave do Gemini ou do ChatGPT no Perfil.";
   if(e?.prov === "openai"){
-    if(e.status === 401) return "Chave do ChatGPT recusada. Confira no Perfil.";
-    if(e.status === 429) return "ChatGPT sem crédito ou no limite. Tente daqui a pouco.";
+    let cod = "";
+    try{ cod = JSON.parse(e.corpo || "{}").error?.code || ""; }catch(x){}
+    if(e.status === 401) return "ChatGPT: chave recusada — confira no Perfil";
+    if(e.status === 429) return cod === "insufficient_quota"
+      ? "ChatGPT: sem crédito na conta OpenAI (é pré-pago)"
+      : "ChatGPT: limite de requisições — tenta de novo sozinho";
     if(TRANSITORIO.includes(e.status)) return "O ChatGPT está instável agora. Tente de novo.";
   }
-  if(e?.status === 429) return "Limite do Gemini atingido. Tente daqui a pouco.";
+  if(e?.status === 429) return "Gemini: cota do plano gratuito esgotada — tenta de novo sozinho";
   if(TRANSITORIO.includes(e?.status)){
     let det = "";
     try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
-    return `Gemini ${e.status}${det ? " — " + det.slice(0, 90) : " (sobrecarregado)"}`;
+    return `Gemini: ${e.status}${det ? " — " + det.slice(0, 70) : " sobrecarregado"}`;
   }
   if(e?.status === 404) return `O modelo "${geminiModelo}" não existe nessa chave. ` +
     `Salve a chave de novo no Perfil para escolher outro.`;
