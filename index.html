@@ -187,6 +187,15 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .meal .desc{font-size:15px}
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
 .meal .mm{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+@media(min-width:720px){
+  .meal{align-items:center}
+  .meal .mrow{align-items:center;min-width:0}
+  .meal .mrow > div{display:flex;align-items:baseline;gap:20px;flex:1;min-width:0}
+  .meal .desc{flex:1;min-width:0}
+  .meal .mm{margin-top:0;flex:none;width:190px;white-space:nowrap}
+  .meal .mm.pend{width:auto;max-width:48%;white-space:normal;text-align:right}
+  .meal .kc{min-width:64px;text-align:right}
+}
 .pend{color:var(--marca);font-style:italic}
 @keyframes pulsa{0%,100%{opacity:.45}50%{opacity:1}}
 .pend{animation:pulsa 1.6s ease-in-out infinite}
@@ -476,7 +485,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
   </div>
 
-  <div class="grid two">
+  <div class="grid">
     <section class="card">
       <h2>Refeições <span class="tot" id="meals-total"></span></h2>
       <button class="mais duvida" id="bt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
@@ -568,7 +577,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
   </div>
 
-  <div class="grid two">
+  <div class="grid">
     <section class="card">
       <h2>Refeições <span class="tot" id="h-mtotal"></span></h2>
       <button class="mais duvida" id="hbt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
@@ -1094,7 +1103,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921205253";
+const VERSAO = "20260921205404";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
