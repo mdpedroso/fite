@@ -16,6 +16,7 @@
   --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
   --sig-good:#0a8a0a; --sig-mid:#c28400; --sig-bad:#c62f2f;
   --deficit:#2a78d6; --surplus:#d03b3b;
+  --tit-ref:#0e5b7d; --tit-tre:#4c8512;
   --marca:#0e5b7d; --marca-2:#8cc63f;
   --consumo:#e35b28;
   --gasto:#5b9bd5; --gasto-2:#2a6db5; --gasto-3:#123f73;
@@ -30,6 +31,7 @@
   --good:#0ca30c; --warn:#fab219; --crit:#e66767;
   --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
   --deficit:#3987e5; --surplus:#e66767;
+  --tit-ref:#62b4d8; --tit-tre:#a5d65c;
   --marca:#3d9dc4; --marca-2:#9fd94f;
   --consumo:#e0683a;
   --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
@@ -44,6 +46,7 @@
   --good:#0ca30c; --warn:#fab219; --crit:#e66767;
   --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
   --deficit:#3987e5; --surplus:#e66767;
+  --tit-ref:#62b4d8; --tit-tre:#a5d65c;
   --marca:#3d9dc4; --marca-2:#9fd94f;
   --consumo:#e0683a;
   --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
@@ -131,7 +134,7 @@ header{
 @media(min-width:720px){ .today{grid-template-columns:1fr 1fr;gap:56px}
   .today > div:first-child{padding-right:20px}
   .today > div:last-child{padding-left:8px} }
-.mhead{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:11px}
+.mhead{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
 .mhead span{float:right;text-transform:none;letter-spacing:0;font-weight:500}
 section.card{position:relative;background:var(--surface);border:1px solid var(--hair);
   border-radius:10px;padding:13px 14px;box-shadow:var(--shadow)}
@@ -142,27 +145,28 @@ h2:has(~ .mais.gira:not([hidden])), h2:has(~ .mais.duvida){padding-right:70px}
 /* o total herda a fonte do título; só o separador e o peso mudam */
 h2 .tot{opacity:.62;font-weight:600}
 h2 .tot:not(:empty)::before{content:"· "}
+h2.t-ref{color:var(--tit-ref)} h2.t-tre{color:var(--tit-tre)}
 h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink-3)}
 
 /* ---- hero ---- */
 /* o saldo inteiro é uma pílula: uma cor só, o que muda é o tamanho */
-.hero{display:inline-flex;align-items:baseline;gap:9px;padding:9px 20px 10px 16px;border-radius:99px;
+.hero{display:inline-flex;align-items:baseline;gap:7px;padding:6px 16px 7px 13px;border-radius:99px;
   max-width:100%;white-space:nowrap}
 .hero:has(.tag.def){background:color-mix(in srgb,var(--deficit) 12%,transparent);color:var(--deficit)}
 .hero:has(.tag.sur){background:color-mix(in srgb,var(--surplus) 12%,transparent);color:var(--surplus)}
 .hero:has(.tag.neu){background:var(--surface-2);color:var(--ink-2)}
-.hero .big{font-size:clamp(36px,9.5vw,52px);font-weight:600;line-height:1;letter-spacing:-.03em}
-.hero .unit{font-size:18px;font-weight:500;opacity:.85}
-.tag{font-size:15px;font-weight:600;letter-spacing:.01em}
+.hero .big{font-size:clamp(27px,7vw,34px);font-weight:600;line-height:1;letter-spacing:-.03em}
+.hero .unit{font-size:15px;font-weight:500;opacity:.85}
+.tag{font-size:13.5px;font-weight:600;letter-spacing:.01em}
 .hero-sub{color:var(--ink-2);font-size:13.5px;margin-top:8px}
 
 /* ---- flow bar ---- */
-.flow{margin-top:13px;display:flex;flex-direction:column;gap:7px}
+.flow{margin-top:9px;display:flex;flex-direction:column;gap:4px}
 .flowrow{display:grid;grid-template-columns:86px 1fr auto;align-items:center;gap:10px}
 .flowrow .lbl{font-size:13px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:6px}
 .dot{width:9px;height:9px;border-radius:2px;flex:none}
 .dot.split{width:22px;background:linear-gradient(90deg,var(--gasto) 0 33%,var(--gasto-2) 33% 66%,var(--gasto-3) 66% 100%)}
-.track{height:12px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.track{height:10px;background:var(--surface-2);border-radius:3px;overflow:hidden}
 .fill{height:100%;border-radius:3px}
 .segbar{display:flex;height:100%;gap:2px}
 .segbar div{height:100%;border-radius:3px;min-width:2px}
@@ -171,10 +175,10 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- macros ---- */
 /* barra única dividida: soma 100% do dia, sem trilho vazio sugerindo meta */
-.mbar{display:flex;gap:2px;height:16px;margin-bottom:13px}
+.mbar{display:flex;gap:2px;height:12px;margin-bottom:8px}
 .mbar div{border-radius:3px;min-width:2px}
-.mleg{display:flex;flex-direction:column;gap:8px}
-.mleg span{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-2)}
+.mleg{display:flex;flex-direction:column;gap:3px}
+.mleg span{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink-2)}
 .mleg i{width:10px;height:10px;border-radius:2px;flex:none}
 .mleg b{color:var(--ink);font-weight:600;margin-left:auto}
 .mleg em{font-style:normal;color:var(--ink-3);min-width:38px;text-align:right;
@@ -182,7 +186,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- meal list ---- */
 .meals{display:flex;flex-direction:column;margin-top:6px}
-.meal{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:start;padding:8px 0;border-top:1px solid var(--grid)}
+.meal{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:start;padding:5px 0;border-top:1px solid var(--grid)}
 .meal .slot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding-top:4px}
 .meal .desc{font-size:15px}
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
@@ -199,6 +203,14 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   .mac3 span:first-child{width:50px}
   .meal .mm.pend{width:auto;max-width:48%;white-space:normal;text-align:right}
   .meal .kc{min-width:64px;text-align:right}
+  .meal .thumb{width:34px;height:34px;border-radius:6px}
+  .meal .del,.wko .del{align-self:center}
+  /* treino também numa linha: nome, detalhes, kcal */
+  .wko{align-items:center}
+  .wko > div:first-child{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .wko .t,.wko .m{margin-top:0}
+  .wko .kc br{display:none}
+  .wko .kc span{margin-left:5px}
 }
 .pend{color:var(--marca);font-style:italic}
 @keyframes pulsa{0%,100%{opacity:.45}50%{opacity:1}}
@@ -207,7 +219,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- workouts ---- */
 .wk{display:flex;flex-direction:column;margin-top:6px}
-.wko{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:8px 0;border-top:1px solid var(--grid)}
+.wko{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:5px 0;border-top:1px solid var(--grid)}
 .wko .d{font-size:12.5px;color:var(--ink-3);text-transform:capitalize}
 .wko .t{font-size:15px;font-weight:600;margin-top:1px;display:flex;align-items:center;gap:7px}
 .wko .wico{color:var(--ink-2);display:flex}
@@ -491,14 +503,14 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
   <div class="grid">
     <section class="card">
-      <h2>Refeições <span class="tot" id="meals-total"></span></h2>
+      <h2 class="t-ref">Refeições <span class="tot" id="meals-total"></span></h2>
       <button class="mais duvida" id="bt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
       <button class="mais azul" id="bt-meal" aria-label="Adicionar refeição">+</button>
       <div class="meals" id="meals"></div>
     </section>
 
     <section class="card">
-      <h2>Treinos <span class="tot" id="wk-total"></span></h2>
+      <h2 class="t-tre">Treinos <span class="tot" id="wk-total"></span></h2>
       <button class="mais gira" id="bt-wk-sync" aria-label="Buscar treinos do relógio" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v5h-5"/></svg>
       </button>
@@ -583,13 +595,13 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
   <div class="grid">
     <section class="card">
-      <h2>Refeições <span class="tot" id="h-mtotal"></span></h2>
+      <h2 class="t-ref">Refeições <span class="tot" id="h-mtotal"></span></h2>
       <button class="mais duvida" id="hbt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
       <button class="mais azul" id="hbt-meal" aria-label="Adicionar refeição">+</button>
       <div class="meals" id="h-meals"></div>
     </section>
     <section class="card">
-      <h2>Treino <span class="tot" id="h-wtotal"></span></h2>
+      <h2 class="t-tre">Treino <span class="tot" id="h-wtotal"></span></h2>
       <button class="mais verde" id="hbt-wk" aria-label="Adicionar treino">+</button>
       <div class="wk" id="h-wk"></div>
     </section>
@@ -1107,7 +1119,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921205724";
+const VERSAO = "20260921205831";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
