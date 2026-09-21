@@ -1433,13 +1433,29 @@ async function groqJSON(prompt, imagem, jaTentou){
   return lerJSON(txt, "groq");
 }
 
-// dispara para todos os motores configurados e fica com o primeiro que responder
+// texto: o Groq responde em menos de um segundo, então vai primeiro e os outros
+// ficam de reserva (sem gastar cota). Foto: corrida entre todos — aí a
+// qualidade de Gemini/GPT compensa o custo.
 let ultimoMotor = null;
+const nomeado = (p, prov) => p.then(r => ({r, prov}));
+function outrosMotores(prompt, imagem){
+  const c = [];
+  if(geminiKey) c.push(nomeado(geminiJSON(prompt, imagem), "gemini"));
+  if(openaiKey) c.push(nomeado(openaiJSON(prompt, imagem), "openai"));
+  return c;
+}
 async function estimarJSON(prompt, imagem){
-  const corridas = [];
-  if(geminiKey) corridas.push(geminiJSON(prompt, imagem).then(r => ({r, prov:"gemini"})));
-  if(openaiKey) corridas.push(openaiJSON(prompt, imagem).then(r => ({r, prov:"openai"})));
-  if(groqKey)   corridas.push(groqJSON(prompt, imagem).then(r => ({r, prov:"groq"})));
+  let corridas;
+  if(groqKey && !imagem){
+    const g = nomeado(groqJSON(prompt, imagem), "groq");
+    // dá 12 s ao Groq; se falhar ou demorar, os outros entram sem cancelar o Groq
+    const primeiro = await Promise.race([g.catch(() => null), dormir(12000).then(() => null)]);
+    if(primeiro){ ultimoMotor = primeiro.prov; return primeiro.r; }
+    corridas = [g, ...outrosMotores(prompt, imagem)];
+  } else {
+    corridas = outrosMotores(prompt, imagem);
+    if(groqKey) corridas.push(nomeado(groqJSON(prompt, imagem), "groq"));
+  }
   if(!corridas.length) throw new Error("sem-chave");
   try{
     const {r, prov} = await Promise.any(corridas);
@@ -1448,7 +1464,6 @@ async function estimarJSON(prompt, imagem){
   }catch(agg){
     const erros = agg.errors || [agg];
     if(erros.length === 1) throw erros[0];
-    // os dois falharam: a pessoa precisa ver os dois motivos, não um que alterna
     const e = new Error("todos-falharam");
     e.detalhes = erros.map(x => erroMsg(x));
     throw e;
@@ -1931,7 +1946,9 @@ async function estimarItem(p){
       `p, c, g são gramas de proteína, carboidrato e gordura.`, foto);
     Object.assign(m, {
       via: ultimoMotor,
-      slot: String(r.slot || m.slot), desc: String(r.desc || m.raw || m.desc),
+      slot: String(r.slot || m.slot),
+      desc: m.raw || String(r.desc || m.desc),      // o que a pessoa escreveu manda
+      interp: String(r.desc || ""),                   // como o modelo entendeu, para conferir
       kc: Math.round(Number(r.kcal) || 0), p: Math.round(Number(r.p) || 0),
       c: Math.round(Number(r.c) || 0), g: Math.round(Number(r.g) || 0),
     });
