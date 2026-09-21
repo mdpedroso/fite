@@ -1681,6 +1681,7 @@ document.addEventListener("visibilitychange", () => {
   if(document.visibilityState !== "visible") return;
   if(syncEstado !== "ok" && syncEstado !== "salvando") salvar();
   tocarFila();
+  icuAuto();
 });
 
 const salvarDia = iso => { if(iso) marcarDia(iso); return salvar(); };
@@ -2461,11 +2462,13 @@ async function icuConectar(){
   renderIntegracoes();
   setTimeout(() => { bt.textContent = icuCfg().k ? "Reconectar" : "Conectar"; }, 3500);
 }
-async function icuSincronizar(){
+let icuRodando = false;
+async function icuSincronizar(auto){
   const c = icuCfg();
-  if(!c.k) return;
+  if(!c.k || icuRodando) return;
+  icuRodando = true;
   const bt = $("p-icu-sync");
-  bt.disabled = true; bt.textContent = "Buscando…";
+  if(!auto){ bt.disabled = true; bt.textContent = "Buscando…"; }
   try{
     const desde = TREINOS.desde || DAYS[0].d;
     const campos = "id,name,type,start_date_local,start_date,moving_time,elapsed_time,distance,calories,average_speed";
@@ -2507,18 +2510,25 @@ async function icuSincronizar(){
       ? `${cascas} atividade(s) sem nome/tipo/tempo — o intervals.icu ainda não recebeu os dados. ` +
         `Como veio: ${JSON.stringify(primeiraCasca).slice(0, 220)}`
       : "";
-    await salvar();
-    renderTudo();
+    icuGrava({...icuCfg(), auto: Date.now()});
+    if(novos || atualizados){ await salvar(); renderTudo(); }
+    if(auto) return;
     bt.textContent = novos || atualizados
       ? [novos && `${novos} novo${novos>1?"s":""}`, atualizados && `${atualizados} completado${atualizados>1?"s":""}`].filter(Boolean).join(" · ")
       : "Nada novo por lá";
   }catch(e){
     console.warn(e);
-    bt.textContent = e.message === "chave recusada" ? "Chave recusada — reconecte" : "Falhou: " + e.message;
+    if(!auto) bt.textContent = e.message === "chave recusada" ? "Chave recusada — reconecte" : "Falhou: " + e.message;
   }finally{
-    bt.disabled = false;
-    setTimeout(() => { bt.textContent = "Buscar treinos novos"; }, 3500);
+    icuRodando = false;
+    if(!auto){ bt.disabled = false; setTimeout(() => { bt.textContent = "Buscar treinos novos"; }, 3500); }
   }
+}
+// ao abrir o app ou voltar para ele: busca sozinho, no máximo a cada 15 min
+function icuAuto(){
+  const c = icuCfg();
+  if(!c.k || Date.now() - (c.auto || 0) < 15*60*1000) return;
+  icuSincronizar(true);
 }
 // sem calorias medidas pelo aparelho: MET × peso × tempo
 function estimarKcal(mod, min){
@@ -2554,7 +2564,7 @@ function renderIntegracoes(){
   };
 }
 $("p-icu-conectar").onclick = icuConectar;
-$("p-icu-sync").onclick = icuSincronizar;
+$("p-icu-sync").onclick = () => icuSincronizar(false);
 $("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-desde").value; salvar(); });
 $("p-groq-salvar").onclick = async () => {
   const k = $("p-groq-key").value.trim();
@@ -2651,6 +2661,7 @@ function abrirApp(){
   }
   try{ setView(localStorage.getItem("fite.aba") || "btn-full"); }catch(e){ setView("btn-full"); }
   tocarFila();          // o que ficou pendente de outra sessão retoma agora
+  icuAuto();            // treinos novos do relógio, sem precisar ir ao perfil
   const fotoVelha = !groqFoto && Date.now() - groqTestadoEm > 6*3600*1000;
   if(groqKey && (!groqTexto || fotoVelha))   // sem texto, ou sem foto há tempo: tenta de novo
     descobrirGroq(groqKey).then(d => {
