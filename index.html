@@ -928,23 +928,19 @@ function drawEnergy(){
     }
   });
 
-  const cross = el("line",{y1:P.t,y2:P.t+ih,stroke:css("--axis"),"stroke-width":1,opacity:0});
-  svg.appendChild(cross);
   host.insertBefore(svg, host.firstChild);
 
   bindTip(host, document.getElementById("t-energy"), (px,w,py,hpx)=>{
     const i = Math.floor(((px/w*W) - P.l)/bw);
-    if(i<0||i>=DS.length){ cross.setAttribute("opacity",0); return null; }
+    if(i<0||i>=DS.length) return null;
     const r = DS[i];
-    cross.setAttribute("x1",cx(i)); cross.setAttribute("x2",cx(i)); cross.setAttribute("opacity",1);
-    if(r.vazio || r.oculto){ cross.setAttribute("opacity",0);
+    if(r.vazio || r.oculto){
       return { x: cx(i)/W*w, html:
         `<b>${weekday(r.d)} ${dayShort(r.d)}</b><div style="opacity:.7">${r.oculto ? "dia ignorado" : "nada registrado"}</div>` }; }
     const sy = py/hpx*H;                       // onde o cursor está no viewBox
     const naLinhaTreino = sy > yTrain-16 && sy < yTrain+16;
     const cab = `<b>${weekday(r.d)} ${dayShort(r.d)}</b>`;
     if(naLinhaTreino){
-      cross.setAttribute("opacity",0);
       return { x: cx(i)/W*w, html: r.out
         ? `${cab}<div>${r.wt || MOD_NOME[r.mod] || "Treino"}</div>` +
           (r.wm ? `<div style="opacity:.7">${r.wm}</div>` : "") +
@@ -1072,7 +1068,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921151937";
+const VERSAO = "20260921160702";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -2298,7 +2294,7 @@ async function estimarItem(p){
       `Treino: "${m.raw}"\n` +
       (m.kcalDito ? `As calorias gastas são ${m.kcalDito} — use exatamente esse valor.\n` : "") +
       `Responda só com JSON no formato: ` +
-      `{"mod":"musculacao|corrida|bike|crossfit|aerobico|natacao|caminhada|esporte|outro",` +
+      `{"mod":"musculacao|corrida|bike|crossfit|funcional|aerobico|natacao|caminhada|esporte|outro",` +
       `"t":"nome curto do treino","m":"duração e detalhes em uma linha","kcal":0}`);
     Object.assign(m, {
       mod: String(r.mod || "outro"), t: String(r.t || m.raw),
