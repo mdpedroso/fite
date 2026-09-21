@@ -1369,7 +1369,7 @@ const GROQ_PREF_TEXTO = ["openai/gpt-oss-120b","llama-3.3-70b-versatile","qwen/q
 const GROQ_PREF_FOTO  = ["qwen/qwen3.8-27b","qwen/qwen3.6-27b",
                          "meta-llama/llama-4-scout-17b-16e-instruct",
                          "meta-llama/llama-4-maverick-17b-128e-instruct"];
-const PNG_TESTE = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGM4MS2KJMQwqmFUw/DVAABYjrgQrDk0aAAAAABJRU5ErkJggg==";   // 16×16 válido: alguns modelos rejeitam imagem minúscula
+const PNG_TESTE = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAeklEQVR4nO3PUQkAIBTAwJfTYGYyliH8OITBAtzm7PV1wwUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWPHYB8nOBln5JujwAAAAASUVORK5CYII=";   // 64×64: o Qwen exige pelo menos 32 px por lado
 let groqFotoSemJSON = false, groqFotoMotivo = "";
 // devolve {ok} ou {ok:false, motivo}; para foto, tenta com e sem modo JSON
 async function testarGroq(chave, modelo, comImagem){
@@ -2479,7 +2479,7 @@ async function boot(){
     if(o?.k) openaiKey = o.k;
     const q = JSON.parse(localStorage.getItem(LS_GROQ) || "null");
     if(q?.k){ groqKey = q.k; groqTexto = q.texto || null; groqFoto = q.foto || null;
-              groqFotoSemJSON = !!q.fotoSemJSON; groqFotoMotivo = q.fotoMotivo || ""; groqTestadoEm = q.testadoEm || 0; }
+              groqFotoSemJSON = !!q.fotoSemJSON; groqFotoMotivo = q.fotoMotivo || ""; groqTestadoEm = 0; }   // força nova descoberta de foto ao abrir
   }catch(e){}
 
   diag("iniciando");
