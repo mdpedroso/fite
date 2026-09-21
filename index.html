@@ -89,6 +89,12 @@ header{
 /* o verde da marca é claro demais para branco: tinta escura no lugar */
 .mais.verde{background:var(--marca-2);color:#143300}
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
+/* atualizar treinos do relógio: contorno, seta em SVG, à esquerda do + */
+.mais.gira{right:46px;background:var(--surface-2);color:var(--ink-2);border:1.5px solid var(--grid)}
+.mais.gira::before,.mais.gira::after{display:none}
+.mais.gira svg{width:14px;height:14px;display:block;margin:auto}
+.mais.gira.rodando svg{animation:roda 1s linear infinite}
+@keyframes roda{to{transform:rotate(360deg)}}
 
 /* ---- estado da gravação: mesma pele das abas ---- */
 .seg .sync{font:inherit;font-size:12.5px;font-weight:600;border:0;cursor:pointer;
@@ -115,6 +121,7 @@ section.card{position:relative;background:var(--surface);border:1px solid var(--
 h2{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 11px}
 .mais ~ h2, h2:has(~ .mais){padding-right:34px}
+h2:has(~ .mais.gira:not([hidden])){padding-right:70px}
 /* o total herda a fonte do título; só o separador e o peso mudam */
 h2 .tot{opacity:.62;font-weight:600}
 h2 .tot:not(:empty)::before{content:"· "}
@@ -436,6 +443,9 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
     <section class="card">
       <h2>Treinos <span class="tot" id="wk-total"></span></h2>
+      <button class="mais gira" id="bt-wk-sync" aria-label="Buscar treinos do relógio" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v5h-5"/></svg>
+      </button>
       <button class="mais verde" id="bt-wk" aria-label="Adicionar treino">+</button>
       <div class="wk" id="workouts"></div>
     </section>
@@ -2469,6 +2479,7 @@ async function icuSincronizar(auto){
   icuRodando = true;
   const bt = $("p-icu-sync");
   if(!auto){ bt.disabled = true; bt.textContent = "Buscando…"; }
+  $("bt-wk-sync").classList.add("rodando");
   try{
     const desde = TREINOS.desde || DAYS[0].d;
     const campos = "id,name,type,start_date_local,start_date,moving_time,elapsed_time,distance,calories,average_speed";
@@ -2521,6 +2532,7 @@ async function icuSincronizar(auto){
     if(!auto) bt.textContent = e.message === "chave recusada" ? "Chave recusada — reconecte" : "Falhou: " + e.message;
   }finally{
     icuRodando = false;
+    $("bt-wk-sync").classList.remove("rodando");
     if(!auto){ bt.disabled = false; setTimeout(() => { bt.textContent = "Buscar treinos novos"; }, 3500); }
   }
 }
@@ -2549,6 +2561,7 @@ function renderIntegracoes(){
   $("p-icu-desde").value = TREINOS.desde || "";
   $("p-icu-status").textContent = ic.k ? (ic.atleta ? `conectado · ${ic.atleta}` : "conectado") : "não conectado";
   $("p-icu-sync").hidden = !ic.k;
+  $("bt-wk-sync").hidden = !ic.k;
   $("p-icu-conectar").textContent = ic.k ? "Reconectar" : "Conectar";
   $("p-icu-key").placeholder = ic.k ? "•••••••• (trocar)" : "Cole a chave do intervals.icu";
   if(usuario) $("brand-quem").textContent =
@@ -2565,6 +2578,7 @@ function renderIntegracoes(){
 }
 $("p-icu-conectar").onclick = icuConectar;
 $("p-icu-sync").onclick = () => icuSincronizar(false);
+$("bt-wk-sync").onclick = () => { icuGrava({...icuCfg(), auto: 0}); icuSincronizar(true); };
 $("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-desde").value; salvar(); });
 $("p-groq-salvar").onclick = async () => {
   const k = $("p-groq-key").value.trim();
