@@ -679,6 +679,7 @@ for(let i = JANELA-1; i >= 0; i--){
 
 // estado: um registro por dia, mais a série de pesos
 const DIA_MEALS = {}, DIA_WK = {};
+let LIXO_FOTOS = [];   // ids de fotos no Drive cujas refeições foram excluídas
 let WEIGHTS = [];
 const MEALS = [];            // atalho para as refeições de hoje
 const TODAY_WORKOUTS = [];   // atalho para os treinos de hoje
@@ -1518,7 +1519,7 @@ const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(
 
 function estadoAtual(){
   return {versao:2, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
-          pesos:WEIGHTS, strava:{desde: STRAVA.desde || null}};
+          pesos:WEIGHTS, strava:{desde: STRAVA.desde || null}, lixoFotos:[...LIXO_FOTOS]};
 }
 
 // identidade de um item, para juntar listas sem duplicar
@@ -1549,6 +1550,7 @@ function mesclarEstados(L, R){
   const gl = L.tsGeral || 0, gr = R.tsGeral || 0;
   const N = gl >= gr ? L : R, V = gl >= gr ? R : L;
   return {versao:2, ts, tsGeral: Math.max(gl, gr), dias, wk,
+          lixoFotos: [...new Set([...(L.lixoFotos || []), ...(R.lixoFotos || [])])],
           pesos: (N.pesos && N.pesos.length) ? N.pesos : (V.pesos || []),
           perfil: {...(V.perfil || {}), ...(N.perfil || {})},
           strava: N.strava?.desde ? N.strava : (V.strava || {})};
@@ -1566,6 +1568,7 @@ function adotarEstado(e){
   WEIGHTS = Array.isArray(e.pesos) ? e.pesos : [];
   if(e.perfil) Object.assign(PERF, e.perfil);
   if(e.strava?.desde) STRAVA.desde = e.strava.desde;
+  LIXO_FOTOS = Array.isArray(e.lixoFotos) ? e.lixoFotos : [];
   sincHoje();
 }
 function aplicarEstado(d){ if(d) adotarEstado(mesclarEstados(estadoAtual(), d)); else sincHoje(); }
@@ -2128,7 +2131,8 @@ async function estimarItem(p){
 }
 
 async function tocarFila(){
-  if(rodandoFila || !(geminiKey || openaiKey || groqKey)) return;
+  if(rodandoFila) return;
+  if(!(geminiKey || openaiKey || groqKey) && !LIXO_FOTOS.length && !fotosPorEnviar().length) return;
   rodandoFila = true;
   const gen = filaGeracao;
   const morta = () => gen !== filaGeracao;   // outra rodada assumiu
@@ -2136,6 +2140,11 @@ async function tocarFila(){
     let espera = 4000;
     while(!morta()){
       const lista = pendentes();
+      if(LIXO_FOTOS.length && accessToken){
+        const antes = LIXO_FOTOS.length;
+        await apagarFotosNoDrive();
+        if(LIXO_FOTOS.length !== antes) salvar();
+      }
       // fotos já estimadas mas ainda não no Drive: envia sem segurar a estimativa
       for(const p of fotosPorEnviar()){
         if(morta()) return;
@@ -2252,12 +2261,30 @@ $("fm-peso").onsubmit = ev => {
 };
 
 /* ---------- excluir refeição e treino ---------- */
+function descartarFoto(m){
+  FOTOS.delete(m.id); THUMBS.delete(m.id); idb.del(m.id);
+  if(m.fotoId && !LIXO_FOTOS.includes(m.fotoId)) LIXO_FOTOS.push(m.fotoId);
+}
+// lixeira do Drive: recuperável por 30 dias; um 404 quer dizer que já não existe
+async function apagarFotosNoDrive(){
+  for(const id of [...LIXO_FOTOS]){
+    if(!accessToken) return;
+    try{
+      await drive(`https://www.googleapis.com/drive/v3/files/${id}`,
+        {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({trashed:true})});
+      LIXO_FOTOS = LIXO_FOTOS.filter(x => x !== id);
+    }catch(e){
+      if(e.status === 404) LIXO_FOTOS = LIXO_FOTOS.filter(x => x !== id);
+      else { console.warn("lixeira adiada", e); return; }
+    }
+  }
+}
 $("meals").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
   const i = +b.dataset.i, m = MEALS[i];
   if(!m || !confirm(`Excluir "${m.desc}"?`)) return;
-  FOTOS.delete(m.id); idb.del(m.id);
-  MEALS.splice(i, 1); salvarDia(TODAY_ISO); renderAll();
+  descartarFoto(m);
+  MEALS.splice(i, 1); salvarDia(TODAY_ISO); renderAll(); tocarFila();
 });
 $("workouts").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
@@ -2357,8 +2384,9 @@ $("h-meals").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
   const iso = DAYS[histIdx].d, arr = DIA_MEALS[iso] || [], m = arr[+b.dataset.i];
   if(!m || !confirm(`Excluir "${m.desc}"?`)) return;
+  descartarFoto(m);
   arr.splice(+b.dataset.i, 1);
-  recalcDia(iso); salvarDia(iso); renderAll(); renderHist();
+  recalcDia(iso); salvarDia(iso); renderAll(); renderHist(); tocarFila();
 });
 $("h-wk").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
