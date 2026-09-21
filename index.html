@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FiTê</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <meta name="theme-color" content="#0e5b7d">
@@ -1537,11 +1538,59 @@ async function estimarJSON(prompt, imagem){
 const TS_DIA = {};
 let tsGeral = 0;
 function marcarDia(iso){ TS_DIA[iso] = tsGeral = Date.now(); }
+
+// as chaves (LLMs e intervals.icu) vão junto com a base no Drive: colar uma vez em
+// qualquer aparelho basta. Cada chave tem seu carimbo; a mais nova vence na mescla.
+const LS_TSCHAVES = "fite.tsChaves";
+let TS_CHAVES = {};
+try{ TS_CHAVES = JSON.parse(localStorage.getItem(LS_TSCHAVES) || "{}"); }catch(e){}
+function marcarChave(nome){
+  TS_CHAVES[nome] = Date.now();
+  try{ localStorage.setItem(LS_TSCHAVES, JSON.stringify(TS_CHAVES)); }catch(e){}
+}
+function chavesAtuais(){
+  const ic = icuCfg();
+  return {gemini: geminiKey || "", openai: openaiKey || "", groq: groqKey || "",
+          icu: ic.k || "", icuAtleta: ic.atleta || "", icuId: ic.id || "", ts: {...TS_CHAVES}};
+}
+function mesclarChaves(L, R){
+  L = L || {}; R = R || {};
+  const tl = L.ts || {}, tr = R.ts || {}, out = {ts: {}};
+  for(const n of ["gemini","openai","groq","icu"]){
+    const F = (tl[n] || 0) >= (tr[n] || 0) ? L : R;
+    out[n] = F[n] || ""; out.ts[n] = Math.max(tl[n] || 0, tr[n] || 0);
+    if(n === "icu"){ out.icuAtleta = F.icuAtleta || ""; out.icuId = F.icuId || ""; }
+  }
+  return out;
+}
+// adota as chaves que chegaram com carimbo mais novo que o daqui
+function adotarChaves(c){
+  if(!c) return;
+  const t = c.ts || {};
+  const vence = n => (t[n] || 0) > (TS_CHAVES[n] || 0);
+  let groqMudou = false;
+  if(vence("gemini") && (c.gemini || "") !== (geminiKey || "")){
+    geminiKey = c.gemini || null; geminiModelo = null; geminiCandidatos = []; guardarGemini();
+  }
+  if(vence("openai") && (c.openai || "") !== (openaiKey || "")){ openaiKey = c.openai || null; guardarOpenai(); }
+  if(vence("groq") && (c.groq || "") !== (groqKey || "")){
+    groqKey = c.groq || null; groqTexto = null; groqFoto = null; guardarGroq(); groqMudou = !!groqKey;
+  }
+  if(vence("icu") && (c.icu || "") !== (icuCfg().k || "")){
+    icuGrava(c.icu ? {k: c.icu, atleta: c.icuAtleta || "", id: c.icuId || ""} : {});
+  }
+  for(const n of ["gemini","openai","groq","icu"]) if(vence(n)) TS_CHAVES[n] = t[n];
+  try{ localStorage.setItem(LS_TSCHAVES, JSON.stringify(TS_CHAVES)); }catch(e){}
+  if(groqMudou) descobrirGroq(groqKey).then(d => {
+    if(d.texto){ adotarGroq(d); renderIntegracoes(); reiniciarFila(); }
+  });
+}
 const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 function estadoAtual(){
   return {versao:2, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
-          pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, lixoFotos:[...LIXO_FOTOS]};
+          pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, lixoFotos:[...LIXO_FOTOS],
+          chaves: chavesAtuais()};
 }
 
 // identidade de um item, para juntar listas sem duplicar
@@ -1575,7 +1624,8 @@ function mesclarEstados(L, R){
           lixoFotos: [...new Set([...(L.lixoFotos || []), ...(R.lixoFotos || [])])],
           pesos: (N.pesos && N.pesos.length) ? N.pesos : (V.pesos || []),
           perfil: {...(V.perfil || {}), ...(N.perfil || {})},
-          treinos: (N.treinos || N.strava)?.desde ? (N.treinos || N.strava) : (V.treinos || V.strava || {})};
+          treinos: (N.treinos || N.strava)?.desde ? (N.treinos || N.strava) : (V.treinos || V.strava || {}),
+          chaves: mesclarChaves(L.chaves, R.chaves)};
 }
 
 // coloca um estado inteiro na memória (substitui, não acumula)
@@ -1592,6 +1642,7 @@ function adotarEstado(e){
   const tr = e.treinos || e.strava;
   if(tr?.desde) TREINOS.desde = tr.desde;
   LIXO_FOTOS = Array.isArray(e.lixoFotos) ? e.lixoFotos : [];
+  adotarChaves(e.chaves);
   sincHoje();
 }
 function aplicarEstado(d){ if(d) adotarEstado(mesclarEstados(estadoAtual(), d)); else sincHoje(); }
@@ -2465,6 +2516,7 @@ async function icuConectar(){
   try{
     const a = await icuGet("/athlete/0", k);        // 0 = o dono da chave
     icuGrava({k, atleta: a.name || a.id || "conectado", id: a.id});
+    marcarChave("icu");
     TREINOS.desde = $("p-icu-desde").value || TREINOS.desde;
     salvar();
     $("p-icu-key").value = "";
@@ -2591,7 +2643,7 @@ $("p-groq-salvar").onclick = async () => {
   bt.disabled = true; bt.textContent = "Validando…";
   const r = await descobrirGroq(k);
   if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
-  else{ groqKey = k; adotarGroq(r);
+  else{ groqKey = k; adotarGroq(r); marcarChave("groq"); salvar();
         $("p-groq-key").value = ""; bt.textContent = `Salva — ${r.texto}`; reiniciarFila(); }
   bt.disabled = false;
   renderIntegracoes();
@@ -2604,7 +2656,8 @@ $("p-oai-salvar").onclick = async () => {
   bt.disabled = true; bt.textContent = "Validando…";
   const r = await validarOpenai(k);
   if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
-  else{ openaiKey = k; guardarOpenai(); $("p-oai-key").value = ""; bt.textContent = "Chave salva"; reiniciarFila(); }
+  else{ openaiKey = k; guardarOpenai(); marcarChave("openai"); salvar();
+        $("p-oai-key").value = ""; bt.textContent = "Chave salva"; reiniciarFila(); }
   bt.disabled = false;
   renderIntegracoes();
   setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
@@ -2621,7 +2674,7 @@ $("p-gem-salvar").onclick = async () => {
     bt.textContent = r.erro.slice(0, 60);
   } else {
     geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
-    guardarGemini(); reiniciarFila();
+    guardarGemini(); marcarChave("gemini"); salvar(); reiniciarFila();
     $("p-gem-key").value = "";
     bt.textContent = `Salva — usando ${r.modelo}`;
   }
@@ -2697,6 +2750,9 @@ async function boot(){
     if(q?.k){ groqKey = q.k; groqTexto = q.texto || null; groqFoto = q.foto || null;
               groqFotoSemJSON = !!q.fotoSemJSON; groqFotoMotivo = q.fotoMotivo || ""; groqTestadoEm = 0; }   // força nova descoberta de foto ao abrir
   }catch(e){}
+  // chave que já existia aqui antes dos carimbos ganha um agora, senão nunca viaja para o Drive
+  [["gemini", geminiKey], ["openai", openaiKey], ["groq", groqKey], ["icu", icuCfg().k]]
+    .forEach(([n, k]) => { if(k && !TS_CHAVES[n]) marcarChave(n); });
 
   diag("iniciando");
   passo("g-carregando");
@@ -2774,8 +2830,9 @@ async function boot(){
       return;
     }
     geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
-    guardarGemini();
+    guardarGemini(); marcarChave("gemini");
     abrirApp();
+    salvar();
   };
 }
 
