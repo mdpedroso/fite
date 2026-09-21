@@ -1055,7 +1055,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921134632";
+const VERSAO = "20260921135212";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -1141,15 +1141,39 @@ const pedirToken = (silencioso, ms = 20000) => new Promise((ok, falha) => {
   const fim = fn => v => { if(pronto) return; pronto = true; clearTimeout(t); fn(v); };
   tokenClient.callback = fim(r => r.access_token ? ok(r) : falha(r));
   tokenClient.error_callback = fim(falha);
-  tokenClient.requestAccessToken({prompt: silencioso ? "" : ""});
+  // hint fixa a conta: sem ele o Google mostra o seletor de contas a cada renovação
+  tokenClient.requestAccessToken({prompt: "", hint: usuario?.email || undefined});
 });
+// uma renovação por vez; quem precisar de token enquanto ela roda espera a mesma promessa
+let renovacao = null, ultimaRenovacao = 0;
+function renovarToken(){
+  if(renovacao) return renovacao;
+  ultimaRenovacao = Date.now();
+  renovacao = pedirToken(true).then(r => {
+    accessToken = r.access_token;
+    tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
+    guardarSessao();
+    return r;
+  }).finally(() => { renovacao = null; });
+  return renovacao;
+}
 async function garantirToken(){
   if(accessToken && Date.now() < tokenExpira) return;
-  const r = await pedirToken(true);       // precisa de clique; só chega aqui se expirou
-  accessToken = r.access_token;
-  tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
-  guardarSessao();
+  await renovarToken();                   // precisa de clique; só chega aqui se expirou
 }
+// o popup do Google só abre dentro de um toque. Então a renovação pega carona no
+// toque que o usuário já ia dar: perto de vencer, qualquer clique no app renova, e o
+// popup abre e fecha sozinho porque a permissão já foi dada.
+document.addEventListener("click", () => {
+  if(!usuario || !tokenClient || $("app").hidden) return;
+  if(accessToken && Date.now() < tokenExpira - 10*60*1000) return;
+  if(renovacao || Date.now() - ultimaRenovacao < 2*60*1000) return;
+  const vencido = !accessToken || Date.now() >= tokenExpira;
+  renovarToken().then(() => {
+    if(vencido || syncEstado !== "ok") salvar();
+    tocarFila();
+  }).catch(e => console.warn("renovação no toque", e));
+}, true);
 
 async function entrar(silencioso = false){
   // no silencioso o Google responde por iframe, sem abrir nada para o usuário
@@ -1764,10 +1788,7 @@ async function sincronizarAgora(){
   try{
     if(!accessToken || Date.now() >= tokenExpira){
       setSync("salvando", "reconectando…");
-      const r = await pedirToken(false);
-      accessToken = r.access_token;
-      tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
-      guardarSessao();
+      await renovarToken();
       // reconectou: o que houver no Drive entra na mescla antes de gravar
       try{ adotarEstado(mesclarEstados(estadoAtual(), await lerDrive())); renderTudo(); }
       catch(e){ console.warn("Drive ao reconectar", e); }
