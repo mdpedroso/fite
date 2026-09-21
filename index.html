@@ -151,9 +151,8 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   font-family:"IBM Plex Mono",monospace}
 
 /* ---- meal list ---- */
-.meals{display:flex;flex-direction:column}
+.meals{display:flex;flex-direction:column;margin-top:6px}
 .meal{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:start;padding:8px 0;border-top:1px solid var(--grid)}
-.meal:first-child{border-top:0;padding-top:0}
 .meal .slot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding-top:4px}
 .meal .desc{font-size:15px}
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
@@ -164,9 +163,8 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 @media (prefers-reduced-motion:reduce){.pend{animation:none}}
 
 /* ---- workouts ---- */
-.wk{display:flex;flex-direction:column}
+.wk{display:flex;flex-direction:column;margin-top:6px}
 .wko{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:8px 0;border-top:1px solid var(--grid)}
-.wko:first-child{border-top:0;padding-top:0}
 .wko .d{font-size:12.5px;color:var(--ink-3);text-transform:capitalize}
 .wko .t{font-size:15px;font-weight:600;margin-top:1px;display:flex;align-items:center;gap:7px}
 .wko .wico{color:var(--ink-2);display:flex}
@@ -543,6 +541,21 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         </label>
       </div>
       <button class="addbtn" id="p-gem-salvar">Salvar chave</button>
+    </section>
+
+    <section class="card">
+      <h2>ChatGPT <span class="side" id="p-oai-status"></span></h2>
+      <p class="soon">Segundo motor, opcional. Com os dois configurados o app pergunta
+        aos dois e usa quem responder primeiro. Chave em
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>
+        — fica só neste aparelho.</p>
+      <div class="pform" style="margin-top:12px">
+        <label>Chave de API
+          <input id="p-oai-key" type="password" autocomplete="off"
+            spellcheck="false" placeholder="Cole a chave da OpenAI (sk-…)">
+        </label>
+      </div>
+      <button class="addbtn" id="p-oai-salvar">Salvar chave</button>
     </section>
 
     <section class="card">
@@ -1254,6 +1267,62 @@ async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
   return JSON.parse(txt);
 }
 
+/* ==================== OpenAI (ChatGPT) ==================== */
+const LS_OPENAI = "fite.openai";
+let openaiKey = null;
+const OPENAI_MODELO = "gpt-4o-mini";        // barato e entende imagem
+function guardarOpenai(){ try{ localStorage.setItem(LS_OPENAI, JSON.stringify({k:openaiKey})); }catch(e){} }
+async function validarOpenai(chave){
+  try{
+    const r = await fetchPrazo("https://api.openai.com/v1/models",
+      {headers:{Authorization:"Bearer " + chave}}, 15000);
+    if(r.ok) return {ok:true};
+    return {erro: r.status === 401 ? "Chave recusada. Confira se copiou inteira."
+                : r.status === 429 ? "Chave sem crédito ou acima do limite." : `HTTP ${r.status}`};
+  }catch(e){ return {erro: e.name === "AbortError" ? "A OpenAI não respondeu em 15s." : e.message}; }
+}
+async function openaiJSON(prompt, imagem){
+  if(!openaiKey) throw new Error("sem-chave");
+  const conteudo = imagem
+    ? [{type:"text", text:prompt},
+       {type:"image_url", image_url:{url:`data:${imagem.mime};base64,${imagem.b64}`}}]
+    : prompt;
+  const r = await fetchPrazo("https://api.openai.com/v1/chat/completions", {
+    method:"POST",
+    headers:{"content-type":"application/json", Authorization:"Bearer " + openaiKey},
+    body: JSON.stringify({model: OPENAI_MODELO, temperature:0.2,
+      response_format:{type:"json_object"},
+      messages:[{role:"system", content:"Responda apenas com um objeto JSON válido, sem texto fora dele."},
+                {role:"user", content: conteudo}]}),
+  }, 45000);
+  if(!r.ok){
+    const corpo = await r.text().catch(() => "");
+    const e = new Error(`openai ${r.status}`); e.status = r.status; e.corpo = corpo; e.prov = "openai";
+    throw e;
+  }
+  const txt = (await r.json()).choices?.[0]?.message?.content;
+  if(!txt) throw new Error("openai-vazio");
+  return JSON.parse(txt);
+}
+
+// dispara para todos os motores configurados e fica com o primeiro que responder
+let ultimoMotor = null;
+async function estimarJSON(prompt, imagem){
+  const corridas = [];
+  if(geminiKey) corridas.push(geminiJSON(prompt, imagem).then(r => ({r, prov:"gemini"})));
+  if(openaiKey) corridas.push(openaiJSON(prompt, imagem).then(r => ({r, prov:"openai"})));
+  if(!corridas.length) throw new Error("sem-chave");
+  try{
+    const {r, prov} = await Promise.any(corridas);
+    ultimoMotor = prov;
+    return r;
+  }catch(agg){
+    const erros = agg.errors || [agg];
+    // se um deles falhou por motivo permanente, é esse que interessa relatar
+    throw erros.find(e => !TRANSITORIO.includes(e?.status)) || erros[0];
+  }
+}
+
 /* ==================== estado ==================== */
 // cada dia carrega a hora da última mudança, para saber quem é mais recente
 const TS_DIA = {};
@@ -1573,7 +1642,12 @@ function avisarTentativa(n){
   if(statusAtual) statusAtual.textContent = `Gemini ocupado, tentando de novo (${n}/2)…`;
 }
 function erroMsg(e){
-  if(e?.message === "sem-chave") return "Configure a chave do Gemini no Perfil.";
+  if(e?.message === "sem-chave") return "Configure a chave do Gemini ou do ChatGPT no Perfil.";
+  if(e?.prov === "openai"){
+    if(e.status === 401) return "Chave do ChatGPT recusada. Confira no Perfil.";
+    if(e.status === 429) return "ChatGPT sem crédito ou no limite. Tente daqui a pouco.";
+    if(TRANSITORIO.includes(e.status)) return "O ChatGPT está instável agora. Tente de novo.";
+  }
   if(e?.status === 429) return "Limite do Gemini atingido. Tente daqui a pouco.";
   if(TRANSITORIO.includes(e?.status))
     return "O Gemini está sobrecarregado agora. Tente de novo em alguns segundos.";
@@ -1590,9 +1664,9 @@ function erroMsg(e){
   return `Falhou ao estimar: ${e?.message || e}`;
 }
 async function comIA(statusEl, botao, trabalho){
-  if(!geminiKey){
+  if(!(geminiKey || openaiKey)){
     statusEl.className = "addstatus err";
-    statusEl.textContent = "Configure a chave do Gemini no Perfil.";
+    statusEl.textContent = "Configure a chave do Gemini ou do ChatGPT no Perfil.";
     return;
   }
   botao.disabled = true;
@@ -1661,7 +1735,7 @@ async function estimarItem(p){
   const m = p.item;
   if(p.tipo === "meal"){
     const foto = FOTOS.get(m.id) || null;
-    const r = await geminiJSON(
+    const r = await estimarJSON(
       (foto
         ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
           (m.raw ? `A pessoa descreveu assim: "${m.raw}"\n` : "") +
@@ -1674,13 +1748,14 @@ async function estimarItem(p){
       `"desc":"descrição curta da refeição","kcal":0,"p":0,"c":0,"g":0}\n` +
       `p, c, g são gramas de proteína, carboidrato e gordura.`, foto);
     Object.assign(m, {
+      via: ultimoMotor,
       slot: String(r.slot || m.slot), desc: String(r.desc || m.raw || m.desc),
       kc: Math.round(Number(r.kcal) || 0), p: Math.round(Number(r.p) || 0),
       c: Math.round(Number(r.c) || 0), g: Math.round(Number(r.g) || 0),
     });
     delete m.pendente; delete m.temFoto; FOTOS.delete(m.id);
   } else {
-    const r = await geminiJSON(
+    const r = await estimarJSON(
       `Classifique este treino e ${m.kcalDito ? "formate-o" : "estime as calorias gastas"}, ` +
       `para ${perfilTexto()}.\n` +
       `Treino: "${m.raw}"\n` +
@@ -1698,7 +1773,7 @@ async function estimarItem(p){
 }
 
 async function tocarFila(){
-  if(rodandoFila || !geminiKey) return;
+  if(rodandoFila || !(geminiKey || openaiKey)) return;
   rodandoFila = true;
   try{
     let espera = 4000;
@@ -2035,6 +2110,8 @@ function estimarKcal(mod, min){
 function renderIntegracoes(){
   const c = stCfg();
   $("p-gem-status").textContent = geminiKey ? "conectado" : "não configurado";
+  $("p-oai-status").textContent = openaiKey ? "conectado" : "não configurado";
+  $("p-oai-key").placeholder = openaiKey ? "•••••••• (trocar)" : "Cole a chave da OpenAI (sk-…)";
   $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
   $("p-st-id").value = c.id || "";
   $("p-st-secret").value = c.secret || "";
@@ -2057,6 +2134,18 @@ function renderIntegracoes(){
 $("p-st-conectar").onclick = stConectar;
 $("p-st-sync").onclick = stSincronizar;
 $("p-st-desde").addEventListener("change", () => { STRAVA.desde = $("p-st-desde").value; salvar(); });
+$("p-oai-salvar").onclick = async () => {
+  const k = $("p-oai-key").value.trim();
+  if(!k) return;
+  const bt = $("p-oai-salvar");
+  bt.disabled = true; bt.textContent = "Validando…";
+  const r = await validarOpenai(k);
+  if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
+  else{ openaiKey = k; guardarOpenai(); $("p-oai-key").value = ""; bt.textContent = "Chave salva"; tocarFila(); }
+  bt.disabled = false;
+  renderIntegracoes();
+  setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
+};
 $("p-gem-salvar").onclick = async () => {
   const k = $("p-gem-key").value.trim();
   if(!k) return;
@@ -2132,6 +2221,8 @@ async function boot(){
   try{
     const g = JSON.parse(localStorage.getItem(LS_GEMINI) || "null");
     if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; }
+    const o = JSON.parse(localStorage.getItem(LS_OPENAI) || "null");
+    if(o?.k) openaiKey = o.k;
   }catch(e){}
 
   diag("iniciando");
