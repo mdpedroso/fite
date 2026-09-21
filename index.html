@@ -766,7 +766,7 @@ const ICONS = {
   funcional: '<circle cx="15.6" cy="4.1" r="2.3"/><rect x="13.5" y="7.3" width="4.2" height="8.4" rx="1.7"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M15 8.7H7.2"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.9" d="M15.2 14.4L10.2 13.7L7.9 17.3"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.9" d="M16.2 15.2L17 18.6L21.6 20.9"/><path d="M4.6 21.3a3.1 3.1 0 0 1 6.2 0z"/><rect x="3.9" y="21" width="7.6" height="1.3" rx=".65"/>',
   esporte: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 3.3 1.35-.95a8.01 8.01 0 0 1 4.38 3.34l-.39 1.34-1.35.46L13 6.7V5.3zm-3.35-.95L11 5.3v1.4L7.01 9.49l-1.35-.46-.39-1.34a8.103 8.103 0 0 1 4.38-3.34zM7.08 17.11l-1.14.1A7.938 7.938 0 0 1 4 12c0-.12.01-.23.02-.35l1-.73 1.38.48 1.46 4.34-.78 1.37zm7.42 2.48c-.79.26-1.63.41-2.5.41s-1.71-.15-2.5-.41l-.69-1.49.64-1.1h5.11l.64 1.11-.7 1.48zM14.27 15H9.73l-1.35-4.02L12 8.44l3.63 2.54L14.27 15zm3.79 2.21-1.14-.1-.79-1.37 1.46-4.34 1.39-.47 1 .73c.01.11.02.22.02.34 0 1.99-.73 3.81-1.94 5.21z"/>',
   outro: '<path d="m12 12.9-2.13 2.09c-.56.56-.87 1.29-.87 2.07C9 18.68 10.35 20 12 20s3-1.32 3-2.94c0-.78-.31-1.52-.87-2.07L12 12.9z"/><path d="m16 6-.44.55C14.38 8.02 12 7.19 12 5.3V2S4 6 4 13c0 2.92 1.56 5.47 3.89 6.86-.56-.79-.89-1.76-.89-2.8 0-1.32.52-2.56 1.47-3.5L12 10.1l3.53 3.47c.95.93 1.47 2.17 1.47 3.5 0 1.02-.31 1.96-.85 2.75 1.89-1.15 3.29-3.06 3.71-5.3.66-3.55-1.07-6.9-3.86-8.52z"/>',
-  crossfit: '<g transform="scale(1.2)"><path d="M4.4 11.6C4.4 6.2 6.9 2.8 10 2.8C13.1 2.8 15.6 6.2 15.6 11.6L13 11.6C13 7.4 11.7 5.2 10 5.2C8.3 5.2 7 7.4 7 11.6Z"/><circle cx="10" cy="14.6" r="5.4"/></g>',
+  crossfit: '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M8.9 10.2L6.4 5.5C5.9 4.4 6.6 3.5 7.8 3.35C10.6 2.95 13.4 2.95 16.2 3.35C17.4 3.5 18.1 4.4 17.6 5.5L15.1 10.2"/><path d="M12 8.6a6.7 6.7 0 0 1 4.6 11.6c-.5.5-1.2.8-1.9.8H9.3c-.7 0-1.4-.3-1.9-.8A6.7 6.7 0 0 1 12 8.6z"/>',
 };
 const iconSVG = (mod,size) =>
   `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor"
@@ -1072,7 +1072,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921151841";
+const VERSAO = "20260921151937";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
