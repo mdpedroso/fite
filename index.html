@@ -1794,6 +1794,31 @@ function slotPorHora(){
 }
 let fotoAtual = null;
 const FOTOS = new Map();   // id do item → imagem, enquanto a estimativa não sai
+// cópia no IndexedDB: uma foto de 1024 px tem ~200 KB e o localStorage não aguentaria várias;
+// aqui cabem centenas, e ela some assim que a estimativa é gravada
+const idb = (() => {
+  let db = null;
+  const abrir = () => db ? Promise.resolve(db) : new Promise((ok, falha) => {
+    const req = indexedDB.open("fite", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("fotos");
+    req.onsuccess = () => { db = req.result; ok(db); };
+    req.onerror = () => falha(req.error);
+  });
+  const tx = async (modo, fn) => {
+    const d = await abrir();
+    return new Promise((ok, falha) => {
+      const t = d.transaction("fotos", modo), st = t.objectStore("fotos");
+      const r = fn(st);
+      t.oncomplete = () => ok(r && r.result);
+      t.onerror = () => falha(t.error);
+    });
+  };
+  return {
+    set: (id, v) => tx("readwrite", st => st.put(v, id)).catch(e => console.warn("idb set", e)),
+    get: id => tx("readonly", st => st.get(id)).catch(() => null),
+    del: id => tx("readwrite", st => st.delete(id)).catch(() => {}),
+  };
+})();
 async function prepararFoto(file){
   const bmp = await createImageBitmap(file);
   const lado = 1024, esc = Math.min(1, lado / Math.max(bmp.width, bmp.height));
@@ -1828,6 +1853,7 @@ function avisarTentativa(n){
 const corpoMsg = e => { try{ const j = JSON.parse(e?.corpo || "{}"); return j.error?.message || j.error?.code || ""; }catch(x){ return ""; } };
 function erroMsg(e){
   if(e?.message === "todos-falharam") return e.detalhes.join("  ·  ");
+  if(e?.message === "sem-material") return "a foto se perdeu antes de estimar — exclua e adicione de novo";
   if(e?.message === "sem-chave") return "Configure uma chave (Gemini, ChatGPT ou Groq) no Perfil.";
   if(e?.prov === "groq"){
     if(e.message === "groq-sem-modelo") return "Groq: " + (e.detalhe || "sem modelo disponível");
@@ -1902,7 +1928,7 @@ $("fm-meal").onsubmit = ev => {
   if(!texto && !fotoAtual) return;
   // entra na lista imediatamente; a estimativa chega depois
   const id = novoId();
-  if(fotoAtual) FOTOS.set(id, fotoAtual);      // só em memória: não vai para o arquivo
+  if(fotoAtual){ FOTOS.set(id, fotoAtual); idb.set(id, fotoAtual); }   // nunca vai para o Drive
   (DIA_MEALS[alvoDia] ||= []).push({
     id, slot: slotPorHora(), desc: texto || "Refeição pela foto",
     kc:0, p:0, c:0, g:0, pendente:true, raw:texto, temFoto: !!fotoAtual, novo:true,
@@ -1949,7 +1975,7 @@ function reiniciarFila(){ filaGeracao++; rodandoFila = false; tocarFila(); }
 const pendentes = () => {
   const out = [];
   Object.entries(DIA_MEALS).forEach(([iso, arr]) =>
-    (arr || []).forEach((m, i) => { if(m.pendente) out.push({tipo:"meal", iso, i, item:m}); }));
+    (arr || []).forEach((m, i) => { if(m.pendente && !m.desistiu) out.push({tipo:"meal", iso, i, item:m}); }));
   Object.entries(DIA_WK).forEach(([iso, arr]) =>
     (arr || []).forEach((w, i) => { if(w.pendente) out.push({tipo:"wk", iso, i, item:w}); }));
   return out;
@@ -1958,7 +1984,11 @@ const pendentes = () => {
 async function estimarItem(p){
   const m = p.item;
   if(p.tipo === "meal"){
-    const foto = FOTOS.get(m.id) || null;
+    let foto = FOTOS.get(m.id) || null;
+    if(!foto && m.temFoto){ foto = await idb.get(m.id); if(foto) FOTOS.set(m.id, foto); }
+    if(!foto && !m.raw){
+      const e = new Error("sem-material"); e.permanente = true; throw e;
+    }
     const r = await estimarJSON(
       (foto
         ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
@@ -1979,7 +2009,7 @@ async function estimarItem(p){
       kc: Math.round(Number(r.kcal) || 0), p: Math.round(Number(r.p) || 0),
       c: Math.round(Number(r.c) || 0), g: Math.round(Number(r.g) || 0),
     });
-    delete m.pendente; delete m.temFoto; FOTOS.delete(m.id);
+    delete m.pendente; delete m.temFoto; FOTOS.delete(m.id); idb.del(m.id);
   } else {
     const r = await estimarJSON(
       `Classifique este treino e ${m.kcalDito ? "formate-o" : "estime as calorias gastas"}, ` +
@@ -2021,6 +2051,7 @@ async function tocarFila(){
         }catch(e){
           console.warn("estimativa adiada", e);
           p.item.erro = erroMsg(e);
+          if(e.permanente){ p.item.desistiu = true; salvarDia(p.iso); }
           renderAll();
         }
       }
@@ -2120,6 +2151,7 @@ $("meals").addEventListener("click", e => {
   const b = e.target.closest(".del"); if(!b) return;
   const i = +b.dataset.i, m = MEALS[i];
   if(!m || !confirm(`Excluir "${m.desc}"?`)) return;
+  FOTOS.delete(m.id); idb.del(m.id);
   MEALS.splice(i, 1); salvarDia(TODAY_ISO); renderAll();
 });
 $("workouts").addEventListener("click", e => {
