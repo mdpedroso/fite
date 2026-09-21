@@ -881,7 +881,7 @@ function drawEnergy(){
 
   // --- sob o eixo: dia, saldo colorido, ponto de treino ---
   const fsDay = Math.max(8, Math.min(13, bw*0.5));
-  const fsBal = Math.max(6.5, Math.min(15, bw*0.36));
+  const fsBal = Math.max(6.5, Math.min(15, bw*0.27));   // "−2916" (5 glifos mono) cabe na largura da barra
   svg.appendChild(el("line",{x1:P.l,x2:W-P.r,y1:yDay-15,y2:yDay-15,
     stroke:css("--grid"),"stroke-width":1}));
   // painel próprio fecha saldo e treino como um bloco, separado do gráfico
@@ -1050,7 +1050,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921130456";
+const VERSAO = "20260921131309";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
