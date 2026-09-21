@@ -787,9 +787,11 @@ const LIMIAR = 250;
 const balColor = b => b <= -LIMIAR ? "--sig-good" : (b >= LIMIAR ? "--sig-bad" : "--ink-3");
 
 // "Hoje"/"Ontem" só valem perto da data; mais longe, a própria data já situa
-function dayTitle(iso){
+function dayTitle(iso, curto){
   const diff = Math.round((dt(TODAY) - dt(iso))/86400000);
-  const data = dt(iso).toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+  const data = curto
+    ? dt(iso).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"}).replace(/\./g, "").replace(",", "")   // "seg 21 de set"
+    : dt(iso).toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
   return (diff===0 ? "Hoje · " : diff===1 ? "Ontem · " : "") + data;
 }
 document.getElementById("day-title").textContent = dayTitle(TODAY);
@@ -1071,7 +1073,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921142446";
+const VERSAO = "20260921142603";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -2494,7 +2496,7 @@ function renderHist(){
   const kP = P*4, kC = C*4, kG = G*9, tot = kP+kC+kG || 1;
   const kBasal = bmr(), kRotina = BASE - kBasal, mx = Math.max(kin, spend) || 1;
 
-  $("h-title").textContent = dayTitle(d.d);
+  $("h-title").textContent = dayTitle(d.d, innerWidth < 480);   // no celular o título divide espaço com 4 botões
   $("h-next").disabled = histIso >= TODAY_ISO;
   $("h-data").value = histIso; $("h-data").max = TODAY_ISO;
   const oculto = !!OCULTOS[histIso];
