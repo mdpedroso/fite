@@ -2493,17 +2493,19 @@ async function icuSincronizar(){
       if(n.casca){ cascas++; console.warn("intervals.icu: atividade sem dados", a); }
       const ja = arr.find(w => w.icu === a.id);
       if(ja){
-        // já importado: só mexe se antes era casca e agora tem conteúdo
-        if(ja.casca && !n.casca){ Object.assign(ja, n); marcarDia(iso); recalcDia(iso); atualizados++; }
+        // já importado: se estava vazio (marcado ou não) e agora tem conteúdo, completa
+        const eraCasca = ja.casca || (ja.mod === "outro" && !ja.kc && !ja.m);
+        if(eraCasca && !n.casca){ Object.assign(ja, n); marcarDia(iso); recalcDia(iso); atualizados++; }
         continue;
       }
       arr.push({id: novoId(), icu: a.id, raw: a.name || "", ...n});
       marcarDia(iso); recalcDia(iso);
       novos++;
     }
+    const primeiraCasca = lista.find(a => { const n = montar(a); return n.casca; });
     $("p-icu-diag").textContent = cascas
-      ? `${cascas} atividade(s) chegaram sem nome/tipo/tempo — o intervals.icu ainda não recebeu os ` +
-        `dados do Strava/Garmin. Busque de novo mais tarde; elas serão completadas.`
+      ? `${cascas} atividade(s) sem nome/tipo/tempo — o intervals.icu ainda não recebeu os dados. ` +
+        `Como veio: ${JSON.stringify(primeiraCasca).slice(0, 220)}`
       : "";
     await salvar();
     renderTudo();
