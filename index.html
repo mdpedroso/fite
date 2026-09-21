@@ -593,6 +593,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       </div>
       <button class="addbtn" id="p-icu-conectar">Conectar</button>
       <button class="addbtn" id="p-icu-sync" hidden>Buscar treinos novos</button>
+      <div class="flownote" id="p-icu-diag" style="margin-top:8px"></div>
     </section>
   </div>
 </div>
@@ -1006,7 +1007,7 @@ function renderWorkouts(target, showKc, lista){
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
         <div class="m">${w.pendente ? `<span class="pend" data-pend="${w.id}">${w.erro || estadoFila}</span>` : w.m}</div>
       </div>
-      ${showKc?`<div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">kcal</span></div>`:`<div></div>`}
+      ${showKc?`<div class="kc num">${fmt(w.kc)}<br><span style="font-size:11px;color:var(--ink-3);font-weight:500">${w.icu && !w.kcMedido ? "kcal est." : "kcal"}</span></div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
     </div>`).join("");
 }
@@ -2467,30 +2468,48 @@ async function icuSincronizar(){
   bt.disabled = true; bt.textContent = "Buscando…";
   try{
     const desde = TREINOS.desde || DAYS[0].d;
-    const lista = await icuGet(`/athlete/0/activities?oldest=${desde}&limit=500`, c.k);
-    let novos = 0;
-    for(const a of lista){
-      const iso = String(a.start_date_local || a.start_date || "").slice(0, 10);
-      if(!iso) continue;
-      const arr = DIA_WK[iso] ||= [];
-      if(arr.some(w => w.icu === a.id)) continue;          // já importado
+    const campos = "id,name,type,start_date_local,start_date,moving_time,elapsed_time,distance,calories,average_speed";
+    const lista = await icuGet(`/athlete/0/activities?oldest=${desde}&limit=500&fields=${campos}`, c.k);
+    window.__icuUltimo = lista;                 // para inspeção no console, se precisar
+    let novos = 0, atualizados = 0, cascas = 0;
+    const montar = a => {
       const mod = ICU_MOD[a.type] || "outro";
-      const km = (a.distance || 0) / 1000, min = Math.round((a.moving_time || 0) / 60);
+      const km = (a.distance || 0) / 1000, min = Math.round((a.moving_time || a.elapsed_time || 0) / 60);
       const det = [];
       if(km >= 0.2 && ["corrida","bike","caminhada","natacao"].includes(mod))
         det.push(km.toFixed(1).replace(".", ",") + " km");
       if(min) det.push(min >= 60 ? `${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}` : `${min} min`);
       if(mod === "corrida" && a.average_speed){ const sp = Math.round(1000 / a.average_speed);
         det.push(`${Math.floor(sp/60)}:${String(sp%60).padStart(2,"0")} /km`); }
-      arr.push({id: novoId(), mod, t: a.name || MOD_NOME[mod], m: det.join(" · "),
-                kc: a.calories ? Math.round(a.calories) : estimarKcal(mod, min),
-                icu: a.id, raw: a.name || ""});
+      const kc = a.calories ? Math.round(a.calories) : (min ? estimarKcal(mod, min) : 0);
+      const casca = !a.name && !a.type && !min;   // veio sem conteúdo (Strava ainda não entregou)
+      return {mod, t: a.name || MOD_NOME[mod], m: det.join(" · "), kc, kcMedido: !!a.calories, casca};
+    };
+    for(const a of lista){
+      const iso = String(a.start_date_local || a.start_date || "").slice(0, 10);
+      if(!iso) continue;
+      const arr = DIA_WK[iso] ||= [];
+      const n = montar(a);
+      if(n.casca){ cascas++; console.warn("intervals.icu: atividade sem dados", a); }
+      const ja = arr.find(w => w.icu === a.id);
+      if(ja){
+        // já importado: só mexe se antes era casca e agora tem conteúdo
+        if(ja.casca && !n.casca){ Object.assign(ja, n); marcarDia(iso); recalcDia(iso); atualizados++; }
+        continue;
+      }
+      arr.push({id: novoId(), icu: a.id, raw: a.name || "", ...n});
       marcarDia(iso); recalcDia(iso);
       novos++;
     }
+    $("p-icu-diag").textContent = cascas
+      ? `${cascas} atividade(s) chegaram sem nome/tipo/tempo — o intervals.icu ainda não recebeu os ` +
+        `dados do Strava/Garmin. Busque de novo mais tarde; elas serão completadas.`
+      : "";
     await salvar();
     renderTudo();
-    bt.textContent = novos ? `${novos} treino${novos>1?"s":""} importado${novos>1?"s":""}` : "Nada novo por lá";
+    bt.textContent = novos || atualizados
+      ? [novos && `${novos} novo${novos>1?"s":""}`, atualizados && `${atualizados} completado${atualizados>1?"s":""}`].filter(Boolean).join(" · ")
+      : "Nada novo por lá";
   }catch(e){
     console.warn(e);
     bt.textContent = e.message === "chave recusada" ? "Chave recusada — reconecte" : "Falhou: " + e.message;
