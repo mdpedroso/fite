@@ -214,7 +214,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .hnav.mini{gap:6px;margin:-2px 0 8px}
 .hnav.mini button{width:28px;height:28px;font-size:17px;border-radius:7px}
 .hnav.mini .t{width:170px;font-size:11.5px;text-transform:none;letter-spacing:.02em;font-weight:600}
-.hnav .t{flex:none;width:min(340px,calc(100% - 134px));text-align:center;font-size:12px;
+.hnav .t{flex:none;width:min(340px,calc(100% - 180px));text-align:center;font-size:12px;   /* 4 botões de 34px + folgas */
   font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 /* calendário: o input de data fica invisível por cima do botão, e o toque abre o seletor nativo */
 .hnav .cal{position:relative;margin-left:4px;color:var(--ink-2)}
@@ -1071,7 +1071,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921142301";
+const VERSAO = "20260921142446";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
