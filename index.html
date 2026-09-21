@@ -103,6 +103,9 @@ header{
 .consulta li{display:flex;justify-content:space-between;gap:12px;padding:2px 0;color:var(--ink-2)}
 .consulta li b{font-weight:600;color:var(--ink);white-space:nowrap}
 .consulta .via{font-size:11.5px;color:var(--ink-3);margin-top:8px}
+.consulta .add{display:block;width:100%;margin-top:12px;font:inherit;font-size:13.5px;font-weight:600;
+  padding:10px 15px;border-radius:7px;border:0;cursor:pointer;background:var(--marca);color:#fff}
+.consulta .add:hover{filter:brightness(1.1)}
 /* atualizar treinos do relógio: contorno, seta em SVG, à esquerda do + */
 .mais.gira{right:46px;background:var(--surface-2);color:var(--ink-2);border:1.5px solid var(--grid)}
 .mais.gira::before,.mais.gira::after{display:none}
@@ -1084,7 +1087,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921195812";
+const VERSAO = "20260921200100";
 async function conferirVersao(){
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
@@ -1971,6 +1974,7 @@ const perfilTexto = () =>
 let alvoDia = TODAY_ISO;     // em que dia o modal vai gravar
 let modoConsulta = false, sobrouDeConsulta = false;
 function limparRefeicao(){
+  ultimaConsulta = null;
   $("in-meal").value = ""; limparFoto();
   $("consulta").hidden = true; $("consulta").innerHTML = "";
   $("st-meal").textContent = "";
@@ -2013,7 +2017,7 @@ document.querySelectorAll("[data-close]").forEach(b=>{
 $("sync").onclick = sincronizarAgora;
 $("bt-meal").onclick  = () => abrirRefeicao(false);
 $("bt-duvida").onclick  = () => abrirRefeicao(true);
-$("hbt-duvida").onclick = () => abrirRefeicao(true);
+$("hbt-duvida").onclick = () => abrirRefeicao(true, histIso);
 $("bt-wk").onclick    = () => abrir("dlg-wk","st-wk");
 $("hbt-meal").onclick = () => abrirRefeicao(false, histIso);
 $("hbt-wk").onclick   = () => abrir("dlg-wk","st-wk", histIso);
@@ -2220,6 +2224,25 @@ $("fm-meal").onsubmit = ev => {
   tocarFila();
 };
 
+// gostou da resposta: a mesma estimativa vira refeição, sem chamar a IA de novo
+let ultimaConsulta = null;
+function adicionarConsulta(){
+  const u = ultimaConsulta;
+  if(!u) return;
+  const id = novoId();
+  if(u.foto){ FOTOS.set(id, u.foto); idb.set(id, u.foto); }
+  (DIA_MEALS[alvoDia] ||= []).push({
+    id, slot: String(u.r.slot || slotPorHora()), desc: u.texto || String(u.r.desc || "Refeição pela foto"),
+    interp: String(u.r.desc || ""), via: u.via, raw: u.texto, temFoto: !!u.foto, novo: true,
+    kc: u.tot.kcal, p: u.tot.p, c: u.tot.c, g: u.tot.g,
+    ...(u.tot.itens.length ? {itens: u.tot.itens.map(i => ({n: i.nome, kc: i.kcal}))} : {}),
+  });
+  ultimaConsulta = null;
+  depoisDeGravar();
+  limparRefeicao();
+  $("dlg-meal").close();
+  tocarFila();            // a foto, se houver, segue para o Drive
+}
 // tira-dúvida: estima na hora e mostra no próprio modal; nada entra no dia
 async function consultar(texto, foto){
   const bt = $("bt-meal-go"), st = $("st-meal"), box = $("consulta");
@@ -2235,7 +2258,10 @@ async function consultar(texto, foto){
       `<div class="mac">P ${tot.p} g · C ${tot.c} g · G ${tot.g} g</div>` +
       (r.desc ? `<div class="como">${esc(r.desc)}</div>` : "") +
       (tot.itens.length ? `<ul>${tot.itens.map(i => `<li><span>${esc(i.nome)}</span><b class="num">${fmt(i.kcal)} kcal</b></li>`).join("")}</ul>` : "") +
-      `<div class="via">estimativa${ultimoMotor ? " · " + esc(ultimoMotor) : ""} · não foi registrado</div>`;
+      `<div class="via">estimativa${ultimoMotor ? " · " + esc(ultimoMotor) : ""} · não foi registrado</div>` +
+      `<button type="button" class="add" id="bt-consulta-add">Adicionar refeição${alvoDia === TODAY_ISO ? "" : " em " + dayShort(alvoDia)}</button>`;
+    ultimaConsulta = {texto, foto, r, tot, via: ultimoMotor};
+    $("bt-consulta-add").onclick = adicionarConsulta;
     box.hidden = false;
     st.textContent = "";
   }catch(e){
