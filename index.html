@@ -231,8 +231,16 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   /* o cabeçalho P C G mora na linha do título do card, por cima dela */
   .meal.cab{display:grid;position:absolute;left:14px;right:14px;top:15px;padding:0;border:0;pointer-events:none;color:var(--ink-3)}
   .meal.cab .mm{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
-  .meal .thumb{width:34px;height:34px;border-radius:6px}
+  .meal .thumb{width:28px;height:28px;border-radius:5px}   /* a miniatura não pode ser o que estica a linha */
   .meal .del,.wko .del{align-self:center}
+  /* linhas mais baixas em tela larga: o painel precisa caber sem rolagem */
+  .meal,.wko{padding:3px 0}
+  .meal .desc,.meal .kc,.wko .t,.wko .kc{font-size:14px}
+  .meals,.wk{margin-top:2px}
+  h2.t-ref,h2.t-tre{margin-bottom:5px;padding:3px 10px !important}
+  section.card{padding:10px 14px 9px}
+  .grid{gap:8px;margin-top:8px}
+  .meal.cab{top:12px}
   /* treino também numa linha: nome, detalhes, kcal */
   .wko{align-items:center}
   .wko > div:first-child{display:flex;align-items:center;gap:12px;flex-wrap:wrap}   /* o nome é um flex com ícone: baseline dele não bate com o texto ao lado */
@@ -1118,7 +1126,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921221457";
+const VERSAO = "20260921221625";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
