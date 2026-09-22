@@ -204,7 +204,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   .flow{gap:10px}
 }
 .meal.total{border-top:2px solid var(--axis);margin-top:2px}
-@media(max-width:719px){ .meal.total{display:none} }   /* no celular a linha quebra e desalinha */
+@media(max-width:719px){ .meal.total .desc{display:none} }   /* no celular só os números: P · C · G e a kcal */
 .meal.total .desc{font-weight:600;color:var(--ink-2)}
 .meal.total .mm{color:var(--ink-2);font-weight:600}
 .meal.total .mm{color:var(--ink);font-weight:700}
@@ -514,7 +514,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     <div class="seg" id="sync-wrap" hidden><button class="sync ok" id="sync">salvo no Drive</button></div>
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
-      <button id="btn-hab" aria-pressed="false">Histórico</button>
       <button id="btn-perf" aria-pressed="false">Perfil</button>
     </div>
   </div>
@@ -526,6 +525,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <div id="view-full">
   <div class="grid">
     <section class="card">
+      <div class="ignorado" id="h-ignorado" hidden>Dia ignorado — fica fora do gráfico e dos totais. Toque no olho para voltar a contar.</div>
       <div class="today">
         <div>
           <div class="hero">
@@ -597,51 +597,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   </div>
 </div>
 
-<!-- ============ HISTÓRICO ============ -->
-<div id="view-hab" hidden>
-  <div class="grid">
-    <section class="card">
-      <div class="ignorado" id="h-ignorado" hidden>Dia ignorado — fica fora do gráfico e dos totais. Toque no olho para voltar a contar.</div>
-      <div class="today">
-        <div>
-          <div class="hero">
-            <div class="big num" id="h-hbal"></div>
-            <div class="unit">kcal</div>
-            <div class="tag def" id="h-htag"></div>
-          </div>
-        </div>
-        <div class="flow">
-          <div class="flowrow">
-            <div class="lbl"><i class="dot" style="background:var(--consumo)"></i>Consumo</div>
-            <div class="track"><div class="fill" id="h-hinbar" style="background:var(--consumo)"></div></div>
-            <div class="v num" id="h-hin"></div>
-          </div>
-          <div class="flowrow">
-            <div class="lbl"><i class="dot split"></i>Gasto</div>
-            <div class="track"><div class="segbar" id="h-houtbar"></div></div>
-            <div class="v num" id="h-hout"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <div class="grid">
-    <section class="card">
-      <h2 class="t-ref">Refeições <span class="tot" id="h-mtotal"></span></h2>
-      <button class="mais duvida" id="hbt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
-      <button class="mais azul" id="hbt-meal" aria-label="Adicionar refeição">+</button>
-      <div class="meals" id="h-meals"></div>
-    </section>
-    <section class="card">
-      <h2 class="t-tre">Treino <span class="tot" id="h-wtotal"></span></h2>
-      <button class="mais verde" id="hbt-wk" aria-label="Adicionar treino">+</button>
-      <div class="wk" id="h-wk"></div>
-    </section>
-  </div>
-</div>
-
-<!-- ============ PERFIL ============ -->
 <div id="view-perf" hidden>
   <div class="grid two">
     <section class="card">
@@ -786,17 +741,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   </form>
 </dialog>
 
-<!-- ============ HISTÓRICO (a desenhar) ============ -->
-<div id="view-hab" hidden>
-  <div class="grid">
-    <section class="card">
-      <h2>Histórico</h2>
-      <p class="soon">Ainda não desenhada. A ideia é navegar dias e semanas
-      anteriores: abrir um dia e ver as refeições e o treino como foram
-      registrados, e comparar semanas entre si.</p>
-    </section>
-  </div>
-</div>
 
 </div>
 
@@ -998,11 +942,13 @@ function drawEnergy(){
   rowLabel(yTrain, "Treino", fsLbl);
 
   DS.forEach((r,i)=>{
-    const corDia = css("--ink-3"), rot = [];
+    const aberto = r.d === histIso;
+    const corDia = css(aberto ? "--ink" : "--ink-3"), rot = [];
     if(empilha){
       rot.push(txt(cx(i), yDay-6, weekday(r.d), corDia, fsDay, null, true));
       rot.push(txt(cx(i), yDay+7, dt(r.d).getDate(), corDia, fsDay, null, true));
     } else rot.push(txt(cx(i), yDay, `${weekday(r.d)} ${dt(r.d).getDate()}`, corDia, fsDay, null, true));
+    if(aberto) rot.forEach(t => t.setAttribute("font-weight", 700));
     if(r.oculto){ rot.forEach(t => t.setAttribute("opacity", .4)); txt(cx(i), yBal, "—", corDia, fsBal, null, true); return; }
     if(!r.vazio){
       // pílula cheia com o número em branco: o saldo é o dado principal desta faixa
@@ -1023,6 +969,9 @@ function drawEnergy(){
 
   host.insertBefore(svg, host.firstChild);
 
+  // toque numa coluna abre aquele dia no painel
+  host._abrir = px => { const i = Math.floor(((px/host.clientWidth*W) - P.l)/bw); if(i >= 0 && i < DS.length && DS[i].d <= TODAY_ISO) irPara(DS[i].d); };
+  if(!host._clique){ host._clique = true; host.addEventListener("click", ev => host._abrir?.(ev.clientX - host.getBoundingClientRect().left)); }
   bindTip(host, document.getElementById("t-energy"), (px,w,py,hpx)=>{
     const i = Math.floor(((px/w*W) - P.l)/bw);
     if(!(i>=0 && i<DS.length)) return null;   // também cobre NaN (gráfico com largura 0)
@@ -1128,9 +1077,9 @@ function drawWeight(){
 }
 
 /* ---------- listas ---------- */
-function renderMeals(target, showKc){
+function renderMeals(target, showKc, lista = MEALS){
   queueMicrotask(hidratarThumbs);
-  target.innerHTML = (showKc && MEALS.length ? CABECALHO_REFEICOES : "") + MEALS.map((m,i)=>`
+  target.innerHTML = (showKc && lista.length ? CABECALHO_REFEICOES : "") + lista.map((m,i)=>`
     <div class="meal${m.novo?" novo":""}">
       <div class="mrow">
         ${m.temFoto || m.fotoId ? `<img class="thumb" data-thumb="${m.id}" alt="">` : ""}
@@ -1142,7 +1091,7 @@ function renderMeals(target, showKc){
       </div>
       ${showKc?`<div class="kc num">${m.pendente ? "—" : fmt(m.kc)}</div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
-    </div>`).join("") + (showKc && MEALS.length > 1 ? linhaTotalMacros(MEALS) : "");
+    </div>`).join("") + (showKc && lista.length > 1 ? linhaTotalMacros(lista) : "");
 }
 function renderWorkouts(target, showKc, lista){
   target.innerHTML = lista.map((w,i)=>`
@@ -1161,7 +1110,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921220655";
+const VERSAO = "20260921220918";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2043,7 +1992,7 @@ function encolherMacros(el){
     if(largura() > interno + .5) b.textContent = "";
   });
 }
-function remedirBarras(){ ["h-outbar","h-houtbar"].forEach(id => { const e = $(id); if(e) encolherMacros(e); }); }
+function remedirBarras(){ ["h-outbar"].forEach(id => { const e = $(id); if(e) encolherMacros(e); }); }
 // ao mudar a largura (girar o celular), as fatias mudam de tamanho: mede de novo
 addEventListener("resize", remedirBarras);
 
@@ -2071,15 +2020,21 @@ const CABECALHO_REFEICOES = `<div class="meal cab">
   </div>`;
 
 /* ---------- o dia de hoje, recalculado a cada mudança ---------- */
+// um só painel: mostra o dia selecionado (histIso), que abre em hoje
+const diaAberto = () => ({meals: DIA_MEALS[histIso] || [], wks: DIA_WK[histIso] || []});
 function renderToday(){
   $("day-title").textContent = dayTitle(TODAY_ISO);
-  const kin  = MEALS.reduce((a,m)=>a+m.kc, 0);
-  const kout = TODAY_WORKOUTS.reduce((a,w)=>a+w.kc, 0);
+  $("h-title").textContent = dayTitle(histIso, innerWidth < 480);
+  $("h-next").disabled = histIso >= TODAY_ISO;
+  $("h-data").value = histIso; $("h-data").max = TODAY_ISO;
+  const oculto = !!OCULTOS[histIso];
+  $("h-olho").classList.toggle("on", oculto);
+  $("h-olho").title = $("h-olho").ariaLabel = oculto ? "Voltar a contar este dia" : "Ignorar este dia";
+  $("h-ignorado").hidden = !oculto;
+  const {meals, wks} = diaAberto();
+  const kin  = meals.reduce((a,m)=>a+m.kc, 0);
+  const kout = wks.reduce((a,w)=>a+w.kc, 0);
   const spend = BASE + kout, bal = kin - spend;
-  const P = MEALS.reduce((a,m)=>a+m.p,0),
-        C = MEALS.reduce((a,m)=>a+m.c,0),
-        G = MEALS.reduce((a,m)=>a+m.g,0);
-  const kP = P*4, kC = C*4, kG = G*9, tot = kP+kC+kG || 1;
 
   const semNada = kin === 0;
   $("h-bal").textContent = semNada ? "—" : (bal>0?"+":"−") + fmt(Math.abs(bal));
@@ -2098,7 +2053,7 @@ function renderToday(){
   $("meals-total").textContent = fmt(kin) + " kcal";
   $("wk-total").textContent = fmt(kout) + " kcal";
 
-  recalcDia(TODAY_ISO);
+  recalcDia(histIso);
 }
 
 function renderGrfSide(){
@@ -2112,10 +2067,11 @@ function renderGrfSide(){
 function renderAll(){
   renderToday();
   renderGrfSide();
-  renderMeals($("meals"), true);
-  if(!MEALS.length) $("meals").innerHTML = vazio("refeição");
-  renderWorkouts($("workouts"), true, TODAY_WORKOUTS);
-  if(!TODAY_WORKOUTS.length) $("workouts").innerHTML = vazio("treino");
+  const {meals, wks} = diaAberto(), hoje = histIso === TODAY_ISO;
+  renderMeals($("meals"), true, meals);
+  if(!meals.length) $("meals").innerHTML = vazio("refeição", hoje);
+  renderWorkouts($("workouts"), true, wks);
+  if(!wks.length) $("workouts").innerHTML = vazio("treino", hoje);
   renderPesoSide();
   mountCharts();
 }
@@ -2162,18 +2118,14 @@ function abrir(dlgId, statusId, dia){
 }
 function depoisDeGravar(){
   recalcDia(alvoDia); salvarDia(alvoDia); renderAll();
-  if(!$("view-hab").hidden) renderHist();
 }
 document.querySelectorAll("[data-close]").forEach(b=>{
   b.onclick = () => $(b.dataset.close).close();
 });
 $("sync").onclick = sincronizarAgora;
-$("bt-meal").onclick  = () => abrirRefeicao(false);
-$("bt-duvida").onclick  = () => abrirRefeicao(true);
-$("hbt-duvida").onclick = () => abrirRefeicao(true, histIso);
-$("bt-wk").onclick    = () => abrir("dlg-wk","st-wk");
-$("hbt-meal").onclick = () => abrirRefeicao(false, histIso);
-$("hbt-wk").onclick   = () => abrir("dlg-wk","st-wk", histIso);
+$("bt-meal").onclick   = () => abrirRefeicao(false, histIso);
+$("bt-duvida").onclick = () => abrirRefeicao(true, histIso);
+$("bt-wk").onclick     = () => abrir("dlg-wk","st-wk", histIso);
 
 // sem o seletor, a hora dá o palpite quando o Gemini não classifica
 function slotPorHora(){
@@ -2601,7 +2553,6 @@ async function tocarFila(){
           if(morta()) return;
           avancou = true;
           salvarDia(p.iso); renderAll();
-          if(!$("view-hab").hidden) renderHist();
         }catch(e){
           console.warn("estimativa adiada", e);
           p.item.erro = erroMsg(e);
@@ -2735,19 +2686,18 @@ async function apagarFotosNoDrive(){
 }
 $("meals").addEventListener("click", async e => {
   const b = e.target.closest(".del"); if(!b) return;
-  const i = +b.dataset.i, m = MEALS[i];
+  const iso = histIso, arr = DIA_MEALS[iso] || [], i = +b.dataset.i, m = arr[i];
   if(!m || !await confirmar(m.desc)) return;
-  if(MEALS[i] !== m) return;      // a lista mudou enquanto o modal estava aberto
+  if(arr[i] !== m) return;        // a lista mudou enquanto o modal estava aberto
   descartarFoto(m);
-  MEALS.splice(i, 1); salvarDia(TODAY_ISO); renderAll(); tocarFila();
+  arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll(); tocarFila();
 });
 $("workouts").addEventListener("click", async e => {
   const b = e.target.closest(".del"); if(!b) return;
-  const w = TODAY_WORKOUTS[+b.dataset.i];
+  const iso = histIso, arr = DIA_WK[iso] || [], i = +b.dataset.i, w = arr[i];
   if(!w || !await confirmar(w.t)) return;
-  if(TODAY_WORKOUTS[+b.dataset.i] !== w) return;
-  TODAY_WORKOUTS.splice(+b.dataset.i, 1);
-  recalcDia(TODAY_ISO); salvarDia(TODAY_ISO); renderAll();
+  if(arr[i] !== w) return;
+  arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll();
 });
 
 /* ---------- histórico ---------- */
@@ -2759,66 +2709,15 @@ const somaDias = (iso, n) => isoDe(new Date(dt(iso).getTime() + n*86400000));
 const mealsDoDia = iso => DIA_MEALS[iso] || [];
 const wkDoDia = iso => DIA_WK[iso] || [];
 
-function renderHist(){
-  queueMicrotask(hidratarThumbs);
-  const d = {d: histIso};
-  const meals = mealsDoDia(d.d), wks = wkDoDia(d.d);
-  const kin  = meals.reduce((a,m) => a+m.kc, 0);
-  const kout = wks.reduce((a,w) => a+w.kc, 0);
-  const spend = BASE + kout, bal = kin - spend;
-  const P = meals.reduce((a,m)=>a+m.p,0),
-        C = meals.reduce((a,m)=>a+m.c,0),
-        G = meals.reduce((a,m)=>a+m.g,0);
-  const kP = P*4, kC = C*4, kG = G*9, tot = kP+kC+kG || 1;
-  const kBasal = bmr(), kRotina = BASE - kBasal, mx = Math.max(kin, spend) || 1;
-
-  $("h-title").textContent = dayTitle(d.d, innerWidth < 480);   // no celular o título divide espaço com 4 botões
-  $("h-next").disabled = histIso >= TODAY_ISO;
-  $("h-data").value = histIso; $("h-data").max = TODAY_ISO;
-  const oculto = !!OCULTOS[histIso];
-  $("h-olho").classList.toggle("on", oculto);
-  $("h-olho").title = $("h-olho").ariaLabel = oculto ? "Voltar a contar este dia" : "Ignorar este dia";
-  $("h-ignorado").hidden = !oculto;
-
-  const semNada = kin === 0;
-  $("h-hbal").textContent = semNada ? "—" : (bal>0?"+":"−") + fmt(Math.abs(bal));
-  $("h-htag").textContent = semNada ? "nada registrado" : (bal<0 ? "déficit" : "superávit");
-  $("h-htag").className = "tag " + (semNada ? "neu" : bal<0 ? "def" : "sur");
-  $("h-hin").textContent = fmt(kin);
-  $("h-hout").textContent = fmt(spend);
-  $("h-hinbar").style.width = (kin/mx*100).toFixed(1) + "%";
-  $("h-houtbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx); encolherMacros($("h-houtbar"));
-
-
-  $("h-mtotal").textContent = fmt(kin) + " kcal";
-  $("h-wtotal").textContent = fmt(kout) + " kcal";
-  if(!meals.length) $("h-meals").innerHTML = vazio("refeição", d.d === TODAY_ISO);
-  else $("h-meals").innerHTML = CABECALHO_REFEICOES + meals.map((m,i) => `
-    <div class="meal">
-      <div class="mrow">
-        ${m.temFoto || m.fotoId ? `<img class="thumb" data-thumb="${m.id}" alt="">` : ""}
-        <div>
-        <div class="desc">${m.desc}</div>
-        ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || estadoFila}</div>`
-                     : `<div class="mm num mac3"><span><b class="ml">P </b>${m.p}</span><span><b class="ml">C </b>${m.c}</span><span><b class="ml">G </b>${m.g}</span></div>`}
-        </div>
-      </div>
-      <div class="kc num">${fmt(m.kc)}</div>
-      <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
-    </div>`).join("") + (meals.length > 1 ? linhaTotalMacros(meals) : "");
-  $("h-wk").innerHTML = wks.length ? wks.map((w,i) => `
-    <div class="wko">
-      <div>
-        <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.pendente ? `<span class="pend" data-pend="${w.id}">${w.erro || estadoFila}</span>` : w.m}</div>
-      </div>
-      <div class="kc num">${fmt(w.kc)}</div>
-      <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
-    </div>`).join("") : vazio("treino", d.d === TODAY_ISO);
-}
 function irPara(iso){
   histIso = iso > TODAY_ISO ? TODAY_ISO : iso;
-  renderHist();
+  const inicio = somaDias(GRF_FIM, -6);
+  if(histIso < inicio || histIso > GRF_FIM){
+    // semana cheia (seg–dom) do dia aberto; se é a semana de hoje, os últimos 7 dias
+    const dow = dt(histIso).getDay(), domingo = somaDias(histIso, dow === 0 ? 0 : 7 - dow);
+    GRF_FIM = domingo >= TODAY_ISO ? TODAY_ISO : domingo;
+  }
+  renderAll();
 }
 $("h-prev").onclick  = () => irPara(somaDias(histIso, -1));
 $("h-next").onclick  = () => irPara(somaDias(histIso, 1));
@@ -2826,28 +2725,9 @@ $("h-data").addEventListener("change", e => { if(e.target.value) irPara(e.target
 $("h-olho").onclick = () => {
   if(OCULTOS[histIso]) delete OCULTOS[histIso]; else OCULTOS[histIso] = true;
   salvarDia(histIso);
-  renderTudo();
+  renderAll();
 };
-$("h-meals").addEventListener("click", async e => {
-  const b = e.target.closest(".del"); if(!b) return;
-  const iso = histIso, arr = DIA_MEALS[iso] || [], m = arr[+b.dataset.i];
-  if(!m || !await confirmar(m.desc)) return;
-  if(arr[+b.dataset.i] !== m) return;
-  descartarFoto(m);
-  arr.splice(+b.dataset.i, 1);
-  recalcDia(iso); salvarDia(iso); renderAll(); renderHist(); tocarFila();
-});
-$("h-wk").addEventListener("click", async e => {
-  const b = e.target.closest(".del"); if(!b) return;
-  const iso = histIso, arr = DIA_WK[iso] || [], w = arr[+b.dataset.i];
-  if(!w || !await confirmar(w.t)) return;
-  if(arr[+b.dataset.i] !== w) return;
-  arr.splice(+b.dataset.i, 1);
-  recalcDia(iso); salvarDia(iso); renderAll(); renderHist();
-});
-
-/* ---------- abas ---------- */
-const ABAS = [["btn-full","view-full"],["btn-hab","view-hab"],["btn-perf","view-perf"]];
+const ABAS = [["btn-full","view-full"],["btn-perf","view-perf"]];
 function setView(botao){
   ABAS.forEach(([b,v])=>{
     const on = b === botao;
@@ -2855,13 +2735,12 @@ function setView(botao){
     $(v).hidden = !on;
   });
   try{ localStorage.setItem("fite.aba", botao); }catch(e){}
-  $("day-title").hidden = botao === "btn-hab";
-  $("h-nav").hidden = botao !== "btn-hab";
+  $("day-title").hidden = botao === "btn-full";   // no painel, o passador do dia mostra a data
+  $("h-nav").hidden = botao !== "btn-full";
   conferirVersao();     // trocar de aba é um bom momento para notar versão nova
   remedirBarras();      // a aba que acabou de aparecer tinha largura zero até agora
   // os gráficos medem a largura do container: só dá para desenhar com a aba visível
   if(botao === "btn-full") mountCharts();
-  if(botao === "btn-hab") renderHist();
 }
 ABAS.forEach(([b])=> $(b).onclick = () => setView(b));
 
@@ -3082,8 +2961,9 @@ function renderTudo(){
     ["perfil", renderPerfil],
     ["hoje", renderToday],
     ["refeições", () => {
-      renderMeals($("meals"), true);
-      if(!MEALS.length) $("meals").innerHTML = vazio("refeição", true);
+      const {meals} = diaAberto();
+      renderMeals($("meals"), true, meals);
+      if(!meals.length) $("meals").innerHTML = vazio("refeição", histIso === TODAY_ISO);
     }],
     ["treinos", () => {
       renderWorkouts($("workouts"), true, TODAY_WORKOUTS);
@@ -3097,7 +2977,6 @@ function renderTudo(){
     diag("render: " + nome);
     fn();
   }
-  if(!$("view-hab").hidden){ diag("render: histórico"); renderHist(); }
   if(!$("view-full").hidden){ diag("render: gráficos"); mountCharts(); }
   diag("render pronto");
 }
@@ -3112,7 +2991,7 @@ function abrirApp(){
     $("aviso").textContent = avisoDrive;
     $("aviso").hidden = false;
   }
-  try{ setView(localStorage.getItem("fite.aba") || "btn-full"); }catch(e){ setView("btn-full"); }
+  try{ const aba = localStorage.getItem("fite.aba"); setView(ABAS.some(([b]) => b === aba) ? aba : "btn-full"); }catch(e){ setView("btn-full"); }
   tocarFila();          // o que ficou pendente de outra sessão retoma agora
   icuAuto();            // treinos novos do relógio, sem precisar ir ao perfil
   conferirVersao();     // a página no ar pode ser mais nova que esta
