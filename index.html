@@ -322,7 +322,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .hnav .cal svg{width:17px;height:17px;display:block;margin:auto}
 .hnav .cal input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;
   font-size:16px;-webkit-appearance:none;appearance:none}
-.hempty{color:var(--ink-3);font-size:14px;padding:6px 0}
+.hempty{color:var(--ink-3);font-size:14px;padding:6px 0;text-align:center}
 .nada{padding:16px 4px 10px;text-align:center}
 .nada-t{font-size:14.5px;font-weight:600;color:var(--ink-2)}
 
@@ -1020,7 +1020,7 @@ function drawWeight(){
   const host = document.getElementById("c-weight");
   if(WEIGHTS.length < 2){
     host.insertAdjacentHTML("afterbegin",
-      `<div class="hempty">${WEIGHTS.length ? "Um registro só — o segundo já mostra a tendência."
+      `<div class="hempty">${WEIGHTS.length ? "Um registro só — o segundo já monta o gráfico."
         : "Nenhum peso registrado ainda."}</div>`);
     $("w-slope").textContent = "";
     return;
@@ -1126,7 +1126,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921221625";
+const VERSAO = "20260921221642";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
