@@ -1110,7 +1110,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921220918";
+const VERSAO = "20260921221116";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2685,7 +2685,7 @@ async function apagarFotosNoDrive(){
   }
 }
 $("meals").addEventListener("click", async e => {
-  const b = e.target.closest(".del"); if(!b) return;
+  const b = e.target.closest(".del[data-i]"); if(!b) return;   // os × invisíveis do cabeçalho e do total não contam
   const iso = histIso, arr = DIA_MEALS[iso] || [], i = +b.dataset.i, m = arr[i];
   if(!m || !await confirmar(m.desc)) return;
   if(arr[i] !== m) return;        // a lista mudou enquanto o modal estava aberto
