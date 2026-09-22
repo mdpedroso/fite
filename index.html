@@ -16,7 +16,6 @@
   --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
   --sig-good:#0a8a0a; --sig-mid:#c28400; --sig-bad:#c62f2f;
   --deficit:#2a78d6; --surplus:#d03b3b;
-  --tit-ref:#0e5b7d; --tit-tre:#4c8512;
   --marca:#0e5b7d; --marca-2:#8cc63f;
   --consumo:#e35b28;
   --gasto:#5b9bd5; --gasto-2:#2a6db5; --gasto-3:#123f73;
@@ -31,7 +30,6 @@
   --good:#0ca30c; --warn:#fab219; --crit:#e66767;
   --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
   --deficit:#3987e5; --surplus:#e66767;
-  --tit-ref:#62b4d8; --tit-tre:#a5d65c;
   --marca:#3d9dc4; --marca-2:#9fd94f;
   --consumo:#e0683a;
   --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
@@ -46,7 +44,6 @@
   --good:#0ca30c; --warn:#fab219; --crit:#e66767;
   --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
   --deficit:#3987e5; --surplus:#e66767;
-  --tit-ref:#62b4d8; --tit-tre:#a5d65c;
   --marca:#3d9dc4; --marca-2:#9fd94f;
   --consumo:#e0683a;
   --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
@@ -145,7 +142,11 @@ h2:has(~ .mais.gira:not([hidden])), h2:has(~ .mais.duvida){padding-right:70px}
 /* o total herda a fonte do título; só o separador e o peso mudam */
 h2 .tot{opacity:.62;font-weight:600}
 h2 .tot:not(:empty)::before{content:"· "}
-h2.t-ref{color:var(--tit-ref)} h2.t-tre{color:var(--tit-tre)}
+/* título + total dentro de uma pílula na cor do botão + do card */
+h2.t-ref,h2.t-tre{display:inline-block;padding:4px 11px !important;border-radius:99px;margin-bottom:8px}
+h2.t-ref{background:var(--marca);color:#fff}
+h2.t-tre{background:var(--marca-2);color:#143300}
+h2.t-ref .tot,h2.t-tre .tot{opacity:.85}
 h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink-3)}
 
 /* ---- hero ---- */
@@ -1120,7 +1121,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921210025";
+const VERSAO = "20260921210042";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
