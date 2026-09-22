@@ -1,0 +1,53 @@
+{
+ "dias": {
+  "2026-09-21": [
+   {
+    "slot": "lanche manhã",
+    "desc": "1 banana",
+    "kc": 105,
+    "p": 1,
+    "c": 27,
+    "g": 0,
+    "raw": "1 banana"
+   },
+   {
+    "slot": "almoço",
+    "desc": "bowl de sopa de cenoura com arroz e frango",
+    "kc": 450,
+    "p": 35,
+    "c": 45,
+    "g": 12,
+    "raw": "bowl de sopa de cenoura com arroz e frango"
+   },
+   {
+    "slot": "lanche tarde",
+    "desc": "1 colher cha de doce de leite",
+    "kc": 35,
+    "p": 0,
+    "c": 7,
+    "g": 1,
+    "raw": "1 colher cha de doce de leite"
+   },
+   {
+    "slot": "lanche tarde",
+    "desc": "1 fatia de mamao com 1/3 scoop whey",
+    "kc": 100,
+    "p": 9,
+    "c": 16,
+    "g": 1,
+    "raw": "1 fatia de mamao com 1/3 scoop whey"
+   }
+  ]
+ },
+ "wk": {
+  "2026-09-21": [
+   {
+    "mod": "funcional",
+    "t": "HIIT",
+    "m": "31 min",
+    "kc": 303,
+    "raw": "HIIT"
+   }
+  ]
+ }
+}
