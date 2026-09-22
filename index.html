@@ -976,8 +976,6 @@ function drawEnergy(){
   const empilha = bw < 60;
   const fsDay = empilha ? Math.max(8.5, Math.min(11, bw*0.3)) : Math.max(8, Math.min(13, bw*0.26));
   const fsBal = Math.max(6.5, Math.min(14, bw*0.235));  // "−2916" (5 glifos mono) + a pílula cabem na largura da barra
-  svg.appendChild(el("line",{x1:P.l,x2:W-P.r,y1:yDay-15,y2:yDay-15,
-    stroke:css("--grid"),"stroke-width":1}));
   // painel próprio fecha saldo e treino como um bloco, separado do gráfico
   svg.appendChild(el("rect",{x:1, y:panelTop, width:W-2, height:panelBot-panelTop,
     rx:8, fill:css("--surface-2")}));
@@ -1150,7 +1148,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921212941";
+const VERSAO = "20260921213200";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
