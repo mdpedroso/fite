@@ -288,8 +288,15 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 #aviso{background:var(--warn);color:#3a2a00;font-size:13px;font-weight:600;
   padding:9px 16px;text-align:center;line-height:1.45}
 /* tarja de versão nova: a página publicada mudou desde que esta abriu */
-#nova-versao{display:block;width:100%;border:0;font:inherit;font-size:13px;font-weight:600;
-  background:var(--marca);color:#fff;padding:10px 16px;text-align:center;line-height:1.45;cursor:pointer}
+/* amarelo de obra com texto preto: nenhuma outra coisa no app tem essa cor, e ela fica
+   grudada no topo mesmo com a página rolada */
+#nova-versao{display:block;width:100%;border:0;font:inherit;font-size:14px;font-weight:700;
+  background:#ffe500;color:#111;padding:12px 16px;text-align:center;line-height:1.4;cursor:pointer;
+  position:sticky;top:0;z-index:60;box-shadow:0 2px 10px rgba(0,0,0,.25);
+  animation:grita 1.1s ease-in-out infinite alternate}
+#nova-versao::before{content:"↻  "}
+@keyframes grita{from{background:#ffe500}to{background:#ffb700}}
+@media (prefers-reduced-motion:reduce){#nova-versao{animation:none}}
 #nova-versao[hidden]{display:none}
 
 /* ---- portão de entrada ---- */
@@ -1126,7 +1133,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921210643";
+const VERSAO = "20260921211324";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
