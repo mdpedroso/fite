@@ -1035,7 +1035,9 @@ function drawWeight(){
   // eixo x é tempo real, não a posição na lista
   const t0 = dt(WEIGHTS[0].d).getTime(), t1 = dt(WEIGHTS[WEIGHTS.length-1].d).getTime();
   const span = Math.max(1, t1-t0);
-  const X = s => P.l + iw*(dt(s).getTime()-t0)/span;
+  // folga nas pontas: o primeiro e o último ponto não encostam nas bordas
+  const folga = Math.min(28, iw*0.06);
+  const X = s => P.l + folga + (iw - 2*folga)*(dt(s).getTime()-t0)/span;
   const kgs = WEIGHTS.map(w=>w.kg);
   const lo = Math.min(...kgs)-0.5, hi = Math.max(...kgs)+0.5;
   const Y = v => P.t + ih - ((v-lo)/(hi-lo))*ih;
@@ -1129,7 +1131,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921221936";
+const VERSAO = "20260921222103";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
