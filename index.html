@@ -841,7 +841,9 @@ const css = v => getComputedStyle(document.body).getPropertyValue(v).trim();
 /* critério do saldo: verde déficit, cinza equilíbrio, vermelho superávit */
 const LIMIAR = 250;
 // saldo do dia: azul do déficit, laranja da barra de consumo no superávit, cinza perto de zero
-const balColor = b => b <= -LIMIAR ? "--deficit" : (b >= LIMIAR ? "--consumo" : "--ink-3");
+// o sinal manda: negativo é déficit (azul), zero ou positivo é superávit (laranja).
+// Nada de cinza — a pílula grande do topo já decide pelo sinal, as duas batem.
+const balColor = b => b < 0 ? "--deficit" : "--consumo";
 
 // "Hoje"/"Ontem" só valem perto da data; mais longe, a própria data já situa
 function dayTitle(iso, curto){
@@ -1133,7 +1135,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921222410";
+const VERSAO = "20260921223244";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
