@@ -202,6 +202,15 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
 .meal .mm{font-size:12.5px;color:var(--ink-3);margin-top:2px}
 .mac3 span + span::before{content:" · "}
+/* celular: com foto, os macros descem para uma linha inteira, alinhados com as outras
+   refeições em vez de ficarem indentados pela miniatura */
+@media(max-width:719px){
+  .meal .mrow:has(.thumb){display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:start}
+  .meal .mrow:has(.thumb) > div{display:contents}
+  .meal .mrow:has(.thumb) .thumb{grid-column:1;grid-row:1}
+  .meal .mrow:has(.thumb) .desc{grid-column:2;grid-row:1}
+  .meal .mrow:has(.thumb) .mm{grid-column:1/-1;grid-row:2;margin-top:3px}
+}
 .meal.cab{display:none}
 /* celular: rótulo e total numa linha, a barra inteira na linha de baixo */
 @media(max-width:719px){
@@ -1124,7 +1133,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921222301";
+const VERSAO = "20260921222410";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
