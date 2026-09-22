@@ -253,9 +253,13 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   border-radius:8px;border:1px solid var(--axis);background:var(--surface-2);
   color:var(--ink);cursor:pointer}
 .hnav button:disabled{opacity:.3;cursor:default}
-.hnav.mini{gap:6px;margin:-2px 0 8px}
-.hnav.mini button{width:28px;height:28px;font-size:17px;border-radius:7px}
-.hnav.mini .t{width:170px;font-size:11.5px;text-transform:none;letter-spacing:.02em;font-weight:600}
+/* título, passador de semana e resumo na mesma linha */
+.grfhead{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-bottom:6px}
+.grfhead h2{margin:0}
+.grfhead .side{margin-left:auto;font-size:12px;font-weight:500;color:var(--ink-3)}
+.hnav.mini{gap:4px;margin:0}
+.hnav.mini button{width:24px;height:24px;font-size:15px;border-radius:6px}
+.hnav.mini .t{width:100px;font-size:11.5px;text-transform:none;letter-spacing:.02em;font-weight:600}
 .hnav .t{flex:none;width:min(340px,calc(100% - 180px));text-align:center;font-size:12px;   /* 4 botões de 34px + folgas */
   font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 /* calendário: o input de data fica invisível por cima do botão, e o toque abre o seletor nativo */
@@ -522,11 +526,14 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
   <div class="grid">
     <section class="card">
-      <h2>Entrada e saída <span class="side" id="grf-side"></span></h2>
-      <div class="hnav mini">
-        <button id="g-prev" aria-label="Semana anterior">‹</button>
-        <div class="t" id="g-per"></div>
-        <button id="g-next" aria-label="Próxima semana">›</button>
+      <div class="grfhead">
+        <h2>Entrada e saída</h2>
+        <div class="hnav mini">
+          <button id="g-prev" aria-label="Semana anterior">‹</button>
+          <div class="t" id="g-per"></div>
+          <button id="g-next" aria-label="Próxima semana">›</button>
+        </div>
+        <span class="side" id="grf-side"></span>
       </div>
       <div class="chart" id="c-energy"><div class="tip" id="t-energy"></div></div>
     </section>
@@ -1121,7 +1128,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921210042";
+const VERSAO = "20260921210126";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
