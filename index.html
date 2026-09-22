@@ -17,7 +17,7 @@
   --sig-good:#0a8a0a; --sig-mid:#c28400; --sig-bad:#c62f2f;
   --deficit:#2a78d6; --surplus:#d03b3b;
   --marca:#0e5b7d; --marca-2:#8cc63f;
-  --verde-forte:#3a7d17;   /* o verde da marca escurecido até aguentar texto branco */
+  --sobre-treino:#fff;     /* tinta sobre a cor de treino (o azul escuro da barra do gasto) */
   --consumo:#e35b28;
   --gasto:#5b9bd5; --gasto-2:#2a6db5; --gasto-3:#123f73;
   --shadow:0 1px 2px rgba(11,11,11,.05);
@@ -33,7 +33,7 @@
   --deficit:#3987e5; --surplus:#e66767;
   --marca:#3d9dc4; --marca-2:#9fd94f;
   --consumo:#e0683a;
-  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
+  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea; --sobre-treino:#0b1f36;
   --shadow:none;
 }}
 :root[data-theme="dark"]{
@@ -47,7 +47,7 @@
   --deficit:#3987e5; --surplus:#e66767;
   --marca:#3d9dc4; --marca-2:#9fd94f;
   --consumo:#e0683a;
-  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea;
+  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea; --sobre-treino:#0b1f36;
   --shadow:none;
 }
 *{box-sizing:border-box}
@@ -91,7 +91,7 @@ header{
 .mais:hover{filter:brightness(1.1);transform:scale(1.06)}
 .mais:active{transform:scale(.96)}
 .mais.azul{background:var(--consumo);color:#fff}
-.mais.verde{background:var(--verde-forte);color:#fff}
+.mais.verde{background:var(--gasto-3);color:var(--sobre-treino)}
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
 /* tirar dúvida: mesmo contorno do atualizar, com "?" no lugar da cruz */
 .mais.duvida{right:46px;background:var(--surface-2);color:var(--ink-2);border:1.5px solid var(--grid);
@@ -146,7 +146,7 @@ h2 .tot:not(:empty)::before{content:"· "}
 /* título + total dentro de uma pílula na cor do botão + do card */
 h2.t-ref,h2.t-tre{display:inline-block;padding:4px 11px !important;border-radius:99px;margin-bottom:8px}
 h2.t-ref{background:var(--consumo);color:#fff}
-h2.t-tre{background:var(--verde-forte);color:#fff}
+h2.t-tre{background:var(--gasto-3);color:var(--sobre-treino)}
 h2.t-ref .tot,h2.t-tre .tot{opacity:.85}
 h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink-3)}
 
@@ -505,7 +505,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
             <div class="v num" id="h-in"></div>
           </div>
           <div class="flowrow">
-            <div class="lbl"><i class="dot split"></i>Gastei</div>
+            <div class="lbl"><i class="dot split"></i>Gasto</div>
             <div class="track"><div class="segbar" id="h-outbar"></div></div>
             <div class="v num" id="h-out"></div>
           </div>
@@ -594,7 +594,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
             <div class="v num" id="h-hin"></div>
           </div>
           <div class="flowrow">
-            <div class="lbl"><i class="dot split"></i>Gastei</div>
+            <div class="lbl"><i class="dot split"></i>Gasto</div>
             <div class="track"><div class="segbar" id="h-houtbar"></div></div>
             <div class="v num" id="h-hout"></div>
           </div>
@@ -1138,7 +1138,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921214630";
+const VERSAO = "20260921214752";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
