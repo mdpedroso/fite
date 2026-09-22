@@ -193,7 +193,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .meal.total{border-top:2px solid var(--axis);margin-top:2px}
 .meal.total .desc{font-weight:600;color:var(--ink-2)}
 .meal.total .mm{color:var(--ink-2);font-weight:600}
-.meal.total .mm span{font-weight:700}
+.meal.total .mm{color:var(--ink);font-weight:700}
 .meal.total .mm span + span::before{color:var(--ink-3);font-weight:400}   /* o espaço da frente some sozinho dentro da célula fixa */
 @media(min-width:720px){
   .meal{align-items:center}
@@ -1138,7 +1138,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921214806";
+const VERSAO = "20260921215009";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2003,12 +2003,12 @@ function linhaTotalMacros(lista){
   const P = lista.reduce((a,m)=>a+m.p,0), C = lista.reduce((a,m)=>a+m.c,0), G = lista.reduce((a,m)=>a+m.g,0);
   const kP = P*4, kC = C*4, kG = G*9, tot = kP+kC+kG || 1;
   const pc = k => Math.round(k/tot*100);
-  const cel = (n, gr, k, cor) => `<span style="color:var(${cor})" title="${pc(k)}% das calorias">${n} ${gr}</span>`;
+  const cel = (n, gr, k) => `<span title="${pc(k)}% das calorias">${n} ${gr}</span>`;
   return `<div class="meal total" title="Proteína ${pc(kP)}% · Carboidrato ${pc(kC)}% · Gordura ${pc(kG)}% das calorias">
     <div class="mrow"><div><div class="desc">Total</div>
-      <div class="mm num mac3">${cel("P",P,kP,"--mp")}${cel("C",C,kC,"--mc")}${cel("G",G,kG,"--mg")}</div></div></div>
+      <div class="mm num mac3">${cel("P",P,kP)}${cel("C",C,kC)}${cel("G",G,kG)}</div></div></div>
     <div class="kc num">${fmt(lista.reduce((a,m)=>a+m.kc,0))}</div>
-    <div></div>
+    <button class="del" disabled aria-hidden="true" style="visibility:hidden">×</button>
   </div>`;
 }
 
