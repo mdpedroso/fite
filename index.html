@@ -386,6 +386,11 @@ dialog{border:0;border-radius:12px;padding:18px 18px 16px;background:var(--surfa
 dialog::backdrop{background:rgba(11,11,11,.45)}
 dialog h3::after{content:attr(data-dia);color:var(--in)}
 dialog{position:relative}
+dialog.confirma{max-width:360px}
+.confirma .c-o{margin:0 0 6px;font-size:15.5px;font-weight:600;line-height:1.35;word-break:break-word}
+.confirma .c-nota{margin:0 0 14px;font-size:13px;color:var(--ink-3)}
+.confirma .addactions{justify-content:flex-end}
+.btn-del{background:var(--crit);color:#fff}
 .fechar{position:absolute;top:8px;right:10px;font-size:23px;line-height:1;
   background:none;border:0;color:var(--ink-3);cursor:pointer;padding:3px 9px;
   border-radius:7px}
@@ -741,6 +746,16 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       <span class="addstatus" id="st-meal"></span>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlg-confirma" class="confirma">
+  <h3>Excluir</h3>
+  <p class="c-o" id="c-o"></p>
+  <p class="c-nota">Sai do dia e do Drive. Não dá para desfazer.</p>
+  <div class="addactions">
+    <button type="button" class="btn-cancel" id="c-nao">Manter</button>
+    <button type="button" class="btn-del" id="c-sim">Excluir</button>
+  </div>
 </dialog>
 
 <dialog id="dlg-wk">
@@ -1135,7 +1150,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921212510";
+const VERSAO = "20260921212941";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2588,11 +2603,25 @@ function sincExcluirPeso(){
   $("bt-del-peso").hidden = !tem;
 }
 $("in-pdata").addEventListener("change", sincExcluirPeso);
-$("bt-del-peso").onclick = () => {
+// confirmação no visual do app, no lugar do confirm() do navegador
+function confirmar(oQue){
+  return new Promise(ok => {
+    const d = $("dlg-confirma");
+    $("c-o").textContent = oQue;
+    let resposta = false;
+    const fim = () => { d.removeEventListener("close", fim); ok(resposta); };
+    d.addEventListener("close", fim);
+    $("c-sim").onclick = () => { resposta = true; d.close(); };
+    $("c-nao").onclick = () => d.close();
+    d.showModal();
+    $("c-nao").focus();          // Enter sem querer não exclui
+  });
+}
+$("bt-del-peso").onclick = async () => {
   const d = $("in-pdata").value;
   const i = WEIGHTS.findIndex(w => w.d === d);
   if(i < 0) return;
-  if(!confirm(`Excluir o peso de ${dayShort(d)}?`)) return;
+  if(!await confirmar(`Peso de ${dayShort(d)}`)) return;
   WEIGHTS.splice(i, 1);
   salvarPesos(); recalcDays(); renderPerfil(); renderAll();
   $("dlg-peso").close();
@@ -2627,17 +2656,19 @@ async function apagarFotosNoDrive(){
     }
   }
 }
-$("meals").addEventListener("click", e => {
+$("meals").addEventListener("click", async e => {
   const b = e.target.closest(".del"); if(!b) return;
   const i = +b.dataset.i, m = MEALS[i];
-  if(!m || !confirm(`Excluir "${m.desc}"?`)) return;
+  if(!m || !await confirmar(m.desc)) return;
+  if(MEALS[i] !== m) return;      // a lista mudou enquanto o modal estava aberto
   descartarFoto(m);
   MEALS.splice(i, 1); salvarDia(TODAY_ISO); renderAll(); tocarFila();
 });
-$("workouts").addEventListener("click", e => {
+$("workouts").addEventListener("click", async e => {
   const b = e.target.closest(".del"); if(!b) return;
   const w = TODAY_WORKOUTS[+b.dataset.i];
-  if(!w || !confirm(`Excluir "${w.t}"?`)) return;
+  if(!w || !await confirmar(w.t)) return;
+  if(TODAY_WORKOUTS[+b.dataset.i] !== w) return;
   TODAY_WORKOUTS.splice(+b.dataset.i, 1);
   recalcDia(TODAY_ISO); salvarDia(TODAY_ISO); renderAll();
 });
@@ -2734,18 +2765,20 @@ $("h-olho").onclick = () => {
   salvarDia(histIso);
   renderTudo();
 };
-$("h-meals").addEventListener("click", e => {
+$("h-meals").addEventListener("click", async e => {
   const b = e.target.closest(".del"); if(!b) return;
   const iso = histIso, arr = DIA_MEALS[iso] || [], m = arr[+b.dataset.i];
-  if(!m || !confirm(`Excluir "${m.desc}"?`)) return;
+  if(!m || !await confirmar(m.desc)) return;
+  if(arr[+b.dataset.i] !== m) return;
   descartarFoto(m);
   arr.splice(+b.dataset.i, 1);
   recalcDia(iso); salvarDia(iso); renderAll(); renderHist(); tocarFila();
 });
-$("h-wk").addEventListener("click", e => {
+$("h-wk").addEventListener("click", async e => {
   const b = e.target.closest(".del"); if(!b) return;
   const iso = histIso, arr = DIA_WK[iso] || [], w = arr[+b.dataset.i];
-  if(!w || !confirm(`Excluir "${w.t}"?`)) return;
+  if(!w || !await confirmar(w.t)) return;
+  if(arr[+b.dataset.i] !== w) return;
   arr.splice(+b.dataset.i, 1);
   recalcDia(iso); salvarDia(iso); renderAll(); renderHist();
 });
