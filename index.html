@@ -71,7 +71,10 @@ header{
 .brand #brand-quem{color:var(--ink-3);font-weight:500;font-size:15px}
 /* a data do dia vive no cabeçalho, centralizada entre a marca e as abas */
 .hoje{flex:1;text-align:center;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
-@media (max-width:640px){ .hoje{order:9;flex-basis:100%;margin-top:2px;letter-spacing:.05em} }
+@media (max-width:640px){
+  .hoje{order:9;flex-basis:100%;margin-top:2px;letter-spacing:.05em}
+  .brand{margin-right:auto}          /* marca à esquerda, abas encostadas à direita */
+}
 .seg{display:flex;background:var(--surface-2);border-radius:7px;padding:2px;gap:2px}
 .seg button{
   font:inherit;font-size:12.5px;font-weight:600;border:0;cursor:pointer;
@@ -1138,7 +1141,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921215009";
+const VERSAO = "20260921215034";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
