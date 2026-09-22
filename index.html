@@ -167,10 +167,13 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .flowrow .lbl{font-size:13px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:6px}
 .dot{width:9px;height:9px;border-radius:2px;flex:none}
 .dot.split{width:22px;background:linear-gradient(90deg,var(--gasto) 0 33%,var(--gasto-2) 33% 66%,var(--gasto-3) 66% 100%)}
-.track{height:10px;background:var(--surface-2);border-radius:3px;overflow:hidden}
-.fill{height:100%;border-radius:3px}
+.track{height:26px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.fill{height:100%;border-radius:6px}
 .segbar{display:flex;height:100%;gap:2px}
-.segbar div{height:100%;border-radius:3px;min-width:2px}
+.segbar div{height:100%;border-radius:6px;min-width:2px;display:flex;align-items:center;justify-content:center;
+  gap:5px;padding:0 5px;overflow:hidden;white-space:nowrap;font-size:12px;line-height:1;color:#fff}
+.segbar b{font-weight:700}
+.segbar .num{font-weight:600;opacity:.9}
 .flowrow .v{font-size:14.5px;font-weight:600;text-align:right;min-width:52px}
 .flownote{font-size:12.5px;color:var(--ink-3);margin-top:2px}
 
@@ -505,7 +508,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
               <div class="track"><div class="segbar" id="h-outbar"></div></div>
               <div class="v num" id="h-out"></div>
             </div>
-            <div class="flownote" id="h-note"></div>
           </div>
         </div>
         <div>
@@ -599,7 +601,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
               <div class="track"><div class="segbar" id="h-houtbar"></div></div>
               <div class="v num" id="h-hout"></div>
             </div>
-            <div class="flownote" id="h-hnote"></div>
           </div>
         </div>
         <div>
@@ -1145,7 +1146,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921213543";
+const VERSAO = "20260921213630";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1973,6 +1974,16 @@ function workoutsRecentes(){
   return out;
 }
 
+// a barra do gasto também carrega a legenda: basal, rotina e treino, cada um na sua fatia
+function barraGasto(kBasal, kRotina, kout, mx){
+  const fatia = (nome, k, cor) => {
+    if(!k) return "";
+    const pct = k/mx*100;
+    const txt = pct < 7 ? "" : pct < 16 ? `<b>${nome[0]}</b>` : `<b>${nome}</b> <span class="num">${fmt(k)}</span>`;
+    return `<div style="width:${pct.toFixed(1)}%;background:var(${cor})" title="${nome} ${fmt(k)}">${txt}</div>`;
+  };
+  return fatia("Basal", kBasal, "--gasto") + fatia("Rotina", kRotina, "--gasto-2") + fatia("Treino", kout, "--gasto-3");
+}
 // a barra de macros carrega a legenda dentro dela: nome, gramas e % em cada fatia.
 // Fatia estreita mostra só a inicial (P/C/G) e o resto; estreita demais, só a inicial.
 function barraMacros(macros, tot, semNada){
@@ -2009,13 +2020,7 @@ function renderToday(){
     `<div class="fill" style="width:${(kin/mx*100).toFixed(1)}%;background:var(--consumo)" id="h-inbar"></div>`;
   // basal é só o repouso; a rotina do dia é o que o fator de atividade acrescenta
   const kBasal = bmr(), kRotina = BASE - kBasal;
-  $("h-outbar").innerHTML =
-    `<div style="width:${(kBasal/mx*100).toFixed(1)}%;background:var(--gasto)"></div>` +
-    `<div style="width:${(kRotina/mx*100).toFixed(1)}%;background:var(--gasto-2)"></div>` +
-    (kout ? `<div style="width:${(kout/mx*100).toFixed(1)}%;background:var(--gasto-3)"></div>` : "");
-  $("h-note").textContent =
-    `Basal ${fmt(kBasal)} · rotina ${fmt(kRotina)}` +
-    (kout ? ` · treino ${fmt(kout)}` : " · sem treino hoje");
+  $("h-outbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx);
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("m-sub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
@@ -2712,12 +2717,7 @@ function renderHist(){
   $("h-hin").textContent = fmt(kin);
   $("h-hout").textContent = fmt(spend);
   $("h-hinbar").style.width = (kin/mx*100).toFixed(1) + "%";
-  $("h-houtbar").innerHTML =
-    `<div style="width:${(kBasal/mx*100).toFixed(1)}%;background:var(--gasto)"></div>` +
-    `<div style="width:${(kRotina/mx*100).toFixed(1)}%;background:var(--gasto-2)"></div>` +
-    (kout ? `<div style="width:${(kout/mx*100).toFixed(1)}%;background:var(--gasto-3)"></div>` : "");
-  $("h-hnote").textContent = `Basal ${fmt(kBasal)} · rotina ${fmt(kRotina)}` +
-    (kout ? ` · treino ${fmt(kout)}` : " · sem treino");
+  $("h-houtbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx);
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("h-msub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
