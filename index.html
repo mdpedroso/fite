@@ -1146,7 +1146,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921213954";
+const VERSAO = "20260921214133";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2000,13 +2000,21 @@ function encolherMacros(el){
   el.querySelectorAll("div[title]").forEach(f => {
     const b = f.querySelector("b"), r = f.querySelector("span");
     if(!b) return;
-    b.textContent = b.dataset.nome;
-    if(f.scrollWidth > f.clientWidth + 1) b.textContent = b.dataset.nome[0];
-    r.style.display = "";
-    if(f.scrollWidth > f.clientWidth + 1) r.style.display = "none";
-    if(f.scrollWidth > f.clientWidth + 1) b.textContent = "";
+    // conteúdo centralizado vaza para os dois lados, e scrollWidth não enxerga o lado
+    // esquerdo: mede-se o próprio texto contra o espaço interno da fatia
+    const cs = getComputedStyle(f), interno = f.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const emLinha = cs.flexDirection !== "column";
+    const largura = () => emLinha
+      ? [b, r].filter(x => x.style.display !== "none").reduce((a, x) => a + x.getBoundingClientRect().width, 0) + (r.style.display === "none" ? 0 : parseFloat(cs.columnGap) || 0)
+      : Math.max(b.getBoundingClientRect().width, r.style.display === "none" ? 0 : r.getBoundingClientRect().width);
+    b.textContent = b.dataset.nome; r.style.display = "";
+    if(largura() > interno + .5) b.textContent = b.dataset.nome[0];
+    if(largura() > interno + .5) r.style.display = "none";
+    if(largura() > interno + .5) b.textContent = "";
   });
 }
+// ao mudar a largura (girar o celular), as fatias mudam de tamanho: mede de novo
+addEventListener("resize", () => ["m-bar","h-mbar","h-outbar","h-houtbar"].forEach(id => { const e = $(id); if(e) encolherMacros(e); }));
 
 /* ---------- o dia de hoje, recalculado a cada mudança ---------- */
 function renderToday(){
