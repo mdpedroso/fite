@@ -606,10 +606,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     <section class="card">
       <h2 class="t-peso">Peso</h2><span class="side pside" id="peso-side"></span>
       <button class="mais cinza" id="bt-peso" aria-label="Registrar peso">+</button>
-      <div class="legend">
-        <span><i class="dot" style="background:var(--ink);border-radius:99px"></i>Medido</span>
-        <span><i class="dot" style="background:var(--ink-3);width:16px;height:2px;border-radius:1px"></i>Tendência <span id="w-slope" class="num"></span></span>
-      </div>
       <div class="chart" id="c-weight"><div class="tip" id="t-weight"></div></div>
 
     </section>
@@ -1025,7 +1021,6 @@ function drawWeight(){
     host.insertAdjacentHTML("afterbegin",
       `<div class="hempty">${WEIGHTS.length ? "Um registro só — o segundo já monta o gráfico."
         : "Nenhum peso registrado ainda."}</div>`);
-    $("w-slope").textContent = "";
     return;
   }
   const W=Math.max(280,host.clientWidth||700), H=168, P={t:12,r:14,b:24,l:50};
@@ -1061,8 +1056,6 @@ function drawWeight(){
   svg.appendChild(el("line",{x1:X(WEIGHTS[0].d),y1:Y(icept),
     x2:X(WEIGHTS[n-1].d),y2:Y(icept+slope*lastX),
     stroke:css("--ink-3"),"stroke-width":2,"stroke-dasharray":"5 4"}));
-  document.getElementById("w-slope").textContent =
-    `${(slope*7).toFixed(2).replace(".",",")} kg/sem`;
 
   const d = WEIGHTS.map((w,i)=>`${i?"L":"M"}${X(w.d).toFixed(1)},${Y(w.kg).toFixed(1)}`).join(" ");
   svg.appendChild(el("path",{d,fill:"none",stroke:css("--ink"),"stroke-width":2,
@@ -1131,7 +1124,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921222115";
+const VERSAO = "20260921222301";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
