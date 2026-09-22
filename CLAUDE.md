@@ -67,6 +67,36 @@ de `data/`** — correção é um evento novo com `corrects: "<id>"`.
 - **Acesso ao diário do outro é explícito** (tabela `acesso`), visível para o dono e
   revogável por ele. Nada de "papel = dono vê tudo" escondido no código.
 
+# Contas: a linha é a permissão
+
+Não existe cadastro por conta própria. **Quem entra é quem já tem linha em `usuario`**,
+criada por nós. O login do Google só valida a identidade e carimba `google_sub` numa
+linha existente; e-mail sem linha é recusado, mesmo com conta Google válida. Isso
+substitui a lista de e-mails em hash que ficava no código, que era sinalização.
+
+- **Identidade é o e-mail** (`citext`, único). A chave primária é um uuid porque e-mail
+  muda, e trocá-lo não pode obrigar a reescrever o diário inteiro.
+- **Só vincula `google_sub` se o ID token trouxer `email_verified: true`.**
+- **Revogar é `ativo = false`, nunca `delete`** — a linha tem `on delete cascade` e
+  levaria refeições, treinos e pesos junto.
+- Permissão de administrador sai da tabela `admin`.
+- Contas se gerenciam por `db/usuario.py` (`--listar`, `--add`, `--desativar`).
+
+# Brasil: fuso, data e número
+
+O servidor do banco está em **UTC** e o `DateStyle` é `ISO, MDY`. Daí três regras:
+
+- **O dia é decidido no backend, nunca pelo banco.** `current_date` no servidor vira o
+  dia às 21h de Brasília. A conexão declara `America/Sao_Paulo` e, ainda assim, toda
+  data vai explícita na consulta.
+- **Data sempre em ISO** (`2026-09-22`). Com `MDY`, mandar `22/09/2026` é pedir erro.
+- **Número guarda ponto, exibe vírgula.** `85,4` é formatação de tela
+  (`toLocaleString("pt-BR")`), nunca o valor gravado.
+
+O banco é UTF8 e ordena acento corretamente (`Ágata < Água < arroz < Zebra`), então não
+há nada a fazer quanto a charset. Se um dia houver busca textual, trocar a configuração
+de `english` para `portuguese`.
+
 # Banco: nada roda sem autorização
 
 O `DATABASE_URL` fica em `.env` na máquina do Marcos, fora do Git. Posso ler e consultar.
@@ -191,3 +221,5 @@ número na cara.
 | 22/09 | Supabase (São Paulo), Data API desligada | banco gerenciado perto, sem superfície pública |
 | 22/09 | Backend em TypeScript | tipo compartilhado entre servidor e tela |
 | 22/09 | Um só CLAUDE.md | o que precisa valer sempre tem que estar no arquivo que sempre carrega |
+| 22/09 | Entrada só pelo Google, sem senha | menos código de auth para manter; conta já existe |
+| 22/09 | Usuário pré-cadastrado por nós | saber a URL e ter Gmail não pode dar acesso |
