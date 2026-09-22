@@ -156,7 +156,7 @@ h2 .tot:not(:empty)::before{content:"· "}
 /* título + total dentro de uma pílula na cor do botão + do card */
 h2.t-ref,h2.t-tre{display:inline-block;padding:4px 11px !important;border-radius:99px;margin-bottom:8px}
 h2.t-ref{background:var(--consumo);color:#fff}
-h2.t-peso{display:inline-block;padding:3px 10px !important;border-radius:99px;margin-bottom:5px;background:var(--ink-2);color:var(--surface)}
+h2.t-peso{display:inline-block;align-self:flex-start;padding:3px 10px !important;border-radius:99px;margin-bottom:5px;background:var(--ink-2);color:var(--surface)}   /* o card do peso é flex em coluna: sem align-self a pílula esticaria */
 .pside{position:absolute;right:52px;top:14px;font-size:12px;font-weight:500;color:var(--ink-3)}
 h2.t-tre{background:var(--gasto-3);color:var(--sobre-treino)}
 h2.t-ref .tot,h2.t-tre .tot{opacity:.85}
@@ -1131,7 +1131,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921222103";
+const VERSAO = "20260921222115";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
