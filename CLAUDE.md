@@ -56,6 +56,23 @@ de `data/`** — correção é um evento novo com `corrects: "<id>"`.
 
 ---
 
+# Modelo do banco
+
+Migrações numeradas em `db/migracoes/`, aplicadas com `db/rodar.py`.
+
+- `usuario`, `admin`, `sessao` — contas (001).
+- `refeicao`, `treino` — uma linha por lançamento, com `ordem` para arrastar na lista,
+  `bruto` (o que a pessoa escreveu), `interpretacao` (como o modelo entendeu) e `llm`
+  (quem estimou).
+- `medicao` — métricas do corpo no formato `(dia, metrica, valor)`. A chave é texto e o
+  catálogo (rótulo, unidade, faixa válida, casas decimais) mora **no backend**: métrica
+  nova não exige mexer no banco. Peso é `peso_kg`.
+- `dia_ignorado`, `perfil`.
+- Treino vindo de fora usa `fonte` + `external_id`, únicos juntos: id externo só é único
+  dentro do sistema que o emitiu.
+- Nada derivado é gravado (IMC se calcula de peso e altura).
+- `atualizado_em` é mantido por trigger (`marca_atualizacao`), não pelo código.
+
 # Regras de dados
 
 - **Uma linha por lançamento.** Nada de documento por dia, que é o que permitiu a perda.
