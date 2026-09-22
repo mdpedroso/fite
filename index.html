@@ -652,6 +652,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       e o que você apagou de propósito não volta.</p>
       <button class="addbtn" id="p-rec-listar">Ver versões anteriores</button>
       <button class="addbtn" id="p-rec-local">Ver cópias deste aparelho</button>
+      <button class="addbtn" id="p-exportar">Baixar tudo num arquivo</button>
       <div class="rlista" id="p-rec-lista"></div>
     </section>
 
@@ -1181,7 +1182,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922182203";
+const VERSAO = "20260922190535";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -3173,6 +3174,15 @@ async function recuperarLocal(idx, bt){
   }catch(e){ bt.textContent = "falhou: " + (e.message || e); }
   setTimeout(() => { bt.disabled = false; bt.textContent = "Trazer de volta"; }, 4000);
 }
+// exportar: o diário inteiro num arquivo, para migrar ou só para ter na mão
+$("p-exportar").onclick = () => {
+  const corpo = JSON.stringify(estadoAtual(), null, 1);
+  const url = URL.createObjectURL(new Blob([corpo], {type:"application/json"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = `fite-${TODAY_ISO}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+};
 $("p-rec-local").onclick = listarBackupsLocais;
 $("p-rec-listar").onclick = listarVersoes;
 $("p-rec-lista").addEventListener("click", e => {
