@@ -1146,7 +1146,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921213947";
+const VERSAO = "20260921213954";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1991,7 +1991,7 @@ function barraMacros(macros, tot, semNada){
   return macros.map(([n,gr,k,v]) => {
     const pct = k/tot*100;
     return `<div style="width:${pct.toFixed(1)}%;background:var(${v})" title="${n}: ${gr} g · ${Math.round(pct)}%">` +
-      `<b data-nome="${n}">${n}</b><span><span class="num">${gr} g</span> <em>${Math.round(pct)}%</em></span></div>`;
+      `<b data-nome="${n}">${n}</b><span><span class="num">${gr}g</span> <em>${Math.round(pct)}%</em></span></div>`;
   }).join("");
 }
 // depois de montar: nome que não cabe na fatia vira a inicial; se nem a linha de baixo
