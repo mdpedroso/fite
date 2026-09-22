@@ -520,7 +520,9 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       <input id="g-key" type="password" placeholder="Cole a chave aqui"
         autocomplete="off" spellcheck="false">
       <button class="gbtn" id="g-salvar-key">Salvar e continuar</button>
-      <p class="gnote" id="g-key-msg">A chave fica só neste aparelho.</p>
+      <button class="gbtn ghost" id="g-pular-key">Entrar sem chave</button>
+      <p class="gnote" id="g-key-msg">A chave fica só neste aparelho. Sem ela dá para
+        usar o app, mas as calorias não são estimadas — é só abrir o Perfil e colar depois.</p>
     </div>
 
     <div class="gstep" id="g-carregando" hidden>
@@ -1146,7 +1148,7 @@ function renderMeals(target, showKc, lista = MEALS){
         ${m.temFoto || m.fotoId ? `<img class="thumb" data-thumb="${m.id}" alt="">` : ""}
         <div>
         <div class="desc">${m.desc}</div>
-        ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || estadoFila}</div>`
+        ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || rotuloFila()}</div>`
           : showKc ? `<div class="mm num mac3"><span><b class="ml">P </b>${m.p}</span><span><b class="ml">C </b>${m.c}</span><span><b class="ml">G </b>${m.g}</span></div>` : ""}
         </div>
       </div>
@@ -1160,7 +1162,7 @@ function renderWorkouts(target, showKc, lista){
       <div>
         ${w.d && w.d !== TODAY_ISO ? `<div class="d">${weekday(w.d)}, ${dayShort(w.d)}</div>` : ""}
         <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
-        <div class="m">${w.pendente ? `<span class="pend" data-pend="${w.id}">${w.erro || estadoFila}</span>` : w.m}</div>
+        <div class="m">${w.pendente ? `<span class="pend" data-pend="${w.id}">${w.erro || rotuloFila()}</span>` : w.m}</div>
       </div>
       ${showKc?`<div class="kc num">${fmt(w.kc)}${w.icu && !w.kcMedido ? `<span class="est" title="estimado pelo tempo e modalidade, o relógio não mediu">est.</span>` : ""}</div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
@@ -1171,7 +1173,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922133149";
+const VERSAO = "20260922135102";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2510,6 +2512,7 @@ setInterval(() => {
 
 let rodandoFila = false, filaGeracao = 0;
 let estadoFila = "estimando…";
+const rotuloFila = () => (geminiKey || openaiKey || groqKey) ? estadoFila : "sem chave de IA — configure no Perfil";
 // nova chave ou troca de motor: a rodada em andamento é descartada e outra começa já
 function reiniciarFila(){ filaGeracao++; rodandoFila = false; tocarFila(); }
 const pendentes = () => {
@@ -3146,6 +3149,7 @@ async function boot(){
     }
   };
   $("g-sair").onclick = () => location.reload();
+  $("g-pular-key").onclick = () => { diag("entrou sem chave"); abrirApp(); };
   $("g-salvar-key").onclick = async () => {
     const k = $("g-key").value.trim();
     if(!k) return;
