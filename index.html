@@ -133,6 +133,7 @@ header{
 /* ---- blocks ---- */
 .grid{display:grid;gap:10px;margin-top:10px}
 @media(min-width:720px){ .grid.two{grid-template-columns:1fr 1fr} .span2{grid-column:1/-1} }
+@media(min-width:960px){ .grid.graficos{grid-template-columns:3fr 2fr;align-items:start} }
 .today{display:grid;gap:12px}
 @media(min-width:720px){ .today{grid-template-columns:auto 1fr;gap:36px;align-items:center;padding:4px 0}
   .today .flow{margin-top:0} }
@@ -570,7 +571,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
   </div>
 
-  <div class="grid">
+  <div class="grid graficos">
     <section class="card">
       <div class="grfhead">
         <h2>Entrada e saída</h2>
@@ -583,9 +584,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       </div>
       <div class="chart" id="c-energy"><div class="tip" id="t-energy"></div></div>
     </section>
-  </div>
 
-  <div class="grid">
     <section class="card">
       <h2>Peso <span class="side" id="peso-side"></span></h2>
       <button class="mais cinza" id="bt-peso" aria-label="Registrar peso">+</button>
@@ -1112,7 +1111,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921221129";
+const VERSAO = "20260921221326";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
