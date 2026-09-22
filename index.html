@@ -208,7 +208,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   .meal .del,.wko .del{align-self:center}
   /* treino também numa linha: nome, detalhes, kcal */
   .wko{align-items:center}
-  .wko > div:first-child{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .wko > div:first-child{display:flex;align-items:center;gap:12px;flex-wrap:wrap}   /* o nome é um flex com ícone: baseline dele não bate com o texto ao lado */
   .wko .t,.wko .m{margin-top:0}
 }
 .pend{color:var(--marca);font-style:italic}
@@ -1135,7 +1135,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921212142";
+const VERSAO = "20260921212339";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
