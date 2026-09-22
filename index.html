@@ -279,6 +279,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .wko{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:5px 0;border-top:1px solid var(--grid)}
 .wko .d{font-size:12.5px;color:var(--ink-3);text-transform:capitalize}
 .wko .t{font-size:15px;font-weight:600;margin-top:1px;display:flex;align-items:center;gap:7px}
+.wko .thumb{width:28px;height:28px;border-radius:5px}
 .wko .wico{color:var(--ink-2);display:flex}
 .wko .m{font-size:13px;color:var(--ink-2);margin-top:2px}
 .wko .kc{font-size:15px;font-weight:600;text-align:right;white-space:nowrap}
@@ -761,6 +762,14 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       placeholder="Qual atividade e quanto tempo? Ex: corri 8 km em 48 min"></textarea>
     <input id="in-kcal" type="number" min="0" step="1"
       placeholder="kcal gastas — deixe vazio para eu estimar">
+    <div class="fotoacoes" id="wfoto-acoes">
+      <label class="foto"><input id="in-wfoto-cam" type="file" accept="image/*" capture="environment" hidden><span>Tirar foto</span></label>
+      <label class="foto"><input id="in-wfoto-gal" type="file" accept="image/*" hidden><span>Print do relógio</span></label>
+    </div>
+    <div class="fotoprev" id="wfoto-prev" hidden>
+      <img id="wfoto-img" alt="prévia do print">
+      <button type="button" id="wfoto-tirar">remover</button>
+    </div>
     <div class="addactions">
       <button type="submit" class="btn-go">Adicionar</button>
       <span class="addstatus" id="st-wk"></span>
@@ -1144,7 +1153,7 @@ function renderWorkouts(target, showKc, lista){
     <div class="wko${w.novo?" novo":""}">
       <div>
         ${w.d && w.d !== TODAY_ISO ? `<div class="d">${weekday(w.d)}, ${dayShort(w.d)}</div>` : ""}
-        <div class="t"><span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
+        <div class="t">${w.temFoto || w.fotoId ? `<img class="thumb" data-thumb="${w.id}" alt="">` : ""}<span class="wico">${iconSVG(w.mod,17)}</span>${w.t}</div>
         <div class="m">${w.pendente ? `<span class="pend" data-pend="${w.id}">${w.erro || rotuloFila()}</span>` : w.m}</div>
       </div>
       ${showKc?`<div class="kc num">${fmt(w.kc)}${w.icu && !w.kcMedido ? `<span class="est" title="estimado pelo tempo e modalidade, o relógio não mediu">est.</span>` : ""}</div>`:`<div></div>`}
@@ -1156,7 +1165,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922135754";
+const VERSAO = "20260922140616";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2172,7 +2181,7 @@ document.querySelectorAll("[data-close]").forEach(b=>{
 $("sync").onclick = sincronizarAgora;
 $("bt-meal").onclick   = () => abrirRefeicao(false, histIso);
 $("bt-duvida").onclick = () => abrirRefeicao(true, histIso);
-$("bt-wk").onclick     = () => abrir("dlg-wk","st-wk", histIso);
+$("bt-wk").onclick     = () => { fotoWk.limpar(); abrir("dlg-wk","st-wk", histIso); };
 
 // sem o seletor, a hora dá o palpite quando o Gemini não classifica
 function slotPorHora(){
@@ -2184,7 +2193,6 @@ function slotPorHora(){
   if(h < 22) return "janta";
   return "ceia";
 }
-let fotoAtual = null;
 const FOTOS = new Map();   // id do item → imagem, enquanto a estimativa não sai
 // cópia no IndexedDB: uma foto de 1024 px tem ~200 KB e o localStorage não aguentaria várias;
 // aqui cabem centenas, e ela some assim que a estimativa é gravada
@@ -2220,24 +2228,32 @@ async function prepararFoto(file){
   cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
   return {mime:"image/jpeg", b64: cv.toDataURL("image/jpeg", 0.8).split(",")[1]};
 }
-function limparFoto(){
-  fotoAtual = null;
-  $("in-foto-cam").value = ""; $("in-foto-gal").value = "";
-  $("foto-prev").hidden = true; $("foto-acoes").hidden = false;
-  $("foto-img").removeAttribute("src");
+// o mesmo trio (escolher, prever, remover) serve à refeição e ao treino
+function criarFoto(pref){
+  let atual = null;
+  const el = sufixo => $(`${pref}-${sufixo}`);
+  const limpar = () => {
+    atual = null;
+    $(`in-${pref}-cam`).value = ""; $(`in-${pref}-gal`).value = "";
+    el("prev").hidden = true; el("acoes").hidden = false;
+    el("img").removeAttribute("src");
+  };
+  const escolher = async e => {
+    const f = e.target.files?.[0];
+    if(!f) return;
+    try{
+      atual = await prepararFoto(f);
+      el("img").src = `data:${atual.mime};base64,${atual.b64}`;
+      el("prev").hidden = false; el("acoes").hidden = true;
+    }catch(err){ limpar(); }
+  };
+  $(`in-${pref}-cam`).onchange = escolher;
+  $(`in-${pref}-gal`).onchange = escolher;
+  el("tirar").onclick = ev => { ev.preventDefault(); limpar(); };
+  return {get: () => atual, limpar};
 }
-async function escolherFoto(e){
-  const f = e.target.files?.[0];
-  if(!f) return;
-  try{
-    fotoAtual = await prepararFoto(f);
-    $("foto-img").src = `data:${fotoAtual.mime};base64,${fotoAtual.b64}`;
-    $("foto-prev").hidden = false; $("foto-acoes").hidden = true;
-  }catch(err){ limparFoto(); }
-}
-$("in-foto-cam").onchange = escolherFoto;
-$("in-foto-gal").onchange = escolherFoto;
-$("foto-tirar").onclick = ev => { ev.preventDefault(); limparFoto(); };
+const fotoMeal = criarFoto("foto"), fotoWk = criarFoto("wfoto");
+const limparFoto = () => fotoMeal.limpar();
 
 // miniaturas: memória → IndexedDB → Drive (e volta a guardar no IndexedDB)
 const THUMBS = new Map();
@@ -2279,7 +2295,7 @@ async function thumbDe(m){
 function hidratarThumbs(){
   document.querySelectorAll("img.thumb[data-thumb]:not([src])").forEach(async el => {
     const id = el.dataset.thumb;
-    const m = Object.values(DIA_MEALS).flat().find(x => x.id === id);
+    const m = [...Object.values(DIA_MEALS).flat(), ...Object.values(DIA_WK).flat()].find(x => x.id === id);
     if(!m) return;
     const url = await thumbDe(m);
     if(url) el.src = url; else el.remove();
@@ -2360,14 +2376,15 @@ async function comIA(statusEl, botao, trabalho){
 $("fm-meal").onsubmit = ev => {
   ev.preventDefault();
   const texto = $("in-meal").value.trim();
-  if(!texto && !fotoAtual) return;
-  if(modoConsulta){ consultar(texto, fotoAtual); return; }   // só mostra, não registra
+  const foto = fotoMeal.get();
+  if(!texto && !foto) return;
+  if(modoConsulta){ consultar(texto, foto); return; }   // só mostra, não registra
   // entra na lista imediatamente; a estimativa chega depois
   const id = novoId();
-  if(fotoAtual){ FOTOS.set(id, fotoAtual); idb.set(id, fotoAtual); }   // nunca vai para o Drive
+  if(foto){ FOTOS.set(id, foto); idb.set(id, foto); }
   (DIA_MEALS[alvoDia] ||= []).push({
     id, slot: slotPorHora(), desc: texto || "Refeição pela foto",
-    kc:0, p:0, c:0, g:0, pendente:true, raw:texto, temFoto: !!fotoAtual, novo:true,
+    kc:0, p:0, c:0, g:0, pendente:true, raw:texto, temFoto: !!foto, novo:true,
   });
   depoisDeGravar();
   $("in-meal").value = "";
@@ -2424,15 +2441,18 @@ async function consultar(texto, foto){
 
 $("fm-wk").onsubmit = ev => {
   ev.preventDefault();
-  const texto = $("in-wk").value.trim();
-  if(!texto) return;
+  const texto = $("in-wk").value.trim(), foto = fotoWk.get();
+  if(!texto && !foto) return;
   const kcalDito = Number($("in-kcal").value) || 0;
+  const id = novoId();
+  if(foto){ FOTOS.set(id, foto); idb.set(id, foto); }
   (DIA_WK[alvoDia] ||= []).unshift({
-    id: novoId(), mod:"outro", t:texto, m:"", kc:kcalDito, d:alvoDia,
-    pendente:true, raw:texto, kcalDito, novo:true,
+    id, mod:"outro", t: texto || "Treino pela foto", m:"", kc:kcalDito, d:alvoDia,
+    pendente:true, raw:texto, temFoto: !!foto, kcalDito, novo:true,
   });
   depoisDeGravar();
   $("in-wk").value = ""; $("in-kcal").value = "";
+  fotoWk.limpar();
   $("dlg-wk").close();
   tocarFila();
 };
@@ -2458,8 +2478,8 @@ async function pastaFotos(){
 }
 const fotosPorEnviar = () => {
   const out = [];
-  Object.entries(DIA_MEALS).forEach(([iso, arr]) =>
-    (arr || []).forEach(m => { if(m.temFoto && !m.fotoId && !m.desistiu) out.push({iso, item:m}); }));
+  [DIA_MEALS, DIA_WK].forEach(mapa => Object.entries(mapa).forEach(([iso, arr]) =>
+    (arr || []).forEach(m => { if(m.temFoto && !m.fotoId && !m.desistiu) out.push({iso, item:m}); })));
   return out;
 };
 async function enviarFoto(p){
@@ -2553,16 +2573,27 @@ async function estimarItem(p){
     if(t.itens.length) m.itens = t.itens.map(i => ({n: i.nome, kc: i.kcal}));
     delete m.pendente;          // a foto fica: vira miniatura e vai para o Drive
   } else {
+    let foto = FOTOS.get(m.id) || null;
+    if(!foto && m.temFoto){ foto = await idb.get(m.id); if(foto) FOTOS.set(m.id, foto); }
+    if(!foto && !m.raw){
+      const e = new Error("sem-material"); e.permanente = true; throw e;
+    }
     const r = await estimarJSON(
-      `Classifique este treino e ${m.kcalDito ? "formate-o" : "estime as calorias gastas"}, ` +
-      `para ${perfilTexto()}.\n` +
-      `Treino: "${m.raw}"\n` +
+      (foto
+        ? `Olhe o print do treino (relógio ou app) e classifique a atividade, ` +
+          `para ${perfilTexto()}.\n` +
+          (m.raw ? `A pessoa descreveu assim: "${m.raw}"\n` : "") +
+          `Se o print mostrar calorias, use exatamente esse número; senão, estime.\n`
+        : `Classifique este treino e ${m.kcalDito ? "formate-o" : "estime as calorias gastas"}, ` +
+          `para ${perfilTexto()}.\n` +
+          `Treino: "${m.raw}"\n`) +
       (m.kcalDito ? `As calorias gastas são ${m.kcalDito} — use exatamente esse valor.\n` : "") +
       `Responda só com JSON no formato: ` +
       `{"mod":"musculacao|corrida|bike|crossfit|funcional|aerobico|natacao|caminhada|esporte|outro",` +
-      `"t":"nome curto do treino","m":"duração e detalhes em uma linha","kcal":0}`);
+      `"t":"nome curto do treino","m":"duração e detalhes em uma linha","kcal":0}`, foto);
     Object.assign(m, {
-      mod: String(r.mod || "outro"), t: String(r.t || m.raw),
+      via: ultimoMotor,
+      mod: String(r.mod || "outro"), t: m.raw || String(r.t || m.t),
       m: String(r.m || ""), kc: m.kcalDito || Math.round(Number(r.kcal) || 0),
     });
     delete m.pendente; delete m.kcalDito;
@@ -2745,7 +2776,8 @@ $("workouts").addEventListener("click", async e => {
   const iso = histIso, arr = DIA_WK[iso] || [], i = +b.dataset.i, w = arr[i];
   if(!w || !await confirmar(w.t)) return;
   if(arr[i] !== w) return;
-  arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll();
+  descartarFoto(w);
+  arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll(); tocarFila();
 });
 
 /* ---------- histórico ---------- */
