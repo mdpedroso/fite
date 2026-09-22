@@ -1156,7 +1156,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921220333";
+const VERSAO = "20260921220459";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2010,6 +2010,16 @@ function encolherMacros(el){
     const cs = getComputedStyle(f), pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     const precisa = b.getBoundingClientRect().width + r.getBoundingClientRect().width + (parseFloat(cs.columnGap) || 0) + pad + 2;
     if(precisa > f.clientWidth && precisa <= total * 0.45){ f.style.minWidth = precisa + "px"; f.style.flexShrink = "0"; }
+  });
+  // as que encolheram para dar espaço podem ter perdido o rótulo: mais uma rodada,
+  // desde que a soma dos mínimos ainda caiba na barra
+  fatias.forEach(f => {
+    const b = f.querySelector("b"), r = f.querySelector("span");
+    if(!b || f.style.minWidth) return;
+    const cs = getComputedStyle(f), pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    const precisa = b.getBoundingClientRect().width + r.getBoundingClientRect().width + (parseFloat(cs.columnGap) || 0) + pad + 2;
+    const fixos = fatias.reduce((a, x) => a + (x.style.minWidth ? parseFloat(x.style.minWidth) : 0), 0);
+    if(precisa > f.clientWidth && fixos + precisa <= total * 0.8){ f.style.minWidth = precisa + "px"; f.style.flexShrink = "0"; }
   });
   // 2ª passada: o que ainda não cabe, encurta
   fatias.forEach(f => {
