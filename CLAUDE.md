@@ -67,6 +67,19 @@ de `data/`** — correção é um evento novo com `corrects: "<id>"`.
 - **Acesso ao diário do outro é explícito** (tabela `acesso`), visível para o dono e
   revogável por ele. Nada de "papel = dono vê tudo" escondido no código.
 
+# Banco: nada roda sem autorização
+
+O `DATABASE_URL` fica em `.env` na máquina do Marcos, fora do Git. Posso ler e consultar.
+
+**Toda DDL é proposta e aprovada antes de rodar** — `create`, `alter`, `drop`, índice,
+política, trigger, extensão. Eu mostro o SQL exato, explico o porquê, espero o "pode".
+Sem exceção, nem para "só um índice".
+
+O mesmo vale para qualquer escrita que não seja o uso normal do app: `update` em massa,
+`delete`, `truncate`, migração de dados. Consulta de leitura (`select`) eu faço à vontade.
+
+Antes de qualquer DDL que mexa em tabela com dado dentro: dump primeiro.
+
 # Segurança
 
 - Senha com `argon2id`; nunca em texto, em log ou em argumento de linha de comando
