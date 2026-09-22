@@ -270,7 +270,9 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 /* setas coladas no título; o título tem largura fixa para as setas não dançarem com o texto */
 .hnav{display:flex;align-items:center;justify-content:center;gap:8px;margin:0}
 .hoje .hnav button{width:30px;height:30px;font-size:17px}
-.hoje .hnav .t{width:auto;min-width:0;padding:0 4px;color:var(--ink-2)}
+/* largura fixa: "quinta-feira, 30 de setembro" é o texto mais longo; as setas não se movem */
+.hoje .hnav .t{width:330px;min-width:0;padding:0 4px;color:var(--ink-2);white-space:nowrap}
+@media (max-width:640px){ .hoje .hnav .t{width:calc(100% - 150px);flex:none} }
 .hoje .hnav .cal svg,.hoje .hnav .olho svg{width:16px;height:16px}
 .hnav button{font:inherit;font-size:20px;line-height:1;width:34px;height:34px;flex:none;
   border-radius:8px;border:1px solid var(--axis);background:var(--surface-2);
@@ -1110,7 +1112,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921221116";
+const VERSAO = "20260921221129";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
