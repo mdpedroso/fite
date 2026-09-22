@@ -193,6 +193,16 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
 .meal .mm{font-size:12.5px;color:var(--ink-3);margin-top:2px}
 .mac3 span + span::before{content:" · "}
+.meal.cab{display:none}
+/* celular: rótulo e total numa linha, a barra inteira na linha de baixo */
+@media(max-width:719px){
+  .flowrow{grid-template-columns:1fr auto;gap:4px 10px}
+  .flowrow .lbl{grid-column:1;grid-row:1}
+  .flowrow .v{grid-column:2;grid-row:1;min-width:0}
+  .flowrow .track{grid-column:1/-1;grid-row:2;height:24px}
+  .segbar div{font-size:12px}
+  .flow{gap:10px}
+}
 .meal.total{border-top:2px solid var(--axis);margin-top:2px}
 .meal.total .desc{font-weight:600;color:var(--ink-2)}
 .meal.total .mm{color:var(--ink-2);font-weight:600}
@@ -209,6 +219,10 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   .mac3 span:first-child{width:50px}
   .meal .mm.pend{width:auto;max-width:48%;white-space:normal;text-align:right}
   .meal .kc{min-width:64px;text-align:right}
+  .meal .mac3 .ml{display:none}          /* a letra vira cabeçalho de coluna */
+  .meal.cab{display:grid;padding:0 0 3px;border-top:0;color:var(--ink-3)}
+  .meal.cab .mm,.meal.cab .kc{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
+  .meal.cab .mac3 span + span::before{content:none}
   .meal .thumb{width:34px;height:34px;border-radius:6px}
   .meal .del,.wko .del{align-self:center}
   /* treino também numa linha: nome, detalhes, kcal */
@@ -1110,14 +1124,14 @@ function drawWeight(){
 /* ---------- listas ---------- */
 function renderMeals(target, showKc){
   queueMicrotask(hidratarThumbs);
-  target.innerHTML = MEALS.map((m,i)=>`
+  target.innerHTML = (showKc && MEALS.length ? CABECALHO_REFEICOES : "") + MEALS.map((m,i)=>`
     <div class="meal${m.novo?" novo":""}">
       <div class="mrow">
         ${m.temFoto || m.fotoId ? `<img class="thumb" data-thumb="${m.id}" alt="">` : ""}
         <div>
         <div class="desc">${m.desc}</div>
         ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || estadoFila}</div>`
-          : showKc ? `<div class="mm num mac3"><span>P ${m.p}</span><span>C ${m.c}</span><span>G ${m.g}</span></div>` : ""}
+          : showKc ? `<div class="mm num mac3"><span><b class="ml">P </b>${m.p}</span><span><b class="ml">C </b>${m.c}</span><span><b class="ml">G </b>${m.g}</span></div>` : ""}
         </div>
       </div>
       ${showKc?`<div class="kc num">${m.pendente ? "—" : fmt(m.kc)}</div>`:`<div></div>`}
@@ -1141,7 +1155,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921215034";
+const VERSAO = "20260921215846";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2006,7 +2020,7 @@ function linhaTotalMacros(lista){
   const P = lista.reduce((a,m)=>a+m.p,0), C = lista.reduce((a,m)=>a+m.c,0), G = lista.reduce((a,m)=>a+m.g,0);
   const kP = P*4, kC = C*4, kG = G*9, tot = kP+kC+kG || 1;
   const pc = k => Math.round(k/tot*100);
-  const cel = (n, gr, k) => `<span title="${pc(k)}% das calorias">${n} ${gr}</span>`;
+  const cel = (n, gr, k) => `<span title="${pc(k)}% das calorias"><b class="ml">${n} </b>${gr}</span>`;
   return `<div class="meal total" title="Proteína ${pc(kP)}% · Carboidrato ${pc(kC)}% · Gordura ${pc(kG)}% das calorias">
     <div class="mrow"><div><div class="desc">Total</div>
       <div class="mm num mac3">${cel("P",P,kP)}${cel("C",C,kC)}${cel("G",G,kG)}</div></div></div>
@@ -2014,6 +2028,15 @@ function linhaTotalMacros(lista){
     <button class="del" disabled aria-hidden="true" style="visibility:hidden">×</button>
   </div>`;
 }
+
+// cabeçalho das colunas P · C · G · kcal; só aparece em tela larga, onde as linhas
+// mostram apenas os números
+const CABECALHO_REFEICOES = `<div class="meal cab">
+    <div class="mrow"><div><div class="desc"></div>
+      <div class="mm num mac3"><span>P</span><span>C</span><span>G</span></div></div></div>
+    <div class="kc num">kcal</div>
+    <button class="del" disabled aria-hidden="true" style="visibility:hidden">×</button>
+  </div>`;
 
 /* ---------- o dia de hoje, recalculado a cada mudança ---------- */
 function renderToday(){
@@ -2738,14 +2761,14 @@ function renderHist(){
   $("h-mtotal").textContent = fmt(kin) + " kcal";
   $("h-wtotal").textContent = fmt(kout) + " kcal";
   if(!meals.length) $("h-meals").innerHTML = vazio("refeição", d.d === TODAY_ISO);
-  else $("h-meals").innerHTML = meals.map((m,i) => `
+  else $("h-meals").innerHTML = CABECALHO_REFEICOES + meals.map((m,i) => `
     <div class="meal">
       <div class="mrow">
         ${m.temFoto || m.fotoId ? `<img class="thumb" data-thumb="${m.id}" alt="">` : ""}
         <div>
         <div class="desc">${m.desc}</div>
         ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || estadoFila}</div>`
-                     : `<div class="mm num mac3"><span>P ${m.p}</span><span>C ${m.c}</span><span>G ${m.g}</span></div>`}
+                     : `<div class="mm num mac3"><span><b class="ml">P </b>${m.p}</span><span><b class="ml">C </b>${m.c}</span><span><b class="ml">G </b>${m.g}</span></div>`}
         </div>
       </div>
       <div class="kc num">${fmt(m.kc)}</div>
