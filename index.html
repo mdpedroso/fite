@@ -486,6 +486,8 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
+<button id="nova-versao" hidden>Versão nova — toque para atualizar</button>
+
 <div id="gate">
   <div class="gbox">
     <div class="logo glogo">FiT<span class="e">e</span></div>
@@ -535,7 +537,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
 <div id="app" hidden>
 <div id="aviso" hidden></div>
-<button id="nova-versao" hidden>Versão nova — toque para atualizar</button>
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
@@ -1173,7 +1174,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922135102";
+const VERSAO = "20260922135459";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -3077,6 +3078,7 @@ function abrirApp(){
 }
 
 async function boot(){
+  conferirVersao();     // também na porta: quem não passou do login precisa saber que há versão nova
   try{
     const g = JSON.parse(localStorage.getItem(LS_GEMINI) || "null");
     if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; geminiCandidatos = g.candidatos || []; }
