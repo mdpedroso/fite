@@ -803,8 +803,26 @@ const idade = () => {
   return a;
 };
 const pesoAtual = () => WEIGHTS.length ? WEIGHTS[WEIGHTS.length-1].kg : 85;
+// o peso que valia naquele dia: o último registro até ali. Antes do primeiro registro,
+// usa o primeiro — assim um dia passado não muda de saldo quando você se pesa hoje.
+function pesoEm(iso){
+  if(!WEIGHTS.length) return 85;
+  let kg = WEIGHTS[0].kg;
+  for(const w of WEIGHTS){ if(w.d > iso) break; kg = w.kg; }
+  return kg;
+}
+// a idade também é a da data
+function idadeEm(iso){
+  const n = new Date(PERF.nasc + "T12:00:00"), h = dt(iso);
+  let a = h.getFullYear() - n.getFullYear();
+  const m = h.getMonth() - n.getMonth();
+  if(m < 0 || (m === 0 && h.getDate() < n.getDate())) a--;
+  return a;
+}
 // Mifflin-St Jeor; o fator NÃO inclui treino, que é somado por cima
-const bmr = () => Math.round(10*pesoAtual() + 6.25*PERF.altura - 5*idade() + (PERF.sexo==="m"?5:-161));
+const bmrEm = iso => Math.round(10*pesoEm(iso) + 6.25*PERF.altura - 5*idadeEm(iso) + (PERF.sexo==="m"?5:-161));
+const baseEm = iso => Math.round(bmrEm(iso) * FATOR_ROTINA);
+const bmr = () => bmrEm(TODAY_ISO);
 let BASE = 2500;
 
 const MOD_NOME = {musculacao:"Musculação", corrida:"Corrida", bike:"Bike", crossfit:"Crossfit",
@@ -1018,8 +1036,8 @@ function drawEnergy(){
     return { x: cx(i)/W*w, html:
       `${cab}
        <div class="r"><span>consumido</span><b>${fmt(r.in)}</b></div>
-       <div class="r"><span>basal</span><b>${fmt(bmr())}</b></div>
-       <div class="r"><span>rotina</span><b>${fmt(BASE-bmr())}</b></div>
+       <div class="r"><span>basal</span><b>${fmt(bmrEm(r.d))}</b></div>
+       <div class="r"><span>rotina</span><b>${fmt(r.base - bmrEm(r.d))}</b></div>
        <div class="r"><span>treino</span><b>${r.out?fmt(r.out):"—"}</b></div>
        <div class="r"><span>saldo</span><b>${r.bal>0?"+":"−"}${fmt(Math.abs(r.bal))}</b></div>` };
   });
@@ -1135,7 +1153,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921223404";
+const VERSAO = "20260921223528";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1916,7 +1934,8 @@ function resumoDia(iso){
   d.in = ms.reduce((a,m) => a+m.kc, 0);
   d.out = ws.reduce((a,w) => a+w.kc, 0);
   d.mod = ws[0]?.mod; d.wt = ws[0]?.t; d.wm = ws[0]?.m;
-  d.spend = BASE + d.out;
+  d.base = baseEm(iso);
+  d.spend = d.base + d.out;
   d.bal = d.in - d.spend;
   return d;
 }
@@ -1949,7 +1968,7 @@ function irSemana(n){
 $("g-prev").onclick = () => irSemana(-1);
 $("g-next").onclick = () => irSemana(1);
 function recalcDays(){
-  BASE = Math.round(bmr() * FATOR_ROTINA);
+  BASE = baseEm(TODAY_ISO);      // só o Perfil usa: é o gasto de hoje
   DAYS.forEach(r => recalcDia(r.d));
 }
 // a lista do dashboard é uma visão dos últimos 7 dias
@@ -2059,7 +2078,7 @@ function renderToday(){
   const {meals, wks} = diaAberto();
   const kin  = meals.reduce((a,m)=>a+m.kc, 0);
   const kout = wks.reduce((a,w)=>a+w.kc, 0);
-  const spend = BASE + kout, bal = kin - spend;
+  const base = baseEm(histIso), spend = base + kout, bal = kin - spend;
 
   const semNada = kin === 0;
   $("h-bal").textContent = semNada ? "—" : (bal>0?"+":"−") + fmt(Math.abs(bal));
@@ -2072,7 +2091,7 @@ function renderToday(){
   $("h-inbar").parentElement.innerHTML =
     `<div class="fill" style="width:${(kin/mx*100).toFixed(1)}%;background:var(--consumo)" id="h-inbar"></div>`;
   // basal é só o repouso; a rotina do dia é o que o fator de atividade acrescenta
-  const kBasal = bmr(), kRotina = BASE - kBasal;
+  const kBasal = bmrEm(histIso), kRotina = base - kBasal;
   $("h-outbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx); encolherMacros($("h-outbar"));
 
   $("meals-total").textContent = fmt(kin) + " kcal";
@@ -2837,7 +2856,7 @@ async function icuSincronizar(auto){
       if(min) det.push(min >= 60 ? `${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}` : `${min} min`);
       if(mod === "corrida" && a.average_speed){ const sp = Math.round(1000 / a.average_speed);
         det.push(`${Math.floor(sp/60)}:${String(sp%60).padStart(2,"0")} /km`); }
-      const kc = a.calories ? Math.round(a.calories) : (min ? estimarKcal(mod, min) : 0);
+      const kc = a.calories ? Math.round(a.calories) : (min ? estimarKcal(mod, min, String(a.start_date_local || a.start_date || "").slice(0,10)) : 0);
       const casca = !a.name && !a.type && !min;   // veio sem conteúdo (Strava ainda não entregou)
       return {mod, t: a.name || MOD_NOME[mod], m: det.join(" · "), kc, kcMedido: !!a.calories, casca};
     };
@@ -2885,10 +2904,10 @@ function icuAuto(){
   icuSincronizar(true);
 }
 // sem calorias medidas pelo aparelho: MET × peso × tempo
-function estimarKcal(mod, min){
+function estimarKcal(mod, min, iso){
   const MET = {corrida:9.8, bike:7.5, natacao:7.0, musculacao:5.0, crossfit:8.0,
                caminhada:3.5, funcional:6.0, aerobico:6.5, esporte:7.0, outro:5.5};
-  return Math.round((MET[mod] || 5.5) * 3.5 * pesoAtual() / 200 * min);
+  return Math.round((MET[mod] || 5.5) * 3.5 * pesoEm(iso || TODAY_ISO) / 200 * min);
 }
 function renderIntegracoes(){
   $("p-gem-status").textContent = geminiKey ? "conectado" : "não configurado";
