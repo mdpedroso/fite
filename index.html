@@ -204,6 +204,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   .flow{gap:10px}
 }
 .meal.total{border-top:2px solid var(--axis);margin-top:2px}
+@media(max-width:719px){ .meal.total{display:none} }   /* no celular a linha quebra e desalinha */
 .meal.total .desc{font-weight:600;color:var(--ink-2)}
 .meal.total .mm{color:var(--ink-2);font-weight:600}
 .meal.total .mm{color:var(--ink);font-weight:700}
@@ -267,7 +268,10 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- histórico ---- */
 /* setas coladas no título; o título tem largura fixa para as setas não dançarem com o texto */
-.hnav{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:11px}
+.hnav{display:flex;align-items:center;justify-content:center;gap:8px;margin:0}
+.hoje .hnav button{width:30px;height:30px;font-size:17px}
+.hoje .hnav .t{width:auto;min-width:0;padding:0 4px;color:var(--ink-2)}
+.hoje .hnav .cal svg,.hoje .hnav .olho svg{width:16px;height:16px}
 .hnav button{font:inherit;font-size:20px;line-height:1;width:34px;height:34px;flex:none;
   border-radius:8px;border:1px solid var(--axis);background:var(--surface-2);
   color:var(--ink);cursor:pointer}
@@ -287,7 +291,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 @media (max-width:480px){
   .hnav:not(.mini){gap:6px}
   .hnav:not(.mini) button{width:30px;height:30px;font-size:18px}
-  .hnav:not(.mini) .t{width:calc(100% - 150px)}
+  .hnav:not(.mini) .t{width:calc(100% - 150px);flex:1}
   .hnav .cal{margin-left:2px}
 }
 .hnav .olho{color:var(--ink-2)}
@@ -492,7 +496,21 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
-    <div class="hoje" id="day-title"></div>
+    <div class="hoje"><span id="day-title"></span>
+      <div class="hnav" id="h-nav" hidden>
+      <button id="h-prev" aria-label="Dia anterior">‹</button>
+      <div class="t" id="h-title"></div>
+      <button id="h-next" aria-label="Próximo dia">›</button>
+      <button class="cal" title="Escolher uma data" aria-label="Escolher uma data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        <input type="date" id="h-data" aria-label="Escolher uma data">
+      </button>
+      <button class="olho" id="h-olho" title="Ignorar este dia" aria-label="Ignorar este dia">
+        <svg class="aberto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="fechado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6c1.6 0 3 .3 4.3.9M22 12s-3.5 6-10 6c-1.6 0-3-.3-4.3-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>
+      </button>
+    </div>
+    </div>
     <div class="seg" id="sync-wrap" hidden><button class="sync ok" id="sync">salvo no Drive</button></div>
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
@@ -583,19 +601,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <div id="view-hab" hidden>
   <div class="grid">
     <section class="card">
-      <div class="hnav">
-        <button id="h-prev" aria-label="Dia anterior">‹</button>
-        <div class="t" id="h-title"></div>
-        <button id="h-next" aria-label="Próximo dia">›</button>
-        <button class="cal" title="Escolher uma data" aria-label="Escolher uma data">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-          <input type="date" id="h-data" aria-label="Escolher uma data">
-        </button>
-        <button class="olho" id="h-olho" title="Ignorar este dia" aria-label="Ignorar este dia">
-          <svg class="aberto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-          <svg class="fechado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6c1.6 0 3 .3 4.3.9M22 12s-3.5 6-10 6c-1.6 0-3-.3-4.3-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>
-        </button>
-      </div>
       <div class="ignorado" id="h-ignorado" hidden>Dia ignorado — fica fora do gráfico e dos totais. Toque no olho para voltar a contar.</div>
       <div class="today">
         <div>
@@ -1156,7 +1161,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921220459";
+const VERSAO = "20260921220655";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2850,6 +2855,8 @@ function setView(botao){
     $(v).hidden = !on;
   });
   try{ localStorage.setItem("fite.aba", botao); }catch(e){}
+  $("day-title").hidden = botao === "btn-hab";
+  $("h-nav").hidden = botao !== "btn-hab";
   conferirVersao();     // trocar de aba é um bom momento para notar versão nova
   remedirBarras();      // a aba que acabou de aparecer tinha largura zero até agora
   // os gráficos medem a largura do container: só dá para desenhar com a aba visível
