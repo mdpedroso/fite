@@ -1,5 +1,9 @@
 # Rotina — diário de alimentação e treino
 
+> As regras de engenharia do projeto (dados, segurança, testes, convenções e o registro
+> de decisões) estão em **[GUIA.md](GUIA.md)**. Este arquivo trata de como eu opero:
+> registrar por conversa, estimar e responder.
+
 Log de comida e treino de duas pessoas, operado por conversa no Claude Code.
 Não existe app de input: **eu sou a interface de entrada**. O usuário fala em
 linguagem natural, eu estimo calorias/macros e gravo.
