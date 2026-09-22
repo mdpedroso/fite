@@ -978,7 +978,7 @@ function drawEnergy(){
     if(r.oculto){ rot.forEach(t => t.setAttribute("opacity", .4)); txt(cx(i), yBal, "—", corDia, fsBal, null, true); return; }
     if(!r.vazio){
       // pílula cheia com o número em branco: o saldo é o dado principal desta faixa
-      const rot = (r.bal>0?"+":"−")+Math.abs(r.bal);
+      const rot = r.bal === 0 ? "0" : (r.bal>0?"+":"−")+Math.abs(r.bal);
       const ph = fsBal*1.8, pw = Math.min(bw-3, rot.length*fsBal*0.6 + 2*Math.max(3.5, fsBal*0.6));
       svg.appendChild(el("rect",{x:cx(i)-pw/2, y:yBal-ph/2, width:pw, height:ph, rx:ph/2, fill:css(balColor(r.bal))}));
       txt(cx(i), yBal, rot, "#fff", fsBal, null, true).setAttribute("font-weight", 600);
@@ -1135,7 +1135,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921223253";
+const VERSAO = "20260921223404";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
