@@ -156,6 +156,8 @@ h2 .tot:not(:empty)::before{content:"· "}
 /* título + total dentro de uma pílula na cor do botão + do card */
 h2.t-ref,h2.t-tre{display:inline-block;padding:4px 11px !important;border-radius:99px;margin-bottom:8px}
 h2.t-ref{background:var(--consumo);color:#fff}
+h2.t-peso{display:inline-block;padding:3px 10px !important;border-radius:99px;margin-bottom:5px;background:var(--ink-2);color:var(--surface)}
+.pside{position:absolute;right:52px;top:14px;font-size:12px;font-weight:500;color:var(--ink-3)}
 h2.t-tre{background:var(--gasto-3);color:var(--sobre-treino)}
 h2.t-ref .tot,h2.t-tre .tot{opacity:.85}
 h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink-3)}
@@ -602,7 +604,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
 
     <section class="card">
-      <h2>Peso <span class="side" id="peso-side"></span></h2>
+      <h2 class="t-peso">Peso</h2><span class="side pside" id="peso-side"></span>
       <button class="mais cinza" id="bt-peso" aria-label="Registrar peso">+</button>
       <div class="legend">
         <span><i class="dot" style="background:var(--ink);border-radius:99px"></i>Medido</span>
@@ -1127,7 +1129,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921221656";
+const VERSAO = "20260921221936";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
