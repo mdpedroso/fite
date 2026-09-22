@@ -184,7 +184,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   gap:3px;padding:0 5px;overflow:hidden;white-space:nowrap;line-height:1;color:#fff}
 .mbar b{font-weight:700;font-size:12.5px}
 .mbar .num{font-weight:600;font-size:11.5px}
-.mbar em{font-style:normal;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:11px}
+.mbar em{font-style:normal;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:11px;margin-left:3px}
 .mbar .vazia{width:100%;background:var(--surface-2);color:var(--ink-3);font-size:13px}
 
 /* ---- meal list ---- */
@@ -1146,7 +1146,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921213737";
+const VERSAO = "20260921213901";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1979,8 +1979,8 @@ function barraGasto(kBasal, kRotina, kout, mx){
   const fatia = (nome, k, cor) => {
     if(!k) return "";
     const pct = k/mx*100;
-    const txt = pct < 7 ? "" : pct < 16 ? `<b>${nome[0]}</b>` : `<b>${nome}</b> <span class="num">${fmt(k)}</span>`;
-    return `<div style="width:${pct.toFixed(1)}%;background:var(${cor})" title="${nome} ${fmt(k)}">${txt}</div>`;
+    return `<div style="width:${pct.toFixed(1)}%;background:var(${cor})" title="${nome} ${fmt(k)}">` +
+      `<b data-nome="${nome}">${nome}</b><span class="num">${fmt(k)}</span></div>`;
   };
   return fatia("Basal", kBasal, "--gasto") + fatia("Rotina", kRotina, "--gasto-2") + fatia("Treino", kout, "--gasto-3");
 }
@@ -2004,6 +2004,7 @@ function encolherMacros(el){
     if(f.scrollWidth > f.clientWidth + 1) b.textContent = b.dataset.nome[0];
     r.style.display = "";
     if(f.scrollWidth > f.clientWidth + 1) r.style.display = "none";
+    if(f.scrollWidth > f.clientWidth + 1) b.textContent = "";
   });
 }
 
@@ -2030,7 +2031,7 @@ function renderToday(){
     `<div class="fill" style="width:${(kin/mx*100).toFixed(1)}%;background:var(--consumo)" id="h-inbar"></div>`;
   // basal é só o repouso; a rotina do dia é o que o fator de atividade acrescenta
   const kBasal = bmr(), kRotina = BASE - kBasal;
-  $("h-outbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx);
+  $("h-outbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx); encolherMacros($("h-outbar"));
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("m-sub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
@@ -2727,7 +2728,7 @@ function renderHist(){
   $("h-hin").textContent = fmt(kin);
   $("h-hout").textContent = fmt(spend);
   $("h-hinbar").style.width = (kin/mx*100).toFixed(1) + "%";
-  $("h-houtbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx);
+  $("h-houtbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx); encolherMacros($("h-houtbar"));
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("h-msub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
