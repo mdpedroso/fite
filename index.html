@@ -421,6 +421,11 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .mrow{display:flex;align-items:flex-start;gap:10px}
 
 /* ---- perfil ---- */
+.rlista{display:flex;flex-direction:column;margin-top:8px}
+.rlinha{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--grid);font-size:13.5px}
+.rlinha .q{flex:1;color:var(--ink-2)}
+.rlinha button{font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:6px;
+  border:1px solid var(--axis);background:var(--surface-2);color:var(--ink);cursor:pointer}
 .pform{display:flex;flex-direction:column;gap:11px}
 .pform label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;
   letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
@@ -641,6 +646,15 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
 
     <section class="card">
+      <h2>Recuperar <span class="side" id="p-rec-status"></span></h2>
+      <p class="soon">O Drive guarda as versões anteriores do arquivo. Se algo sumiu,
+      abra uma versão de antes e traga de volta: o que já existe aqui não é tocado,
+      e o que você apagou de propósito não volta.</p>
+      <button class="addbtn" id="p-rec-listar">Ver versões anteriores</button>
+      <div class="rlista" id="p-rec-lista"></div>
+    </section>
+
+    <section class="card">
       <h2>O que sai daqui</h2>
       <div class="pcalc" id="p-calc"></div>
     </section>
@@ -803,6 +817,7 @@ for(let i = JANELA-1; i >= 0; i--){
 const DIA_MEALS = {}, DIA_WK = {};
 let LIXO_FOTOS = [];   // ids de fotos no Drive cujas refeições foram excluídas
 let OCULTOS = {};      // iso → true: dia ignorado (esqueci de anotar); fora do gráfico e dos totais
+let APAGADOS = {};     // iso → {chave do item: quando}. Sem isso, "sumiu" e "apaguei" são a mesma coisa
 let WEIGHTS = [];
 const MEALS = [];            // atalho para as refeições de hoje
 const TODAY_WORKOUTS = [];   // atalho para os treinos de hoje
@@ -1165,7 +1180,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922140616";
+const VERSAO = "20260922180643";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1769,9 +1784,13 @@ function adotarChaves(c){
 const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 function estadoAtual(){
-  return {versao:2, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
+  return {versao:3, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
           pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, lixoFotos:[...LIXO_FOTOS], ocultos:{...OCULTOS},
-          chaves: chavesAtuais()};
+          apagados: APAGADOS, chaves: chavesAtuais()};
+}
+// registra que este item foi apagado de propósito, para a mescla não ressuscitá-lo
+function marcarApagado(iso, item){
+  (APAGADOS[iso] ||= {})[chaveItem(item)] = Date.now();
 }
 
 // identidade de um item, para juntar listas sem duplicar
@@ -1782,28 +1801,30 @@ function unirListas(a, b){
   return out;
 }
 
-// devolve um estado novo a partir de dois. Regra por dia: se os dois têm carimbo
-// e são diferentes, o mais novo vence (respeita exclusões); senão, junta sem perder.
+// devolve um estado novo a partir de dois. Nunca troca um dia inteiro pelo do outro lado:
+// junta item a item e tira só o que foi apagado de propósito (lápide). Assim, dois aparelhos
+// mexendo no mesmo dia somam o que cada um lançou, em vez de um apagar o outro.
+const LAPIDE_DIAS = 120;   // depois disso a lápide não serve mais para nada e vira peso morto
 function mesclarEstados(L, R){
   L = L || {}; R = R || {};
   const ks = o => Object.keys(o || {});
-  const dias = {}, wk = {}, ts = {}, ocultos = {};
-  new Set([...ks(L.dias), ...ks(R.dias), ...ks(L.wk), ...ks(R.wk), ...ks(L.ocultos), ...ks(R.ocultos)]).forEach(iso => {
-    const tl = L.ts?.[iso] || 0, tr = R.ts?.[iso] || 0;
-    if(tl && tr && tl !== tr){
-      const F = tl > tr ? L : R;
-      dias[iso] = [...(F.dias?.[iso] || [])]; wk[iso] = [...(F.wk?.[iso] || [])];
-      if(F.ocultos?.[iso]) ocultos[iso] = true;
-    } else {
-      dias[iso] = unirListas(L.dias?.[iso], R.dias?.[iso]);
-      wk[iso]   = unirListas(L.wk?.[iso],   R.wk?.[iso]);
-      if(L.ocultos?.[iso] || R.ocultos?.[iso]) ocultos[iso] = true;
-    }
-    ts[iso] = Math.max(tl, tr);
+  const dias = {}, wk = {}, ts = {}, ocultos = {}, apagados = {};
+  const limite = Date.now() - LAPIDE_DIAS*86400000;
+  new Set([...ks(L.dias), ...ks(R.dias), ...ks(L.wk), ...ks(R.wk),
+           ...ks(L.ocultos), ...ks(R.ocultos), ...ks(L.apagados), ...ks(R.apagados)]).forEach(iso => {
+    const tomb = {};
+    for(const [k, quando] of Object.entries({...(L.apagados?.[iso] || {}), ...(R.apagados?.[iso] || {})}))
+      if(quando > limite) tomb[k] = quando;
+    if(Object.keys(tomb).length) apagados[iso] = tomb;
+    const vivo = x => !tomb[chaveItem(x)];
+    dias[iso] = unirListas(L.dias?.[iso], R.dias?.[iso]).filter(vivo);
+    wk[iso]   = unirListas(L.wk?.[iso],   R.wk?.[iso]).filter(vivo);
+    if(L.ocultos?.[iso] || R.ocultos?.[iso]) ocultos[iso] = true;
+    ts[iso] = Math.max(L.ts?.[iso] || 0, R.ts?.[iso] || 0);
   });
   const gl = L.tsGeral || 0, gr = R.tsGeral || 0;
   const N = gl >= gr ? L : R, V = gl >= gr ? R : L;
-  return {versao:2, ts, tsGeral: Math.max(gl, gr), dias, wk, ocultos,
+  return {versao:3, ts, tsGeral: Math.max(gl, gr), dias, wk, ocultos, apagados,
           lixoFotos: [...new Set([...(L.lixoFotos || []), ...(R.lixoFotos || [])])],
           pesos: (N.pesos && N.pesos.length) ? N.pesos : (V.pesos || []),
           perfil: {...(V.perfil || {}), ...(N.perfil || {})},
@@ -1826,6 +1847,7 @@ function adotarEstado(e){
   if(tr?.desde) TREINOS.desde = tr.desde;
   LIXO_FOTOS = Array.isArray(e.lixoFotos) ? e.lixoFotos : [];
   OCULTOS = {}; Object.entries(e.ocultos || {}).forEach(([k, v]) => { if(v) OCULTOS[k] = true; });
+  APAGADOS = {}; Object.entries(e.apagados || {}).forEach(([iso, m]) => { APAGADOS[iso] = {...m}; });
   adotarChaves(e.chaves);
   sincHoje();
 }
@@ -2768,7 +2790,7 @@ $("meals").addEventListener("click", async e => {
   const iso = histIso, arr = DIA_MEALS[iso] || [], i = +b.dataset.i, m = arr[i];
   if(!m || !await confirmar(m.desc)) return;
   if(arr[i] !== m) return;        // a lista mudou enquanto o modal estava aberto
-  descartarFoto(m);
+  descartarFoto(m); marcarApagado(iso, m);
   arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll(); tocarFila();
 });
 $("workouts").addEventListener("click", async e => {
@@ -2776,7 +2798,7 @@ $("workouts").addEventListener("click", async e => {
   const iso = histIso, arr = DIA_WK[iso] || [], i = +b.dataset.i, w = arr[i];
   if(!w || !await confirmar(w.t)) return;
   if(arr[i] !== w) return;
-  descartarFoto(w);
+  descartarFoto(w); marcarApagado(iso, w);
   arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll(); tocarFila();
 });
 
@@ -2983,6 +3005,54 @@ $("p-tema").onchange = () => {
   mountCharts();                 // os gráficos leem as cores do CSS na hora de desenhar
   remedirBarras();
 };
+/* ---------- recuperar de uma versão anterior do arquivo no Drive ---------- */
+async function listarVersoes(){
+  const st = $("p-rec-status"), lista = $("p-rec-lista");
+  st.textContent = "procurando…"; lista.innerHTML = "";
+  try{
+    const id = arquivoId || await acharArquivo();
+    if(!id){ st.textContent = "ainda não há arquivo no Drive"; return; }
+    arquivoId = id;
+    const r = await drive(`https://www.googleapis.com/drive/v3/files/${id}/revisions` +
+      `?fields=revisions(id,modifiedTime,size)&pageSize=200`);
+    const revs = (r.revisions || []).slice().reverse();          // mais recentes primeiro
+    st.textContent = `${revs.length} versão${revs.length===1?"":"ões"}`;
+    lista.innerHTML = revs.map(v => {
+      const d = new Date(v.modifiedTime);
+      const quando = d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) + " " +
+                     d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+      const kb = v.size ? ` · ${Math.round(v.size/1024)} KB` : "";
+      return `<div class="rlinha"><span class="q">${quando}${kb}</span>` +
+             `<button data-rev="${v.id}">Trazer de volta</button></div>`;
+    }).join("") || `<div class="rlinha"><span class="q">nenhuma versão guardada</span></div>`;
+  }catch(e){
+    st.textContent = "falhou: " + (e.message || e);
+  }
+}
+async function recuperarVersao(revId, bt){
+  bt.disabled = true; bt.textContent = "trazendo…";
+  try{
+    const r = await fetchPrazo(
+      `https://www.googleapis.com/drive/v3/files/${arquivoId}/revisions/${revId}?alt=media`,
+      {headers:{Authorization:"Bearer " + accessToken}}, 20000);
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const antigo = JSON.parse(await r.text());
+    const antes = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
+    adotarEstado(mesclarEstados(estadoAtual(), antigo));   // união: só acrescenta o que falta
+    const depois = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
+    recalcDays(); renderAll();
+    await salvar();
+    bt.textContent = depois > antes ? `voltaram ${depois - antes}` : "nada faltava aqui";
+  }catch(e){
+    bt.textContent = "falhou: " + (e.message || e);
+  }
+  setTimeout(() => { bt.disabled = false; bt.textContent = "Trazer de volta"; }, 4000);
+}
+$("p-rec-listar").onclick = listarVersoes;
+$("p-rec-lista").addEventListener("click", e => {
+  const b = e.target.closest("button[data-rev]");
+  if(b) recuperarVersao(b.dataset.rev, b);
+});
 $("p-icu-conectar").onclick = icuConectar;
 $("p-icu-sync").onclick = () => icuSincronizar(false);
 $("bt-wk-sync").onclick = () => { icuGrava({...icuCfg(), auto: 0}); icuSincronizar(true); };
