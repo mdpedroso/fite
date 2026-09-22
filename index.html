@@ -179,12 +179,12 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- macros ---- */
 /* barra única dividida: soma 100% do dia, sem trilho vazio sugerindo meta */
-.mbar{display:flex;gap:3px;height:34px}
-.mbar div{border-radius:6px;min-width:2px;display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:0 6px;overflow:hidden;white-space:nowrap;font-size:13px;line-height:1;color:#fff}
-.mbar b{font-weight:700}
-.mbar .num{font-weight:600}
-.mbar em{font-style:normal;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:12px}
+.mbar{display:flex;gap:3px;height:38px}
+.mbar > div{border-radius:6px;min-width:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:0 5px;overflow:hidden;white-space:nowrap;line-height:1;color:#fff}
+.mbar b{font-weight:700;font-size:12.5px}
+.mbar .num{font-weight:600;font-size:11.5px}
+.mbar em{font-style:normal;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:11px}
 .mbar .vazia{width:100%;background:var(--surface-2);color:var(--ink-3);font-size:13px}
 
 /* ---- meal list ---- */
@@ -1146,7 +1146,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921213630";
+const VERSAO = "20260921213737";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1990,11 +1990,21 @@ function barraMacros(macros, tot, semNada){
   if(semNada) return `<div class="vazia">sem refeições registradas</div>`;
   return macros.map(([n,gr,k,v]) => {
     const pct = k/tot*100;
-    const nome = pct >= 30 ? n : n[0];
-    const txt = pct < 9 ? `<b>${n[0]}</b>`
-      : `<b>${nome}</b> <span class="num">${gr} g</span> <em>${Math.round(pct)}%</em>`;
-    return `<div style="width:${pct.toFixed(1)}%;background:var(${v})" title="${n}: ${gr} g · ${Math.round(pct)}%">${txt}</div>`;
+    return `<div style="width:${pct.toFixed(1)}%;background:var(${v})" title="${n}: ${gr} g · ${Math.round(pct)}%">` +
+      `<b data-nome="${n}">${n}</b><span><span class="num">${gr} g</span> <em>${Math.round(pct)}%</em></span></div>`;
   }).join("");
+}
+// depois de montar: nome que não cabe na fatia vira a inicial; se nem a linha de baixo
+// cabe, ela some. Medido no DOM, então vale para qualquer largura de tela.
+function encolherMacros(el){
+  el.querySelectorAll("div[title]").forEach(f => {
+    const b = f.querySelector("b"), r = f.querySelector("span");
+    if(!b) return;
+    b.textContent = b.dataset.nome;
+    if(f.scrollWidth > f.clientWidth + 1) b.textContent = b.dataset.nome[0];
+    r.style.display = "";
+    if(f.scrollWidth > f.clientWidth + 1) r.style.display = "none";
+  });
 }
 
 /* ---------- o dia de hoje, recalculado a cada mudança ---------- */
@@ -2024,7 +2034,7 @@ function renderToday(){
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("m-sub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
-  $("m-bar").innerHTML = barraMacros(macros, tot, semNada);
+  $("m-bar").innerHTML = barraMacros(macros, tot, semNada); encolherMacros($("m-bar"));
   $("meals-total").textContent = fmt(kin) + " kcal";
   $("wk-total").textContent = fmt(kout) + " kcal";
 
@@ -2721,7 +2731,7 @@ function renderHist(){
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("h-msub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
-  $("h-mbar").innerHTML = barraMacros(macros, tot, semNada);
+  $("h-mbar").innerHTML = barraMacros(macros, tot, semNada); encolherMacros($("h-mbar"));
 
   $("h-mtotal").textContent = fmt(kin) + " kcal";
   $("h-wtotal").textContent = fmt(kout) + " kcal";
