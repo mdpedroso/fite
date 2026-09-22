@@ -176,14 +176,13 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- macros ---- */
 /* barra única dividida: soma 100% do dia, sem trilho vazio sugerindo meta */
-.mbar{display:flex;gap:2px;height:12px;margin-bottom:8px}
-.mbar div{border-radius:3px;min-width:2px}
-.mleg{display:flex;flex-direction:column;gap:3px}
-.mleg span{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink-2)}
-.mleg i{width:10px;height:10px;border-radius:2px;flex:none}
-.mleg b{color:var(--ink);font-weight:600;margin-left:auto}
-.mleg em{font-style:normal;color:var(--ink-3);min-width:38px;text-align:right;
-  font-family:"IBM Plex Mono",monospace}
+.mbar{display:flex;gap:3px;height:34px}
+.mbar div{border-radius:6px;min-width:2px;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:0 6px;overflow:hidden;white-space:nowrap;font-size:13px;line-height:1;color:#fff}
+.mbar b{font-weight:700}
+.mbar .num{font-weight:600}
+.mbar em{font-style:normal;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:12px}
+.mbar .vazia{width:100%;background:var(--surface-2);color:var(--ink-3);font-size:13px}
 
 /* ---- meal list ---- */
 .meals{display:flex;flex-direction:column;margin-top:6px}
@@ -512,7 +511,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         <div>
           <div class="mhead">Macronutrientes <span id="m-sub"></span></div>
           <div class="mbar" id="m-bar"></div>
-          <div class="mleg" id="m-leg"></div>
         </div>
       </div>
     </section>
@@ -607,7 +605,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         <div>
           <div class="mhead">Macronutrientes <span id="h-msub"></span></div>
           <div class="mbar" id="h-mbar"></div>
-          <div class="mleg" id="h-mleg"></div>
         </div>
       </div>
     </section>
@@ -1148,7 +1145,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921213200";
+const VERSAO = "20260921213543";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1976,6 +1973,19 @@ function workoutsRecentes(){
   return out;
 }
 
+// a barra de macros carrega a legenda dentro dela: nome, gramas e % em cada fatia.
+// Fatia estreita mostra só a inicial (P/C/G) e o resto; estreita demais, só a inicial.
+function barraMacros(macros, tot, semNada){
+  if(semNada) return `<div class="vazia">sem refeições registradas</div>`;
+  return macros.map(([n,gr,k,v]) => {
+    const pct = k/tot*100;
+    const nome = pct >= 30 ? n : n[0];
+    const txt = pct < 9 ? `<b>${n[0]}</b>`
+      : `<b>${nome}</b> <span class="num">${gr} g</span> <em>${Math.round(pct)}%</em>`;
+    return `<div style="width:${pct.toFixed(1)}%;background:var(${v})" title="${n}: ${gr} g · ${Math.round(pct)}%">${txt}</div>`;
+  }).join("");
+}
+
 /* ---------- o dia de hoje, recalculado a cada mudança ---------- */
 function renderToday(){
   $("day-title").textContent = dayTitle(TODAY_ISO);
@@ -2009,13 +2019,7 @@ function renderToday(){
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("m-sub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
-  $("m-bar").innerHTML = semNada
-    ? `<div style="width:100%;background:var(--surface-2)"></div>`
-    : macros.map(([,,k,v]) =>
-        `<div style="width:${(k/tot*100).toFixed(1)}%;background:var(${v})"></div>`).join("");
-  $("m-leg").innerHTML = macros.map(([n,gr,k,v])=>
-    `<span><i style="background:var(${v})"></i>${n} <b class="num">${gr} g</b> ` +
-    `<em>${Math.round(k/tot*100)}%</em></span>`).join("");
+  $("m-bar").innerHTML = barraMacros(macros, tot, semNada);
   $("meals-total").textContent = fmt(kin) + " kcal";
   $("wk-total").textContent = fmt(kout) + " kcal";
 
@@ -2717,13 +2721,7 @@ function renderHist(){
 
   const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
   $("h-msub").textContent = semNada ? "" : `divisão das ${fmt(kin)} kcal`;
-  $("h-mbar").innerHTML = semNada
-    ? `<div style="width:100%;background:var(--surface-2)"></div>`
-    : macros.map(([,,k,v]) =>
-        `<div style="width:${(k/tot*100).toFixed(1)}%;background:var(${v})"></div>`).join("");
-  $("h-mleg").innerHTML = macros.map(([n,gr,k,v]) =>
-    `<span><i style="background:var(${v})"></i>${n} <b class="num">${gr} g</b> ` +
-    `<em>${Math.round(k/tot*100)}%</em></span>`).join("");
+  $("h-mbar").innerHTML = barraMacros(macros, tot, semNada);
 
   $("h-mtotal").textContent = fmt(kin) + " kcal";
   $("h-wtotal").textContent = fmt(kout) + " kcal";
