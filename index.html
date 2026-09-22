@@ -90,7 +90,7 @@ header{
 .mais::after{width:2px;height:12px}
 .mais:hover{filter:brightness(1.1);transform:scale(1.06)}
 .mais:active{transform:scale(.96)}
-.mais.azul{background:var(--marca);color:#fff}
+.mais.azul{background:var(--consumo);color:#fff}
 .mais.verde{background:var(--verde-forte);color:#fff}
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
 /* tirar dúvida: mesmo contorno do atualizar, com "?" no lugar da cruz */
@@ -145,7 +145,7 @@ h2 .tot{opacity:.62;font-weight:600}
 h2 .tot:not(:empty)::before{content:"· "}
 /* título + total dentro de uma pílula na cor do botão + do card */
 h2.t-ref,h2.t-tre{display:inline-block;padding:4px 11px !important;border-radius:99px;margin-bottom:8px}
-h2.t-ref{background:var(--marca);color:#fff}
+h2.t-ref{background:var(--consumo);color:#fff}
 h2.t-tre{background:var(--verde-forte);color:#fff}
 h2.t-ref .tot,h2.t-tre .tot{opacity:.85}
 h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink-3)}
@@ -500,8 +500,8 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         </div>
         <div class="flow">
           <div class="flowrow">
-            <div class="lbl"><i class="dot" style="background:var(--consumo)"></i>Consumi</div>
-            <div class="track"><div class="fill" id="h-inbar" style="background:var(--in)"></div></div>
+            <div class="lbl"><i class="dot" style="background:var(--consumo)"></i>Consumo</div>
+            <div class="track"><div class="fill" id="h-inbar" style="background:var(--consumo)"></div></div>
             <div class="v num" id="h-in"></div>
           </div>
           <div class="flowrow">
@@ -589,7 +589,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         </div>
         <div class="flow">
           <div class="flowrow">
-            <div class="lbl"><i class="dot" style="background:var(--consumo)"></i>Consumi</div>
+            <div class="lbl"><i class="dot" style="background:var(--consumo)"></i>Consumo</div>
             <div class="track"><div class="fill" id="h-hinbar" style="background:var(--consumo)"></div></div>
             <div class="v num" id="h-hin"></div>
           </div>
@@ -1138,7 +1138,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921214534";
+const VERSAO = "20260921214612";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
