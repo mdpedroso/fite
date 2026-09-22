@@ -621,6 +621,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         <label>Altura (cm) <input type="number" id="p-alt" min="100" max="250"></label>
       </div>
       <div class="pconta" id="p-conta"></div>
+      <div class="flownote" id="p-versao" style="margin-top:10px"></div>
     </section>
 
     <section class="card">
@@ -1119,17 +1120,28 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921205831";
+const VERSAO = "20260921210025";
+let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
+  if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
+  versaoVista = Date.now();
   try{
     const r = await fetchPrazo(`versao.txt?t=${Date.now()}`, {cache:"no-store"}, 8000);
     if(!r.ok) return;
     const v = (await r.text()).trim();
-    if(v && v !== VERSAO) $("nova-versao").hidden = false;
+    if(v && v !== VERSAO){ versaoNoAr = v; $("nova-versao").hidden = false; }
   }catch(e){}
 }
-$("nova-versao").onclick = () => { gravarLocal(); location.reload(); };
+// recarregar pelo endereço com a versão nova: um reload simples pode devolver o HTML
+// que o navegador guardou (o GitHub Pages manda cache de 10 minutos)
+$("nova-versao").onclick = () => {
+  gravarLocal();
+  location.replace(location.pathname + "?v=" + (versaoNoAr || Date.now()));
+};
 setInterval(conferirVersao, 5*60*1000);
+addEventListener("focus", conferirVersao);
+// "21/09 20:58" a partir do carimbo AAAAMMDDhhmmss
+const versaoLegivel = v => /^\d{14}$/.test(v) ? `${v.slice(6,8)}/${v.slice(4,6)} ${v.slice(8,10)}:${v.slice(10,12)}` : v;
 
 /* ==================== configuração ==================== */
 // criado no Google Cloud Console; a origem do GitHub Pages precisa estar autorizada nele
@@ -2730,6 +2742,7 @@ function setView(botao){
     $(v).hidden = !on;
   });
   try{ localStorage.setItem("fite.aba", botao); }catch(e){}
+  conferirVersao();     // trocar de aba é um bom momento para notar versão nova
   // os gráficos medem a largura do container: só dá para desenhar com a aba visível
   if(botao === "btn-full") mountCharts();
   if(botao === "btn-hab") renderHist();
@@ -2866,6 +2879,7 @@ function renderIntegracoes(){
   $("p-groq-key").placeholder = groqKey ? "•••••••• (trocar)" : "Cole a chave do Groq (gsk_…)";
   $("p-oai-key").placeholder = openaiKey ? "•••••••• (trocar)" : "Cole a chave da OpenAI (sk-…)";
   $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
+  $("p-versao").textContent = "versão do app: " + versaoLegivel(VERSAO);
   const ic = icuCfg();
   $("p-icu-desde").value = TREINOS.desde || "";
   $("p-icu-status").textContent = ic.k ? (ic.atleta ? `conectado · ${ic.atleta}` : "conectado") : "não conectado";
