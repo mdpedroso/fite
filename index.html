@@ -651,6 +651,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       abra uma versão de antes e traga de volta: o que já existe aqui não é tocado,
       e o que você apagou de propósito não volta.</p>
       <button class="addbtn" id="p-rec-listar">Ver versões anteriores</button>
+      <button class="addbtn" id="p-rec-local">Ver cópias deste aparelho</button>
       <div class="rlista" id="p-rec-lista"></div>
     </section>
 
@@ -1180,7 +1181,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922180643";
+const VERSAO = "20260922181039";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1393,6 +1394,14 @@ async function gravarDrive(){
   let remoto = null;
   try{ remoto = await lerDrive(); }catch(e){ diag("leitura antes de gravar falhou: " + e.message); }
   const final = mesclarEstados(estadoAtual(), remoto);
+  // trava: o que vai subir não pode ter menos do que já está lá, nem menos do que há aqui
+  const perdidos = [...perdeuItem(remoto, final), ...perdeuItem(estadoAtual(), final)];
+  if(perdidos.length){
+    guardarBackup(remoto || estadoAtual());
+    console.error("gravação no Drive barrada", perdidos);
+    const e = new Error(`trava: ${perdidos.length} item(ns) sumiriam — não gravei`);
+    e.permanente = true; throw e;
+  }
   adotarEstado(final);
   gravarLocal();
   const corpo = JSON.stringify(final);
@@ -1832,6 +1841,23 @@ function mesclarEstados(L, R){
           chaves: mesclarChaves(L.chaves, R.chaves)};
 }
 
+// o que existe em "antes" e não existe em "depois" sem uma lápide explicando.
+// Nenhuma gravação pode perder item: se isto devolver algo, é bug, não intenção.
+function perdeuItem(antes, depois){
+  const perdidos = [];
+  for(const tipo of ["dias", "wk"]){
+    for(const [iso, arr] of Object.entries(antes?.[tipo] || {})){
+      const agora = new Set((depois?.[tipo]?.[iso] || []).map(chaveItem));
+      const tomb = depois?.apagados?.[iso] || {};
+      for(const item of arr || []){
+        const k = chaveItem(item);
+        if(!agora.has(k) && !tomb[k]) perdidos.push(`${iso}/${k}`);
+      }
+    }
+  }
+  return perdidos;
+}
+
 // coloca um estado inteiro na memória (substitui, não acumula)
 function adotarEstado(e){
   Object.keys(DIA_MEALS).forEach(k => delete DIA_MEALS[k]);
@@ -1876,8 +1902,32 @@ function sincHoje(){
 }
 
 const LS_DADOS = "fite.dados";
+const LS_BACKUP = "fite.backups";
+// anel de cópias no próprio aparelho: se o Drive der errado, ainda há de onde tirar
+function guardarBackup(estado){
+  try{
+    const ring = JSON.parse(localStorage.getItem(LS_BACKUP) || "[]");
+    const ultimo = ring[ring.length - 1];
+    const corpo = JSON.stringify(estado);
+    if(ultimo?.corpo === corpo) return;                 // nada mudou, não enche o anel
+    ring.push({quando: Date.now(), corpo});
+    while(ring.length > 8) ring.shift();
+    localStorage.setItem(LS_BACKUP, JSON.stringify(ring));
+  }catch(e){ console.warn("backup local", e); }
+}
+const lerBackups = () => { try{ return JSON.parse(localStorage.getItem(LS_BACKUP) || "[]"); }catch(e){ return []; } };
 function gravarLocal(){
-  try{ localStorage.setItem(LS_DADOS, JSON.stringify(estadoAtual())); return true; }
+  const estado = estadoAtual();
+  const anterior = lerLocal();
+  const perdidos = anterior ? perdeuItem(anterior, estado) : [];
+  if(perdidos.length){
+    // isto nunca deveria acontecer: guarda o que havia e não deixa a perda virar o novo normal
+    console.error("gravação local perderia itens", perdidos);
+    guardarBackup(anterior);
+    setSync("erro", `trava: ${perdidos.length} item(ns) sumiriam — nada foi sobrescrito`);
+    return false;
+  }
+  try{ localStorage.setItem(LS_DADOS, JSON.stringify(estado)); guardarBackup(estado); return true; }
   catch(e){ console.warn("localStorage recusou", e); return false; }
 }
 function lerLocal(){
@@ -3048,10 +3098,42 @@ async function recuperarVersao(revId, bt){
   }
   setTimeout(() => { bt.disabled = false; bt.textContent = "Trazer de volta"; }, 4000);
 }
+function listarBackupsLocais(){
+  const st = $("p-rec-status"), lista = $("p-rec-lista");
+  const ring = lerBackups();
+  st.textContent = `${ring.length} cópia${ring.length===1?"":"s"} aqui`;
+  lista.innerHTML = ring.slice().reverse().map((b, i) => {
+    const d = new Date(b.quando);
+    const quando = d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) + " " +
+                   d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    let n = 0;
+    try{ const e = JSON.parse(b.corpo);
+         n = Object.values(e.dias || {}).flat().length + Object.values(e.wk || {}).flat().length; }catch(err){}
+    return `<div class="rlinha"><span class="q">${quando} · ${n} lançamento${n===1?"":"s"}</span>` +
+           `<button data-local="${ring.length - 1 - i}">Trazer de volta</button></div>`;
+  }).join("") || `<div class="rlinha"><span class="q">nenhuma cópia ainda</span></div>`;
+}
+async function recuperarLocal(idx, bt){
+  bt.disabled = true; bt.textContent = "trazendo…";
+  try{
+    const b = lerBackups()[idx];
+    if(!b) throw new Error("cópia sumiu");
+    const antes = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
+    adotarEstado(mesclarEstados(estadoAtual(), JSON.parse(b.corpo)));
+    const depois = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
+    recalcDays(); renderAll();
+    await salvar();
+    bt.textContent = depois > antes ? `voltaram ${depois - antes}` : "nada faltava aqui";
+  }catch(e){ bt.textContent = "falhou: " + (e.message || e); }
+  setTimeout(() => { bt.disabled = false; bt.textContent = "Trazer de volta"; }, 4000);
+}
+$("p-rec-local").onclick = listarBackupsLocais;
 $("p-rec-listar").onclick = listarVersoes;
 $("p-rec-lista").addEventListener("click", e => {
-  const b = e.target.closest("button[data-rev]");
-  if(b) recuperarVersao(b.dataset.rev, b);
+  const r = e.target.closest("button[data-rev]");
+  if(r) return recuperarVersao(r.dataset.rev, r);
+  const l = e.target.closest("button[data-local]");
+  if(l) recuperarLocal(+l.dataset.local, l);
 });
 $("p-icu-conectar").onclick = icuConectar;
 $("p-icu-sync").onclick = () => icuSincronizar(false);

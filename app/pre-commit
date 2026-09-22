@@ -1,4 +1,6 @@
 #!/bin/sh
+# os testes de dados travam o commit: perder lançamento não pode virar rotina
+node app/testes-dados.mjs || exit 1
 # carimba a versão no index.html e em versao.txt; o app compara os dois para avisar de versão nova
 V=$(date +%Y%m%d%H%M%S)
 sed -i '' "s/^const VERSAO = \"[^\"]*\";/const VERSAO = \"$V\";/" index.html
