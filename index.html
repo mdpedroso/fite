@@ -133,7 +133,12 @@ header{
 /* ---- blocks ---- */
 .grid{display:grid;gap:10px;margin-top:10px}
 @media(min-width:720px){ .grid.two{grid-template-columns:1fr 1fr} .span2{grid-column:1/-1} }
-@media(min-width:960px){ .grid.graficos{grid-template-columns:3fr 2fr;align-items:start} }
+@media(min-width:960px){
+  .grid.graficos{grid-template-columns:3fr 2fr;align-items:stretch}
+  .grid.graficos .card{display:flex;flex-direction:column}
+  .grid.graficos #c-weight{flex:1;display:flex;flex-direction:column;justify-content:center}
+  .grid.graficos #c-weight svg{margin:auto 0}
+}
 .today{display:grid;gap:12px}
 @media(min-width:720px){ .today{grid-template-columns:auto 1fr;gap:36px;align-items:center;padding:4px 0}
   .today .flow{margin-top:0} }
@@ -280,9 +285,11 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   color:var(--ink);cursor:pointer}
 .hnav button:disabled{opacity:.3;cursor:default}
 /* título, passador de semana e resumo na mesma linha */
-.grfhead{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-bottom:6px}
+/* título à esquerda, passador de semana no centro, resumo à direita */
+.grfhead{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px 12px;margin-bottom:6px}
 .grfhead h2{margin:0}
-.grfhead .side{margin-left:auto;font-size:12px;font-weight:500;color:var(--ink-3)}
+.grfhead .side{text-align:right;font-size:12px;font-weight:500;color:var(--ink-3)}
+@media(max-width:560px){ .grfhead{grid-template-columns:1fr auto} .grfhead .side{grid-column:1/-1} }
 .hnav.mini{gap:4px;margin:0}
 .hnav.mini button{width:24px;height:24px;font-size:15px;border-radius:6px}
 .hnav.mini .t{width:100px;font-size:11.5px;text-transform:none;letter-spacing:.02em;font-weight:600}
@@ -1111,7 +1118,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921221326";
+const VERSAO = "20260921221457";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
