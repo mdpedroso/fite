@@ -22,7 +22,7 @@
   --gasto:#5b9bd5; --gasto-2:#2a6db5; --gasto-3:#123f73;
   --shadow:0 1px 2px rgba(11,11,11,.05);
 }
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+@media (prefers-color-scheme:dark){ :root:not([data-theme]){
   --ground:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
   --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#898781;
   --grid:#2c2c2a; --axis:#383835; --hair:rgba(255,255,255,.10);
@@ -50,6 +50,17 @@
   --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea; --sobre-treino:#0b1f36;
   --shadow:none;
 }
+</style>
+<script>
+  // o tema vale antes de a página pintar; "claro" é o padrão, o aparelho só manda em "auto"
+  try{
+    const t = localStorage.getItem("fite.tema") || "claro";
+    if(t !== "auto") document.documentElement.dataset.theme = t;
+  }catch(e){ document.documentElement.dataset.theme = "claro"; }
+</script>
+<style>
+:root[data-theme="claro"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}   /* vence o display:grid do #gate */
 body{
@@ -386,7 +397,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .gsi:active{--gsi-bg:#f4f6f5}
 .gsi:disabled{opacity:.6;cursor:default;box-shadow:none}
 .gsi-logo{width:20px;height:20px;flex:none}
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .gsi{
+@media (prefers-color-scheme:dark){ :root:not([data-theme]) .gsi{
   --gsi-bg:#17181a;color:#e3e3e3} }
 :root[data-theme="dark"] .gsi{--gsi-bg:#17181a;color:#e3e3e3}
 .gbtn:disabled{opacity:.5;cursor:default}
@@ -631,6 +642,13 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         </label>
         <label>Nascimento <input type="date" id="p-nasc"></label>
         <label>Altura (cm) <input type="number" id="p-alt" min="100" max="250"></label>
+        <label>Tema
+          <select id="p-tema">
+            <option value="claro">Claro</option>
+            <option value="dark">Escuro</option>
+            <option value="auto">Como o aparelho</option>
+          </select>
+        </label>
       </div>
       <div class="pconta" id="p-conta"></div>
       <div class="flownote" id="p-versao" style="margin-top:10px"></div>
@@ -1153,7 +1171,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921223528";
+const VERSAO = "20260922133149";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2919,6 +2937,7 @@ function renderIntegracoes(){
   $("p-oai-key").placeholder = openaiKey ? "•••••••• (trocar)" : "Cole a chave da OpenAI (sk-…)";
   $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
   $("p-versao").textContent = "versão do app: " + versaoLegivel(VERSAO);
+  try{ $("p-tema").value = localStorage.getItem("fite.tema") || "claro"; }catch(e){}
   const ic = icuCfg();
   $("p-icu-desde").value = TREINOS.desde || "";
   $("p-icu-status").textContent = ic.k ? (ic.atleta ? `conectado · ${ic.atleta}` : "conectado") : "não conectado";
@@ -2938,6 +2957,14 @@ function renderIntegracoes(){
     location.reload();
   };
 }
+$("p-tema").onchange = () => {
+  const t = $("p-tema").value;
+  try{ localStorage.setItem("fite.tema", t); }catch(e){}
+  if(t === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  mountCharts();                 // os gráficos leem as cores do CSS na hora de desenhar
+  remedirBarras();
+};
 $("p-icu-conectar").onclick = icuConectar;
 $("p-icu-sync").onclick = () => icuSincronizar(false);
 $("bt-wk-sync").onclick = () => { icuGrava({...icuCfg(), auto: 0}); icuSincronizar(true); };
