@@ -67,8 +67,11 @@ header{
   backdrop-filter:blur(12px); border-bottom:1px solid var(--hair);
 }
 .hbar{max-width:1180px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.brand{display:flex;align-items:baseline;gap:7px;margin-right:auto}
+.brand{display:flex;align-items:baseline;gap:7px}
 .brand #brand-quem{color:var(--ink-3);font-weight:500;font-size:15px}
+/* a data do dia vive no cabeçalho, centralizada entre a marca e as abas */
+.hoje{flex:1;text-align:center;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+@media (max-width:640px){ .hoje{order:9;flex-basis:100%;margin-top:2px;letter-spacing:.05em} }
 .seg{display:flex;background:var(--surface-2);border-radius:7px;padding:2px;gap:2px}
 .seg button{
   font:inherit;font-size:12.5px;font-weight:600;border:0;cursor:pointer;
@@ -130,7 +133,7 @@ header{
 .today{display:grid;gap:12px}
 @media(min-width:720px){ .today{grid-template-columns:auto 1fr;gap:28px;align-items:center}
   .today .flow{margin-top:0} }
-.dot.tri{width:22px;background:linear-gradient(90deg,var(--mp) 0 33%,var(--mc) 33% 66%,var(--mg) 66% 100%)}
+
 section.card{position:relative;background:var(--surface);border:1px solid var(--hair);
   border-radius:10px;padding:13px 14px;box-shadow:var(--shadow)}
 h2{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
@@ -177,13 +180,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 
 /* ---- macros ---- */
 /* barra única dividida: soma 100% do dia, sem trilho vazio sugerindo meta */
-.mbar{display:flex;gap:3px;height:34px}
-.mbar > div{border-radius:6px;min-width:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:3px;padding:0 5px;overflow:hidden;white-space:nowrap;line-height:1;color:#fff}
-.mbar b{font-weight:700;font-size:12.5px}
-.mbar .num{font-weight:600;font-size:11.5px}
-.mbar em{font-style:normal;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:11px;margin-left:3px}
-.mbar .vazia{width:100%;background:var(--surface-2);color:var(--ink-3);font-size:13px}
+
 
 /* ---- meal list ---- */
 .meals{display:flex;flex-direction:column;margin-top:6px}
@@ -192,7 +189,13 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .meal .desc{font-size:15px}
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
 .meal .mm{font-size:12.5px;color:var(--ink-3);margin-top:2px}
-.mac3 span + span::before{content:" · "}   /* o espaço da frente some sozinho dentro da célula fixa */
+.mac3 span + span::before{content:" · "}
+.meal.total{border-top:2px solid var(--axis);margin-top:2px}
+.meal.total .desc{font-weight:600;color:var(--ink-2)}
+.meal.total .mm{color:var(--ink-2);font-weight:600}
+.meal.total .mm span::before{content:none}
+.meal.total .mm .dot{width:8px;height:8px;margin-right:5px;vertical-align:0;display:inline-block}
+.meal.total .mm em{font-style:normal;font-weight:500;color:var(--ink-3);margin-left:4px}   /* o espaço da frente some sozinho dentro da célula fixa */
 @media(min-width:720px){
   .meal{align-items:center}
   .meal .mrow{align-items:center;min-width:0}
@@ -472,6 +475,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <header>
   <div class="hbar">
     <div class="brand"><span class="logo" style="font-size:20px">FiT<span class="e">e</span></span><span id="brand-quem"></span></div>
+    <div class="hoje" id="day-title"></div>
     <div class="seg" id="sync-wrap" hidden><button class="sync ok" id="sync">salvo no Drive</button></div>
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
@@ -487,7 +491,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <div id="view-full">
   <div class="grid">
     <section class="card">
-      <h2 id="day-title"></h2>
       <div class="today">
         <div>
           <div class="hero">
@@ -506,11 +509,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
             <div class="lbl"><i class="dot split"></i>Gastei</div>
             <div class="track"><div class="segbar" id="h-outbar"></div></div>
             <div class="v num" id="h-out"></div>
-          </div>
-          <div class="flowrow">
-            <div class="lbl"><i class="dot tri"></i>Macros</div>
-            <div class="mbar" id="m-bar"></div>
-            <div></div>
           </div>
         </div>
       </div>
@@ -600,11 +598,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
             <div class="lbl"><i class="dot split"></i>Gastei</div>
             <div class="track"><div class="segbar" id="h-houtbar"></div></div>
             <div class="v num" id="h-hout"></div>
-          </div>
-          <div class="flowrow">
-            <div class="lbl"><i class="dot tri"></i>Macros</div>
-            <div class="mbar" id="h-mbar"></div>
-            <div></div>
           </div>
         </div>
       </div>
@@ -1127,7 +1120,7 @@ function renderMeals(target, showKc){
       </div>
       ${showKc?`<div class="kc num">${m.pendente ? "—" : fmt(m.kc)}</div>`:`<div></div>`}
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
-    </div>`).join("");
+    </div>`).join("") + (showKc && MEALS.length > 1 ? linhaTotalMacros(MEALS) : "");
 }
 function renderWorkouts(target, showKc, lista){
   target.innerHTML = lista.map((w,i)=>`
@@ -1146,7 +1139,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921214133";
+const VERSAO = "20260921214408";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1984,16 +1977,6 @@ function barraGasto(kBasal, kRotina, kout, mx){
   };
   return fatia("Basal", kBasal, "--gasto") + fatia("Rotina", kRotina, "--gasto-2") + fatia("Treino", kout, "--gasto-3");
 }
-// a barra de macros carrega a legenda dentro dela: nome, gramas e % em cada fatia.
-// Fatia estreita mostra só a inicial (P/C/G) e o resto; estreita demais, só a inicial.
-function barraMacros(macros, tot, semNada){
-  if(semNada) return `<div class="vazia">sem refeições registradas</div>`;
-  return macros.map(([n,gr,k,v]) => {
-    const pct = k/tot*100;
-    return `<div style="width:${pct.toFixed(1)}%;background:var(${v})" title="${n}: ${gr} g · ${Math.round(pct)}%">` +
-      `<b data-nome="${n}">${n}</b><span><span class="num">${gr}g</span> <em>${Math.round(pct)}%</em></span></div>`;
-  }).join("");
-}
 // depois de montar: nome que não cabe na fatia vira a inicial; se nem a linha de baixo
 // cabe, ela some. Medido no DOM, então vale para qualquer largura de tela.
 function encolherMacros(el){
@@ -2014,7 +1997,20 @@ function encolherMacros(el){
   });
 }
 // ao mudar a largura (girar o celular), as fatias mudam de tamanho: mede de novo
-addEventListener("resize", () => ["m-bar","h-mbar","h-outbar","h-houtbar"].forEach(id => { const e = $(id); if(e) encolherMacros(e); }));
+addEventListener("resize", () => ["h-outbar","h-houtbar"].forEach(id => { const e = $(id); if(e) encolherMacros(e); }));
+
+// fecha a lista de refeições: total de cada macro em gramas e a fatia das calorias
+function linhaTotalMacros(lista){
+  const P = lista.reduce((a,m)=>a+m.p,0), C = lista.reduce((a,m)=>a+m.c,0), G = lista.reduce((a,m)=>a+m.g,0);
+  const kP = P*4, kC = C*4, kG = G*9, tot = kP+kC+kG || 1;
+  const cel = (n, gr, k, cor) => `<span><i class="dot" style="background:var(${cor})"></i>${n} ${gr}<em>${Math.round(k/tot*100)}%</em></span>`;
+  return `<div class="meal total">
+    <div class="mrow"><div><div class="desc">Total</div>
+      <div class="mm num mac3">${cel("P",P,kP,"--mp")}${cel("C",C,kC,"--mc")}${cel("G",G,kG,"--mg")}</div></div></div>
+    <div class="kc num">${fmt(lista.reduce((a,m)=>a+m.kc,0))}</div>
+    <div></div>
+  </div>`;
+}
 
 /* ---------- o dia de hoje, recalculado a cada mudança ---------- */
 function renderToday(){
@@ -2041,8 +2037,6 @@ function renderToday(){
   const kBasal = bmr(), kRotina = BASE - kBasal;
   $("h-outbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx); encolherMacros($("h-outbar"));
 
-  const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
-  $("m-bar").innerHTML = barraMacros(macros, tot, semNada); encolherMacros($("m-bar"));
   $("meals-total").textContent = fmt(kin) + " kcal";
   $("wk-total").textContent = fmt(kout) + " kcal";
 
@@ -2737,8 +2731,6 @@ function renderHist(){
   $("h-hinbar").style.width = (kin/mx*100).toFixed(1) + "%";
   $("h-houtbar").innerHTML = barraGasto(kBasal, kRotina, kout, mx); encolherMacros($("h-houtbar"));
 
-  const macros = [["Proteína",P,kP,"--mp"],["Carboidrato",C,kC,"--mc"],["Gordura",G,kG,"--mg"]];
-  $("h-mbar").innerHTML = barraMacros(macros, tot, semNada); encolherMacros($("h-mbar"));
 
   $("h-mtotal").textContent = fmt(kin) + " kcal";
   $("h-wtotal").textContent = fmt(kout) + " kcal";
@@ -2755,7 +2747,7 @@ function renderHist(){
       </div>
       <div class="kc num">${fmt(m.kc)}</div>
       <button class="del" data-i="${i}" title="Excluir" aria-label="Excluir">×</button>
-    </div>`).join("");
+    </div>`).join("") + (meals.length > 1 ? linhaTotalMacros(meals) : "");
   $("h-wk").innerHTML = wks.length ? wks.map((w,i) => `
     <div class="wko">
       <div>
