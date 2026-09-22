@@ -220,9 +220,10 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   .meal .mm.pend{width:auto;max-width:48%;white-space:normal;text-align:right}
   .meal .kc{min-width:64px;text-align:right}
   .meal .mac3 .ml{display:none}          /* a letra vira cabeçalho de coluna */
-  .meal.cab{display:grid;padding:0 0 3px;border-top:0;color:var(--ink-3)}
-  .meal.cab .mm,.meal.cab .kc{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
-  .meal.cab .mac3 span + span::before{content:none}
+  .meal .mac3 span + span::before{content:none}
+  /* o cabeçalho P C G mora na linha do título do card, por cima dela */
+  .meal.cab{display:grid;position:absolute;left:14px;right:14px;top:15px;padding:0;border:0;pointer-events:none;color:var(--ink-3)}
+  .meal.cab .mm{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
   .meal .thumb{width:34px;height:34px;border-radius:6px}
   .meal .del,.wko .del{align-self:center}
   /* treino também numa linha: nome, detalhes, kcal */
@@ -1155,7 +1156,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921215846";
+const VERSAO = "20260921220333";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1996,7 +1997,22 @@ function barraGasto(kBasal, kRotina, kout, mx){
 // depois de montar: nome que não cabe na fatia vira a inicial; se nem a linha de baixo
 // cabe, ela some. Medido no DOM, então vale para qualquer largura de tela.
 function encolherMacros(el){
-  el.querySelectorAll("div[title]").forEach(f => {
+  if(!el.clientWidth) return;                 // escondido (app fechado, outra aba): mede depois
+  // 1ª passada: a fatia cresce até o rótulo caber, quebrando a proporção. As outras
+  // encolhem para compensar. Só quando nem assim cabe é que o rótulo encurta.
+  const fatias = [...el.querySelectorAll("div[title]")];
+  const total = el.clientWidth;
+  fatias.forEach(f => { f.style.minWidth = ""; f.style.flexShrink = ""; const b = f.querySelector("b"), r = f.querySelector("span");
+    if(b){ b.textContent = b.dataset.nome; r.style.display = ""; } });
+  fatias.forEach(f => {
+    const b = f.querySelector("b"), r = f.querySelector("span");
+    if(!b) return;
+    const cs = getComputedStyle(f), pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    const precisa = b.getBoundingClientRect().width + r.getBoundingClientRect().width + (parseFloat(cs.columnGap) || 0) + pad + 2;
+    if(precisa > f.clientWidth && precisa <= total * 0.45){ f.style.minWidth = precisa + "px"; f.style.flexShrink = "0"; }
+  });
+  // 2ª passada: o que ainda não cabe, encurta
+  fatias.forEach(f => {
     const b = f.querySelector("b"), r = f.querySelector("span");
     if(!b) return;
     // conteúdo centralizado vaza para os dois lados, e scrollWidth não enxerga o lado
@@ -2012,8 +2028,9 @@ function encolherMacros(el){
     if(largura() > interno + .5) b.textContent = "";
   });
 }
+function remedirBarras(){ ["h-outbar","h-houtbar"].forEach(id => { const e = $(id); if(e) encolherMacros(e); }); }
 // ao mudar a largura (girar o celular), as fatias mudam de tamanho: mede de novo
-addEventListener("resize", () => ["h-outbar","h-houtbar"].forEach(id => { const e = $(id); if(e) encolherMacros(e); }));
+addEventListener("resize", remedirBarras);
 
 // fecha a lista de refeições: total de cada macro em gramas e a fatia das calorias
 function linhaTotalMacros(lista){
@@ -2034,7 +2051,7 @@ function linhaTotalMacros(lista){
 const CABECALHO_REFEICOES = `<div class="meal cab">
     <div class="mrow"><div><div class="desc"></div>
       <div class="mm num mac3"><span>P</span><span>C</span><span>G</span></div></div></div>
-    <div class="kc num">kcal</div>
+    <div class="kc num"></div>
     <button class="del" disabled aria-hidden="true" style="visibility:hidden">×</button>
   </div>`;
 
@@ -2824,6 +2841,7 @@ function setView(botao){
   });
   try{ localStorage.setItem("fite.aba", botao); }catch(e){}
   conferirVersao();     // trocar de aba é um bom momento para notar versão nova
+  remedirBarras();      // a aba que acabou de aparecer tinha largura zero até agora
   // os gráficos medem a largura do container: só dá para desenhar com a aba visível
   if(botao === "btn-full") mountCharts();
   if(botao === "btn-hab") renderHist();
@@ -3072,6 +3090,7 @@ function abrirApp(){
   catch(e){ diag("render falhou: " + (e.message || e)); throw e; }
   $("gate").hidden = true;
   $("app").hidden = false;
+  remedirBarras();      // as barras foram desenhadas com o app escondido, sem largura
   if(avisoDrive){
     $("aviso").textContent = avisoDrive;
     $("aviso").hidden = false;
