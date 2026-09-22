@@ -1181,7 +1181,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922181039";
+const VERSAO = "20260922181605";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -3055,6 +3055,48 @@ $("p-tema").onchange = () => {
   mountCharts();                 // os gráficos leem as cores do CSS na hora de desenhar
   remedirBarras();
 };
+/* ---------- restaurar lançamentos por link (?restaurar=…) ---------- */
+// Serve para devolver o que se perdeu sem depender do Drive. Só acrescenta: item com a
+// mesma descrição e as mesmas calorias no mesmo dia é considerado o mesmo e não entra de novo.
+const mesmaCoisa = (a, b) =>
+  String(a.desc || a.t || "").trim().toLowerCase() === String(b.desc || b.t || "").trim().toLowerCase() &&
+  Math.round(a.kc || 0) === Math.round(b.kc || 0);
+function restaurarPacote(pacote){
+  let n = 0;
+  for(const [tipo, mapa] of [["dias", DIA_MEALS], ["wk", DIA_WK]]){
+    for(const [iso, itens] of Object.entries(pacote[tipo] || {})){
+      const arr = mapa[iso] ||= [];
+      for(const item of itens){
+        if(arr.some(x => mesmaCoisa(x, item))) continue;
+        const tomb = APAGADOS[iso] || {};
+        if(Object.keys(tomb).some(k => k.startsWith(String(item.desc || item.t || "")))) continue;
+        arr.push({...item, id: item.id || novoId()});
+        marcarDia(iso); n++;
+      }
+      recalcDia(iso);
+    }
+  }
+  return n;
+}
+async function verRestauro(){
+  const q = new URLSearchParams(location.search).get("restaurar");
+  if(!q) return;
+  try{
+    const pacote = JSON.parse(decodeURIComponent(escape(atob(q.replace(/-/g,"+").replace(/_/g,"/")))));
+    const n = restaurarPacote(pacote);
+    recalcDays(); renderAll();
+    if(n) await salvar();
+    $("aviso").textContent = n
+      ? `${n} lançamento(s) devolvido(s) ao seu diário.`
+      : "Esses lançamentos já estavam aqui — nada foi duplicado.";
+    $("aviso").hidden = false;
+    history.replaceState(null, "", location.pathname);
+  }catch(e){
+    $("aviso").textContent = "Não consegui ler o link de restauro: " + (e.message || e);
+    $("aviso").hidden = false;
+  }
+}
+
 /* ---------- recuperar de uma versão anterior do arquivo no Drive ---------- */
 async function listarVersoes(){
   const st = $("p-rec-status"), lista = $("p-rec-lista");
@@ -3228,6 +3270,7 @@ function abrirApp(){
   $("gate").hidden = true;
   $("app").hidden = false;
   remedirBarras();      // as barras foram desenhadas com o app escondido, sem largura
+  verRestauro();        // link de restauro, se veio um
   if(avisoDrive){
     $("aviso").textContent = avisoDrive;
     $("aviso").hidden = false;
