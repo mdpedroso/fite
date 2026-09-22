@@ -1174,7 +1174,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922135459";
+const VERSAO = "20260922135638";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -3126,53 +3126,6 @@ async function boot(){
   }
   passo("g-entrar");
 
-  $("g-google").onclick = async () => {
-    const bt = $("g-google"), rotulo = bt.querySelector("span");
-    bt.disabled = true; rotulo.textContent = "Abrindo…";
-    try{
-      diag("pedindo autorização ao Google");
-      await entrar();
-      diag("autorizado: " + (usuario?.email || "?"));
-      await depoisDeEntrar();
-    }catch(e){
-      console.warn("entrada", e);
-      bt.disabled = false; rotulo.textContent = "Fazer login com o Google";
-      passo("g-entrar");
-      if(e?.message === "nao-autorizado"){
-        $("g-negado-msg").textContent =
-          `${e.email} não está liberado neste app. Peça para ser incluído.`;
-        passo("g-negado");
-      }else{
-        $("g-erro").textContent = e?.message === "token-timeout"
-          ? "O Google não respondeu. Verifique se o navegador bloqueou o pop-up."
-          : `Não consegui entrar: ${e?.message || e?.type || e}`;
-        $("g-erro").hidden = false;
-      }
-    }
-  };
-  $("g-sair").onclick = () => location.reload();
-  $("g-pular-key").onclick = () => { diag("entrou sem chave"); abrirApp(); };
-  $("g-salvar-key").onclick = async () => {
-    const k = $("g-key").value.trim();
-    if(!k) return;
-    const bt = $("g-salvar-key");
-    bt.disabled = true; bt.textContent = "Validando…";
-    $("g-key-msg").textContent = "Falando com o Google…";
-    diag("validando a chave do Gemini");
-    let r;
-    try{ r = await descobrirModelo(k); }
-    catch(e){ r = {erro: "Falha inesperada: " + (e?.message || e)}; }
-    diag("resposta: " + (r.erro || "modelo " + r.modelo));
-    if(r.erro){
-      $("g-key-msg").textContent = r.erro;
-      bt.disabled = false; bt.textContent = "Salvar e continuar";
-      return;
-    }
-    geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
-    guardarGemini(); marcarChave("gemini");
-    abrirApp();
-    salvar();
-  };
 }
 
 let avisoDrive = null;
@@ -3208,6 +3161,55 @@ async function depoisDeEntrar(){
   diag("abrindo o app");
   abrirApp();
 }
+
+/* ---------- botões do portão: ligados sempre, mesmo quando o boot entra direto ---------- */
+$("g-google").onclick = async () => {
+  const bt = $("g-google"), rotulo = bt.querySelector("span");
+  bt.disabled = true; rotulo.textContent = "Abrindo…";
+  try{
+    diag("pedindo autorização ao Google");
+    await entrar();
+    diag("autorizado: " + (usuario?.email || "?"));
+    await depoisDeEntrar();
+  }catch(e){
+    console.warn("entrada", e);
+    bt.disabled = false; rotulo.textContent = "Fazer login com o Google";
+    passo("g-entrar");
+    if(e?.message === "nao-autorizado"){
+      $("g-negado-msg").textContent =
+        `${e.email} não está liberado neste app. Peça para ser incluído.`;
+      passo("g-negado");
+    }else{
+      $("g-erro").textContent = e?.message === "token-timeout"
+        ? "O Google não respondeu. Verifique se o navegador bloqueou o pop-up."
+        : `Não consegui entrar: ${e?.message || e?.type || e}`;
+      $("g-erro").hidden = false;
+    }
+  }
+};
+$("g-sair").onclick = () => location.reload();
+$("g-pular-key").onclick = () => { diag("entrou sem chave"); abrirApp(); };
+$("g-salvar-key").onclick = async () => {
+  const k = $("g-key").value.trim();
+  if(!k) return;
+  const bt = $("g-salvar-key");
+  bt.disabled = true; bt.textContent = "Validando…";
+  $("g-key-msg").textContent = "Falando com o Google…";
+  diag("validando a chave do Gemini");
+  let r;
+  try{ r = await descobrirModelo(k); }
+  catch(e){ r = {erro: "Falha inesperada: " + (e?.message || e)}; }
+  diag("resposta: " + (r.erro || "modelo " + r.modelo));
+  if(r.erro){
+    $("g-key-msg").textContent = r.erro;
+    bt.disabled = false; bt.textContent = "Salvar e continuar";
+    return;
+  }
+  geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
+  guardarGemini(); marcarChave("gemini");
+  abrirApp();
+  salvar();
+};
 
 boot();
 
