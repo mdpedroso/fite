@@ -1135,7 +1135,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260921212339";
+const VERSAO = "20260921212510";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1941,8 +1941,10 @@ function irSemana(n){
     GRF_FIM = somaDias(GRF_FIM, -dow);                    // domingo anterior à semana de hoje
   else GRF_FIM = somaDias(GRF_FIM, 7*n);
   if(GRF_FIM >= TODAY_ISO) GRF_FIM = TODAY_ISO;
-  const h = $("c-energy"); h.querySelector("svg")?.remove();
-  drawEnergy(); renderGrfSide();
+  // desenha o novo antes de tirar o velho: se o card encolhe por um instante, a página
+  // fica mais curta e o navegador puxa a rolagem para cima
+  const h = $("c-energy"), velho = h.querySelector("svg");
+  drawEnergy(); velho?.remove(); renderGrfSide();
 }
 $("g-prev").onclick = () => irSemana(-1);
 $("g-next").onclick = () => irSemana(1);
@@ -3154,12 +3156,12 @@ async function depoisDeEntrar(){
 boot();
 
 function mountCharts(){
-  ["c-energy","c-weight"].forEach(id=>{
+  const velhos = ["c-energy","c-weight"].flatMap(id => {
     const h = document.getElementById(id);
-    h.querySelector("svg")?.remove();
-    h.querySelector(".hempty")?.remove();
+    return [h.querySelector("svg"), h.querySelector(".hempty")].filter(Boolean);
   });
   drawEnergy(); drawWeight();
+  velhos.forEach(e => e.remove());   // só depois de desenhar, pela mesma razão de irSemana
 }
 let rz; addEventListener("resize", ()=>{ clearTimeout(rz); rz=setTimeout(mountCharts,150); });
 </script>
