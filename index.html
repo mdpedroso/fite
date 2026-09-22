@@ -408,8 +408,6 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 #g-diag{text-align:left;font-family:ui-monospace,Menlo,monospace;font-size:11px;
   line-height:1.6;color:var(--ink-3);background:var(--surface-2);border-radius:8px;
   padding:10px;margin-top:18px;max-height:190px;overflow:auto;white-space:pre-wrap}
-#g-key{font:inherit;font-size:15px;width:100%;padding:11px;margin-bottom:11px;
-  border:1px solid var(--axis);border-radius:9px;background:var(--surface-2);color:var(--ink)}
 
 .fotoacoes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .foto{display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;
@@ -509,22 +507,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       <div class="gerro">E-mail não autorizado</div>
       <p class="gsub" id="g-negado-msg"></p>
       <button class="gbtn ghost" id="g-sair">Usar outra conta</button>
-    </div>
-
-    <div class="gstep" id="g-gemini" hidden>
-      <p class="gsub">Falta a chave do <b>Gemini</b>, que faz as estimativas
-        de calorias. É gratuita.</p>
-      <ol class="gpassos">
-        <li>Abra o <a href="https://aistudio.google.com/apikey" target="_blank"
-            rel="noopener">Google AI Studio</a> e clique em <b>Create API key</b>.</li>
-        <li>Copie a chave e cole abaixo.</li>
-      </ol>
-      <input id="g-key" type="password" placeholder="Cole a chave aqui"
-        autocomplete="off" spellcheck="false">
-      <button class="gbtn" id="g-salvar-key">Salvar e continuar</button>
-      <button class="gbtn ghost" id="g-pular-key">Entrar sem chave</button>
-      <p class="gnote" id="g-key-msg">A chave fica só neste aparelho. Sem ela dá para
-        usar o app, mas as calorias não são estimadas — é só abrir o Perfil e colar depois.</p>
     </div>
 
     <div class="gstep" id="g-carregando" hidden>
@@ -1174,7 +1156,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922135638";
+const VERSAO = "20260922135754";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1254,7 +1236,7 @@ function diag(txt){
   console.log("[fite]", s + "s", txt);
 }
 function passo(id){
-  ["g-entrar","g-negado","g-gemini","g-carregando"].forEach(x => $(x).hidden = x !== id);
+  ["g-entrar","g-negado","g-carregando"].forEach(x => $(x).hidden = x !== id);
 }
 const esperarGIS = () => new Promise(ok => {
   const t = setInterval(() => {
@@ -3157,7 +3139,6 @@ async function depoisDeEntrar(){
   sincHoje();
 
 
-  if(!geminiKey){ diag("sem chave do Gemini"); passo("g-gemini"); return; }
   diag("abrindo o app");
   abrirApp();
 }
@@ -3188,28 +3169,6 @@ $("g-google").onclick = async () => {
   }
 };
 $("g-sair").onclick = () => location.reload();
-$("g-pular-key").onclick = () => { diag("entrou sem chave"); abrirApp(); };
-$("g-salvar-key").onclick = async () => {
-  const k = $("g-key").value.trim();
-  if(!k) return;
-  const bt = $("g-salvar-key");
-  bt.disabled = true; bt.textContent = "Validando…";
-  $("g-key-msg").textContent = "Falando com o Google…";
-  diag("validando a chave do Gemini");
-  let r;
-  try{ r = await descobrirModelo(k); }
-  catch(e){ r = {erro: "Falha inesperada: " + (e?.message || e)}; }
-  diag("resposta: " + (r.erro || "modelo " + r.modelo));
-  if(r.erro){
-    $("g-key-msg").textContent = r.erro;
-    bt.disabled = false; bt.textContent = "Salvar e continuar";
-    return;
-  }
-  geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
-  guardarGemini(); marcarChave("gemini");
-  abrirApp();
-  salvar();
-};
 
 boot();
 
