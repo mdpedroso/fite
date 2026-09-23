@@ -28,7 +28,8 @@ dia inteiro de um aparelho pelo do outro. Quase tudo neste arquivo sai daí.
 
 # Arquitetura
 
-**App novo (o que vale):** `index.html` servido pelo Vercel em https://fite-psi.vercel.app,
+**App novo (o que vale):** `index.html` servido pelo Vercel em https://www.fite.app.br
+(`fite.app.br` redireciona para o `www`; `fite-psi.vercel.app` continua respondendo),
 com funções em `api/*.ts` (TypeScript) sobre `lib/*.ts`. Dados no Postgres do Supabase
 (São Paulo), fotos no bucket privado `fotos` do Supabase Storage, chave de IA (Groq) no
 banco, entrada só pelo Google. Utilitários (migração, contas, consultas) em Python, em `db/`.
