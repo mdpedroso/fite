@@ -1118,7 +1118,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922232542";
+const VERSAO = "20260922232819";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1820,10 +1820,21 @@ async function fotoDoItem(m){
 function liberarFotoLocal(m){
   if(m.foto_url && !m.pendente){ FOTOS.delete(m.id); idb.del(m.id); }
 }
+// Falha fica anotada por um minuto: cada render recria a miniatura, e sem isso cada
+// redesenho pedia a foto de novo ao servidor — em 22/09 isso esgotou as conexões do banco.
+const FALHOU_THUMB = new Map();
+const pedindoThumb = new Map();
 async function thumbDe(m){
   if(THUMBS.has(m.id)) return THUMBS.get(m.id);
+  if(Date.now() - (FALHOU_THUMB.get(m.id) || 0) < 60000) return null;
+  if(pedindoThumb.has(m.id)) return pedindoThumb.get(m.id);   // um pedido por foto, não um por render
+  const p = gerarThumb(m).finally(() => pedindoThumb.delete(m.id));
+  pedindoThumb.set(m.id, p);
+  return p;
+}
+async function gerarThumb(m){
   const f = await fotoDoItem(m);
-  if(!f) return null;
+  if(!f){ FALHOU_THUMB.set(m.id, Date.now()); return null; }
   const img = new Image(); img.src = `data:${f.mime};base64,${f.b64}`;
   try{ await img.decode(); }catch(e){ return null; }
   const lado = 96, esc = Math.min(1, lado / Math.min(img.width, img.height));

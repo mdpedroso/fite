@@ -188,6 +188,10 @@ Antes de qualquer DDL que mexa em tabela com dado dentro: dump primeiro.
 - O app compara as versões e mostra a tarja amarela "versão nova", que recarrega por
   `?v=<versão>`. `.nojekyll` evita o build Jekyll no Pages.
 - Variáveis no Vercel: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (fotos).
+  O `DATABASE_URL` do Vercel é o **pooler em modo transaction (porta 6543)**; em modo
+  session (5432) o limite é de 15 conexões presas, e em 22/09 isso derrubou o app. O
+  `.env` local usa a conexão direta (`db.<ref>.supabase.co:5432`), que serve para os
+  scripts.
   Variável nova só vale a partir do deploy seguinte.
 - **Nada é dado por pronto sem conferir no site publicado.** Deploy que não foi aberto e
   medido não conta como feito.
