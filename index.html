@@ -1097,7 +1097,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922225609";
+const VERSAO = "20260922230333";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2595,7 +2595,7 @@ $("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-des
 let ADMIN_IA = null;
 async function adminVer(){
   if(!usuario?.admin) return;
-  try{ ADMIN_IA = await api("ia-chave"); $("a-groq-info").textContent = ""; }
+  try{ ADMIN_IA = await api("ia"); $("a-groq-info").textContent = ""; }
   catch(e){ $("a-groq-info").textContent = "Não consegui ler: " + (e.message || e); }
   renderAdmin();
 }
@@ -2621,7 +2621,7 @@ $("a-groq-salvar").onclick = async () => {
   $("a-groq-info").textContent = "";
   try{
     // testar os modelos da chave leva até um minuto e pouco
-    ADMIN_IA = await api("ia-chave", {method: "PUT", prazo: 180000, body: JSON.stringify({chave: k})});
+    ADMIN_IA = await api("ia", {method: "PUT", prazo: 180000, body: JSON.stringify({chave: k})});
     $("a-groq-key").value = "";
     bt.textContent = "Salva";
     reiniciarFila();     // o que estava parado esperando IA anda agora
