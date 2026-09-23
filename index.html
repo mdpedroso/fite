@@ -1173,7 +1173,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922214937";
+const VERSAO = "20260922215337";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1784,8 +1784,12 @@ function sincHoje(){
   }
 }
 
-const LS_DADOS = "fite.dados";
-const LS_BACKUP = "fite.backups";
+// Chaves próprias, e não as do app velho. Os dois apps rodam no mesmo endereço, e o
+// localStorage é por endereço: lendo "fite.dados" o app novo pegava o cache do velho —
+// dados vindos do Drive, sem id de servidor — e os tratava como lançamentos que nunca
+// tinham subido. Resultado: mandou tudo de novo e duplicou o dia inteiro no banco.
+const LS_DADOS = "fite.banco";
+const LS_BACKUP = "fite.banco.copias";
 // anel de cópias no próprio aparelho: se o servidor sumir, ainda há de onde tirar
 function guardarBackup(estado){
   try{
