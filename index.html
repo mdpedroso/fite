@@ -654,10 +654,23 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <div id="view-admin" hidden>
   <div class="grid two">
     <section class="card">
+      <h2>OpenRouter <span class="side" id="a-openrouter-status"></span></h2>
+      <p class="soon">A chave salva por último faz as estimativas de todo mundo; as outras ficam de
+        reserva para quando ela bater no limite ou ficar sem crédito. Todas ficam no servidor:
+        nenhum aparelho vê chave. Crédito pré-pago no cartão, e Gemini, GPT e Qwen atrás da mesma chave.
+        Gere em <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">openrouter.ai/settings/keys</a>.</p>
+      <div class="pform" style="margin-top:12px">
+        <label>Chave de API
+          <input id="a-openrouter-key" type="password" autocomplete="off"
+            spellcheck="false" placeholder="Cole a chave do OpenRouter (sk-or-…)">
+        </label>
+      </div>
+      <button class="addbtn" id="a-openrouter-salvar">Testar e salvar</button>
+      <div class="flownote" id="a-openrouter-info" style="margin-top:8px"></div>
+    </section>
+    <section class="card">
       <h2>Gemini <span class="side" id="a-gemini-status"></span></h2>
-      <p class="soon">A chave salva por último faz as estimativas de todo mundo; a outra fica de reserva
-        para quando a primeira bater no limite. Fica no servidor: nenhum aparelho vê a chave.
-        Gere em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
+      <p class="soon">Gere em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
       <div class="pform" style="margin-top:12px">
         <label>Chave de API
           <input id="a-gemini-key" type="password" autocomplete="off"
@@ -1162,7 +1175,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260923161142";
+const VERSAO = "20260923170525";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2832,7 +2845,7 @@ $("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-des
 /* ---------- admin ---------- */
 // A aba só aparece para quem está na tabela `admin`; quem barra de verdade é o servidor.
 let ADMIN_IA = null;
-const SERVICOS_IA = {gemini: "Gemini (AIza…)", groq: "Groq (gsk_…)"};
+const SERVICOS_IA = {openrouter: "OpenRouter (sk-or-…)", gemini: "Gemini (AIza…)", groq: "Groq (gsk_…)"};
 async function adminVer(){
   if(!usuario?.admin) return;
   const infos = Object.keys(SERVICOS_IA).map(k => $(`a-${k}-info`));

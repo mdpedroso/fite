@@ -14,6 +14,9 @@ type Servico = {
   prefTexto: string[]; prefFoto: string[];
   fora: RegExp;                    // o que o /models lista mas não é modelo de conversa
   extra?: Record<string, unknown>; // parâmetros próprios do serviço, testados junto
+  cabecalhos?: Record<string, string>;
+  // onde conferir a chave antes de testar modelos, quando o /models é público e não a confere
+  conferir?: string;
 };
 export const SERVICOS: Record<string, Servico> = {
   groq: {
@@ -38,6 +41,21 @@ export const SERVICOS: Record<string, Servico> = {
     // pensar demais só atrasa uma conta de caloria; "low" vale do 2.5 ao 3.x
     extra: { reasoning_effort: "low" },
   },
+  // Entrou em 23/09: um lugar só, crédito pré-pago no cartão, e o Gemini, o GPT e o Qwen
+  // atrás da mesma chave. O /models lista o catálogo inteiro (não o da chave), então a
+  // preferência pesa mais aqui; o teste real continua valendo.
+  openrouter: {
+    nome: "OpenRouter", base: "https://openrouter.ai/api/v1",
+    prefTexto: ["google/gemini-3.8-flash", "google/gemini-3.5-flash", "openai/gpt-5.4-mini",
+                "google/gemini-2.5-flash", "qwen/qwen3.8-flash"],
+    prefFoto: ["google/gemini-3.8-flash", "google/gemini-3.5-flash", "openai/gpt-5.4-mini",
+               "google/gemini-2.5-flash", "qwen/qwen3.8-flash"],
+    // :batch não responde na hora e :free tem limite baixo e some sem aviso
+    fora: /:batch|:free|image|audio|tts|embed|guard|safety/i,
+    extra: { reasoning: { effort: "low" } },
+    cabecalhos: { "HTTP-Referer": "https://www.fite.app.br", "X-Title": "FiTe" },
+    conferir: "/key",
+  },
 };
 const servico = (s: string) => {
   const v = SERVICOS[s];
@@ -58,8 +76,8 @@ type Descoberta = {
   modelo_texto: string; modelo_foto: string | null; foto_sem_json: boolean; foto_motivo: string | null;
 };
 
-const cabecalho = (chave: string) =>
-  ({ "content-type": "application/json", Authorization: "Bearer " + chave });
+const cabecalho = (chave: string, sv?: Servico) =>
+  ({ "content-type": "application/json", Authorization: "Bearer " + chave, ...sv?.cabecalhos });
 
 function conteudo(texto: string, imagem?: Imagem | null) {
   return imagem
@@ -88,7 +106,7 @@ async function testar(sv: Servico, chave: string, modelo: string, comImagem: boo
     };
     if (json) body.response_format = { type: "json_object" };
     const r = await fetch(`${sv.base}/chat/completions`, {
-      method: "POST", headers: cabecalho(chave), body: JSON.stringify(body),
+      method: "POST", headers: cabecalho(chave, sv), body: JSON.stringify(body),
       signal: AbortSignal.timeout(20_000),
     });
     return r.ok ? { ok: true, json } : { ok: false, status: r.status, motivo: await motivo(r) };
@@ -105,8 +123,14 @@ async function testar(sv: Servico, chave: string, modelo: string, comImagem: boo
 /** Lista os modelos da chave e testa até achar um de texto e um de foto que respondam. */
 export async function descobrir(s: string, chave: string): Promise<Descoberta> {
   const sv = servico(s);
+  if (sv.conferir) {
+    const k = await fetch(sv.base + sv.conferir, {
+      headers: cabecalho(chave, sv), signal: AbortSignal.timeout(15_000),
+    }).catch(() => { throw new Recusa(`o ${sv.nome} não respondeu em 15s`); });
+    if (k.status === 401 || k.status === 403) throw new Recusa(`o ${sv.nome} recusou a chave; confira se copiou inteira`);
+  }
   const r = await fetch(`${sv.base}/models`, {
-    headers: cabecalho(chave), signal: AbortSignal.timeout(15_000),
+    headers: cabecalho(chave, sv), signal: AbortSignal.timeout(15_000),
   }).catch(() => { throw new Recusa(`o ${sv.nome} não respondeu em 15s`); });
   if (r.status === 401 || r.status === 403 || r.status === 400)
     throw new Recusa(`o ${sv.nome} recusou a chave; confira se copiou inteira`);
@@ -233,7 +257,7 @@ async function estimarCom(c0: Conta, prompt: string, imagem: Imagem | null, jaRe
 
   const modelo = (imagem ? c.modelo_foto : c.modelo_texto) as string;
   const r = await fetch(`${sv.base}/chat/completions`, {
-    method: "POST", headers: cabecalho(c.chave),
+    method: "POST", headers: cabecalho(c.chave, sv),
     body: JSON.stringify({
       model: modelo, temperature: 0.2, ...sv.extra,
       ...(semJson || (imagem && c.foto_sem_json) ? {} : { response_format: { type: "json_object" } }),
@@ -254,6 +278,7 @@ async function estimarCom(c0: Conta, prompt: string, imagem: Imagem | null, jaRe
       return estimarCom(c, prompt, imagem, jaRedescobriu, true);
     console.error(s, r.status, msg);
     if (r.status === 401 || r.status === 403) throw new Recusa(`a chave do ${sv.nome} foi recusada; peça ao admin para trocar`, 503);
+    if (r.status === 402) throw new Recusa(`${sv.nome} sem crédito; peça ao admin para recarregar`, 503);
     if (r.status === 429) throw new Recusa(`${sv.nome} no limite de requisições; tenta de novo sozinho`, 503);
     if (r.status >= 500) throw new Recusa(`${sv.nome} instável agora; tenta de novo sozinho`, 503);
     throw new Recusa(`${sv.nome} recusou (${r.status}): ${msg.slice(0, 100)}`);

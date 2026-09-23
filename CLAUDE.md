@@ -31,7 +31,7 @@ dia inteiro de um aparelho pelo do outro. Quase tudo neste arquivo sai daí.
 **App novo (o que vale):** `index.html` servido pelo Vercel em https://www.fite.app.br
 (`fite.app.br` redireciona para o `www`; `fite-psi.vercel.app` continua respondendo),
 com funções em `api/*.ts` (TypeScript) sobre `lib/*.ts`. Dados no Postgres do Supabase
-(São Paulo), fotos no bucket privado `fotos` do Supabase Storage, chaves de IA (Gemini e Groq) no
+(São Paulo), fotos no bucket privado `fotos` do Supabase Storage, chaves de IA (OpenRouter, Gemini e Groq) no
 banco, entrada só pelo Google. Utilitários (migração, contas, consultas) em Python, em `db/`.
 
 **App velho:** `velho.html`, no GitHub Pages (https://mdpedroso.github.io/fite/velho.html),
@@ -295,4 +295,5 @@ número na cara.
 | 22/09 | App não carimba slot (café, ceia…) | não interessa; nem pela hora, nem pelo modelo |
 | 23/09 | Um só botão "+": estima, mostra, e só então adiciona | o "?" duplicava o modal; ver o número antes de gravar serve aos dois usos |
 | 23/09 | Gemini volta como segundo motor, com reserva automática | o Groq bateu no limite e o plano pago dele estava fechado |
+| 23/09 | OpenRouter como terceiro motor, em teste para virar o único | o faturamento do Google travou (OR-RWE-03); lá é crédito pré-pago no cartão |
 | 23/09 | Código de barras: leitura no aparelho, tabela do Open Food Facts via `/api/ia` | industrializado tem número de fábrica, melhor que estimativa; sem rota nova (limite de 12) |
