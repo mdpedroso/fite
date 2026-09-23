@@ -69,14 +69,14 @@ def migrar(dados: dict, email: str, conn) -> dict:
                 morto = oid in apagados.get(dia, set())
                 cur.execute(
                     """insert into refeicao
-                         (usuario, dia, slot, descricao, bruto, interpretacao,
+                         (usuario, dia, descricao, bruto, interpretacao,
                           kcal, p, c, g, itens, via, origem_id, apagado_em)
-                       values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, case when %s then now() end)
+                       values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, case when %s then now() end)
                        on conflict (usuario, origem_id) where origem_id is not null
                        do update set descricao = excluded.descricao, kcal = excluded.kcal,
                          p = excluded.p, c = excluded.c, g = excluded.g,
-                         itens = excluded.itens, slot = excluded.slot""",
-                    (usuario, dia, m.get("slot"), m.get("desc") or "(sem descrição)",
+                         itens = excluded.itens""",
+                    (usuario, dia, m.get("desc") or "(sem descrição)",
                      m.get("raw"), m.get("interp"), inteiro(m.get("kc")),
                      inteiro(m.get("p")), inteiro(m.get("c")), inteiro(m.get("g")),
                      json.dumps(m.get("itens")) if m.get("itens") else None,

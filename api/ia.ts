@@ -22,6 +22,7 @@ function imagem(v: unknown): Imagem | null {
 export default rota({
   POST: async (req) => {
     const c = corpoJson(req);
-    return { r: await estimar(texto(c.prompt, "prompt", 20_000), imagem(c.imagem)), motor: "groq" };
+    const { r, modelo } = await estimar(texto(c.prompt, "prompt", 20_000), imagem(c.imagem));
+    return { r, motor: modelo };
   },
 });

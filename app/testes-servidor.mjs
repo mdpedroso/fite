@@ -131,7 +131,7 @@ async function teste(nome, corpo) {
 
 const refeicao = (extra = {}) => ({
   id: "local-" + Math.random().toString(36).slice(2, 7),
-  slot: "almoço", desc: "Arroz com feijão", raw: "arroz com feijão",
+  desc: "Arroz com feijão", raw: "arroz com feijão",
   kc: 600, p: 20, c: 90, g: 15, ...extra,
 });
 
@@ -167,18 +167,6 @@ await teste("edição vira PATCH e exclusão vira DELETE", async () => {
   await app.enviarPendentes();
   conferir("apagou no servidor", s.banco.refeicao.size === 0);
   conferir("fila de exclusão esvaziou", app.APAGAR.length === 0);
-});
-
-await teste("slot vai como chave e volta como texto", async () => {
-  const s = criarServidor(), app = criarAparelho(s);
-  app.DIA_MEALS["2026-09-22"] = [refeicao({ slot: "lanche tarde" })];
-  app.SUJOS.add("2026-09-22");
-  await app.enviarPendentes();
-  conferir("slot virou chave", [...s.banco.refeicao.values()][0].slot === "lanche_tarde",
-    [...s.banco.refeicao.values()][0].slot);
-  app.adotarDoServidor(await app.lerServidor());
-  conferir("slot voltou como texto", app.DIA_MEALS["2026-09-22"][0].slot === "lanche tarde",
-    app.DIA_MEALS["2026-09-22"][0].slot);
 });
 
 await teste("o que foi lançado sem rede não some quando o servidor responde", async () => {

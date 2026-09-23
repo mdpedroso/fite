@@ -243,3 +243,4 @@ número na cara.
 | 22/09 | Um só CLAUDE.md | o que precisa valer sempre tem que estar no arquivo que sempre carrega |
 | 22/09 | Entrada só pelo Google, sem senha | menos código de auth para manter; conta já existe |
 | 22/09 | Usuário pré-cadastrado por nós | saber a URL e ter Gmail não pode dar acesso |
+| 22/09 | App não carimba slot (café, ceia…) | não interessa; nem pela hora, nem pelo modelo |

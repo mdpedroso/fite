@@ -6,7 +6,6 @@
 import { consulta, uma } from "./db.js";
 import { Recusa, texto, textoOpcional, inteiro, numero, dia as validarDia, daLista } from "./validar.js";
 
-export const SLOTS = ["cafe", "lanche_manha", "almoco", "lanche_tarde", "janta", "ceia"] as const;
 // As mesmas do app: mudar aqui sem mudar lá faria o treino chegar como "outro".
 export const MODALIDADES = ["corrida", "bike", "natacao", "musculacao", "crossfit",
   "caminhada", "funcional", "aerobico", "esporte", "outro"] as const;
@@ -19,7 +18,7 @@ export const METRICAS = {
 export type Metrica = keyof typeof METRICAS;
 
 export type Refeicao = {
-  id: string; dia: string; slot: string | null; ordem: number;
+  id: string; dia: string; ordem: number;
   descricao: string; bruto: string | null; interpretacao: string | null;
   kcal: number; p: number; c: number; g: number;
   itens: { n: string; kc: number }[] | null;
@@ -51,7 +50,7 @@ const DIA = `to_char(dia, 'YYYY-MM-DD') as dia`;
 export async function periodo(usuario: string, de: string, ate: string): Promise<Periodo> {
   const [refeicoes, treinos, medicoes, ignorados, perfil] = await Promise.all([
     consulta<Refeicao>(
-      `select id, ${DIA}, slot, ordem, descricao, bruto, interpretacao,
+      `select id, ${DIA}, ordem, descricao, bruto, interpretacao,
               kcal, p, c, g, itens, foto_url, llm
          from refeicao
         where usuario = $1 and dia between $2::date and $3::date and apagado_em is null
@@ -87,8 +86,6 @@ async function proximaOrdem(tabela: "refeicao" | "treino", usuario: string, dia:
 export function lerRefeicao(corpo: Record<string, unknown>) {
   return {
     dia: validarDia(corpo.dia),
-    slot: corpo.slot === null || corpo.slot === undefined || corpo.slot === ""
-      ? null : daLista(corpo.slot, SLOTS, "almoco"),
     descricao: texto(corpo.descricao, "descrição", 500),
     bruto: textoOpcional(corpo.bruto, "texto original", 2000),
     interpretacao: textoOpcional(corpo.interpretacao, "interpretação", 2000),
@@ -116,12 +113,12 @@ export async function criarRefeicao(usuario: string, corpo: Record<string, unkno
   const d = lerRefeicao(corpo);
   const ordem = await proximaOrdem("refeicao", usuario, d.dia);
   return uma<Refeicao>(
-    `insert into refeicao (usuario, dia, slot, ordem, descricao, bruto, interpretacao,
+    `insert into refeicao (usuario, dia, ordem, descricao, bruto, interpretacao,
                            kcal, p, c, g, itens, foto_url, llm)
-     values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-     returning id, ${DIA}, slot, ordem, descricao, bruto, interpretacao,
+     values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+     returning id, ${DIA}, ordem, descricao, bruto, interpretacao,
                kcal, p, c, g, itens, foto_url, llm`,
-    [usuario, d.dia, d.slot, ordem, d.descricao, d.bruto, d.interpretacao,
+    [usuario, d.dia, ordem, d.descricao, d.bruto, d.interpretacao,
      d.kcal, d.p, d.c, d.g, d.itens ? JSON.stringify(d.itens) : null, d.foto_url, d.llm]);
 }
 
@@ -171,7 +168,7 @@ export async function editar(
   tabela: "refeicao" | "treino", usuario: string, id: string, corpo: Record<string, unknown>,
 ) {
   const permitidos = tabela === "refeicao"
-    ? { dia: "dia", slot: "slot", descricao: "descricao", bruto: "bruto",
+    ? { dia: "dia", descricao: "descricao", bruto: "bruto",
         interpretacao: "interpretacao", kcal: "kcal", p: "p", c: "c", g: "g",
         itens: "itens", foto_url: "foto_url", llm: "llm", ordem: "ordem" }
     : { dia: "dia", modalidade: "modalidade", titulo: "titulo", detalhe: "detalhe",
@@ -186,7 +183,6 @@ export async function editar(
     let valor: unknown;
     switch (chave) {
       case "dia":         valor = validarDia(corpo.dia); break;
-      case "slot":        valor = corpo.slot ? daLista(corpo.slot, SLOTS, "almoco") : null; break;
       case "modalidade":  valor = daLista(corpo.modalidade, MODALIDADES, "outro"); break;
       case "descricao":   valor = texto(corpo.descricao, "descrição", 500); break;
       case "titulo":      valor = texto(corpo.titulo, "título", 300); break;

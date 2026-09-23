@@ -55,7 +55,7 @@ export function id(v: unknown, campo = "id"): string {
   return v;
 }
 
-/** Um valor de uma lista fechada, ou o padrão. Serve para slot, modalidade e fonte. */
+/** Um valor de uma lista fechada, ou o padrão. Serve para modalidade e fonte. */
 export function daLista<T extends string>(v: unknown, lista: readonly T[], padrao: T): T {
   if (typeof v !== "string") return padrao;
   const achou = lista.find(x => x === v.toLowerCase());

@@ -156,8 +156,8 @@ const redescobrir = (chave: string) => descobrir(chave).catch(e => {
   throw e instanceof Recusa ? new Recusa(e.message, 503) : e;
 });
 
-/** Pergunta ao modelo e devolve o JSON que ele respondeu. */
-export async function estimar(prompt: string, imagem: Imagem | null, jaRedescobriu = false): Promise<unknown> {
+/** Pergunta ao modelo e devolve o JSON que ele respondeu, com o nome de quem respondeu. */
+export async function estimar(prompt: string, imagem: Imagem | null, jaRedescobriu = false): Promise<{ r: unknown; modelo: string }> {
   let c = await contaGroq();
   if (!c) throw new Recusa("a IA ainda não foi configurada; peça ao admin", 503);
   if (!c.modelo_texto) {
@@ -168,10 +168,11 @@ export async function estimar(prompt: string, imagem: Imagem | null, jaRedescobr
   if (imagem && !c.modelo_foto)
     throw new Recusa("a IA não lê foto agora" + (c.foto_motivo ? ": " + c.foto_motivo.slice(0, 90) : ""), 503);
 
+  const modelo = (imagem ? c.modelo_foto : c.modelo_texto) as string;
   const r = await fetch(`${GROQ}/chat/completions`, {
     method: "POST", headers: cabecalho(c.chave),
     body: JSON.stringify({
-      model: imagem ? c.modelo_foto : c.modelo_texto, temperature: 0.2,
+      model: modelo, temperature: 0.2,
       ...(imagem && c.foto_sem_json ? {} : { response_format: { type: "json_object" } }),
       messages: [{ role: "system", content: SISTEMA }, { role: "user", content: conteudo(prompt, imagem) }],
     }),
@@ -192,5 +193,6 @@ export async function estimar(prompt: string, imagem: Imagem | null, jaRedescobr
   }
   const txt = (await r.json())?.choices?.[0]?.message?.content;
   if (!txt) throw new Recusa("o Groq respondeu vazio; tenta de novo sozinho", 503);
-  return lerJSON(String(txt));
+  // `llm` guarda o modelo, não o provedor: é o que permite comparar estimativas depois
+  return { r: lerJSON(String(txt)), modelo: "groq/" + modelo.replace(/^.*\//, "") };
 }

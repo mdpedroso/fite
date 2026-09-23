@@ -208,7 +208,6 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 /* ---- meal list ---- */
 .meals{display:flex;flex-direction:column;margin-top:6px}
 .meal{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:start;padding:5px 0;border-top:1px solid var(--grid)}
-.meal .slot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding-top:4px}
 .meal .desc{font-size:15px}
 .meal .kc{font-size:15px;font-weight:600;white-space:nowrap}
 .meal .mm{font-size:12.5px;color:var(--ink-3);margin-top:2px}
@@ -487,7 +486,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 .btn-cancel{background:var(--surface-2);color:var(--ink-2)}
 .addstatus{font-size:12.5px;color:var(--ink-3)}
 .addstatus.err{color:var(--crit)}
-.meal.novo .slot,.wko.novo .d{color:var(--in)}
+.wko.novo .d{color:var(--in)}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -639,16 +638,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       </div>
       <div class="pconta" id="p-conta"></div>
       <div class="flownote" id="p-versao" style="margin-top:10px"></div>
-    </section>
-
-    <section class="card">
-      <h2>Recuperar <span class="side" id="p-rec-status"></span></h2>
-      <p class="soon">O histórico agora é o banco: nada é apagado de verdade lá, nem
-      quando some da tela. Estas cópias são só do aparelho, para quando ele passar um
-      tempo sem servidor.</p>
-      <button class="addbtn" id="p-rec-local">Ver cópias deste aparelho</button>
-      <button class="addbtn" id="p-exportar">Baixar tudo num arquivo</button>
-      <div class="rlista" id="p-rec-lista"></div>
     </section>
 
     <section class="card">
@@ -1152,7 +1141,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922222115";
+const VERSAO = "20260922222824";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1771,16 +1760,6 @@ $("bt-meal").onclick   = () => abrirRefeicao(false, histIso);
 $("bt-duvida").onclick = () => abrirRefeicao(true, histIso);
 $("bt-wk").onclick     = () => { fotoWk.limpar(); abrir("dlg-wk","st-wk", histIso); };
 
-// sem o seletor, a hora dá o palpite quando a IA não classifica
-function slotPorHora(){
-  const h = new Date().getHours();
-  if(h < 10) return "café";
-  if(h < 11) return "lanche manhã";
-  if(h < 15) return "almoço";
-  if(h < 18) return "lanche tarde";
-  if(h < 22) return "janta";
-  return "ceia";
-}
 const FOTOS = new Map();   // id do item → imagem, enquanto a estimativa não sai
 // cópia no IndexedDB: uma foto de 1024 px tem ~200 KB e o localStorage não aguentaria várias;
 // aqui cabem centenas, e ela some assim que a estimativa é gravada
@@ -1912,7 +1891,7 @@ $("fm-meal").onsubmit = ev => {
   const id = novoId();
   if(foto){ FOTOS.set(id, foto); idb.set(id, foto); }
   (DIA_MEALS[alvoDia] ||= []).push({
-    id, slot: slotPorHora(), desc: texto || "Refeição pela foto",
+    id, desc: texto || "Refeição pela foto",
     kc:0, p:0, c:0, g:0, pendente:true, raw:texto, temFoto: !!foto, novo:true,
   });
   depoisDeGravar();
@@ -1930,7 +1909,7 @@ function adicionarConsulta(){
   const id = novoId();
   if(u.foto){ FOTOS.set(id, u.foto); idb.set(id, u.foto); }
   (DIA_MEALS[alvoDia] ||= []).push({
-    id, slot: String(u.r.slot || slotPorHora()), desc: u.texto || String(u.r.desc || "Refeição pela foto"),
+    id, desc: u.texto || String(u.r.desc || "Refeição pela foto"),
     interp: String(u.r.desc || ""), via: u.via, raw: u.texto, temFoto: !!u.foto, novo: true,
     kc: u.tot.kcal, p: u.tot.p, c: u.tot.c, g: u.tot.g,
     ...(u.tot.itens.length ? {itens: u.tot.itens.map(i => ({n: i.nome, kc: i.kcal}))} : {}),
@@ -1946,7 +1925,7 @@ async function consultar(texto, foto){
   const bt = $("bt-meal-go"), st = $("st-meal"), box = $("consulta");
   bt.disabled = true; st.className = "addstatus"; st.textContent = "Estimando…";
   try{
-    const r = await estimarJSON(promptRefeicao(texto, foto, true), foto);
+    const r = await estimarJSON(promptRefeicao(texto, foto), foto);
     const tot = totaisRefeicao(r), esc = x => String(x || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     box.innerHTML =
       `<div class="kc num">${fmt(tot.kcal)}<small>kcal</small></div>` +
@@ -2024,8 +2003,7 @@ function promptRefeicao(raw, foto){
         `Refeição: "${raw}"\n`) +
     `Use porções brasileiras típicas quando a quantidade não for dita.\n` +
     `Responda só com JSON no formato: ` +
-    `{"slot":"café|lanche manhã|almoço|lanche tarde|janta|ceia",` +
-    `"desc":"descrição curta da refeição",` +
+    `{"desc":"descrição curta da refeição",` +
     `"itens":[{"nome":"alimento com a porção assumida","kcal":0,"p":0,"c":0,"g":0}]}\n` +
     `Liste cada alimento separado em "itens", com a porção que você assumiu. ` +
     `p, c, g são gramas de proteína, carboidrato e gordura de cada item. ` +
@@ -2048,11 +2026,10 @@ async function estimarItem(p){
     if(!foto && !m.raw){
       const e = new Error("sem-material"); e.permanente = true; throw e;
     }
-    const r = await estimarJSON(promptRefeicao(m.raw, foto, false), foto);
+    const r = await estimarJSON(promptRefeicao(m.raw, foto), foto);
     const t = totaisRefeicao(r);
     Object.assign(m, {
       via: ultimoMotor,
-      slot: String(r.slot || m.slot),
       desc: m.raw || String(r.desc || m.desc),      // o que a pessoa escreveu manda
       interp: String(r.desc || ""),                   // como o modelo entendeu, para conferir
       kc: t.kcal, p: t.p, c: t.c, g: t.g,
@@ -2277,17 +2254,11 @@ const SUJOS = new Set();          // dias com alteração ainda não enviada
 const APAGAR = [];                // {tabela, sid} de itens excluídos aqui
 let ENVIADO_PESO = {}, ENVIADO_OCULTO = {}, ENVIADO_PERFIL = "";
 
-// a tela fala "café da manhã"; o banco guarda a chave. Sem o de-para, o backend cairia
-// no padrão e todo lançamento viraria almoço.
-const SLOT_CHAVE = {"café":"cafe", "lanche manhã":"lanche_manha", "almoço":"almoco",
-                    "lanche tarde":"lanche_tarde", "janta":"janta", "ceia":"ceia"};
-const SLOT_TELA = Object.fromEntries(Object.entries(SLOT_CHAVE).map(([k, v]) => [v, k]));
 
 const inteiro = v => Math.max(0, Math.round(Number(v) || 0));
 
 const refeicaoParaApi = (iso, m) => ({
   dia: iso,
-  slot: SLOT_CHAVE[String(m.slot || "").toLowerCase()] || null,
   descricao: (m.desc || "").trim() || "Refeição",
   bruto: m.raw || null, interpretacao: m.interp || null,
   kcal: inteiro(m.kc), p: inteiro(m.p), c: inteiro(m.c), g: inteiro(m.g),
@@ -2303,7 +2274,7 @@ const refeicaoParaApi = (iso, m) => ({
 const naoEstimado = x => !x.llm && !x.kcal && !!x.bruto;
 const refeicaoDaApi = r => ({
   ...(naoEstimado(r) ? {pendente: true} : {}),
-  id: r.id, sid: r.id, slot: SLOT_TELA[r.slot] || r.slot || "",
+  id: r.id, sid: r.id,
   desc: r.descricao, raw: r.bruto || "", interp: r.interpretacao || "",
   kc: r.kcal, p: r.p, c: r.c, g: r.g,
   ...(r.itens?.length ? {itens: r.itens} : {}), via: r.llm || "",
@@ -2616,45 +2587,6 @@ async function verRestauro(){
   }
 }
 
-function listarBackupsLocais(){
-  const st = $("p-rec-status"), lista = $("p-rec-lista");
-  const ring = lerBackups();
-  st.textContent = `${ring.length} cópia${ring.length===1?"":"s"} aqui`;
-  lista.innerHTML = ring.slice().reverse().map((b, i) => {
-    const d = new Date(b.quando);
-    const quando = d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) + " " +
-                   d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-    let n = 0;
-    try{ const e = JSON.parse(b.corpo);
-         n = Object.values(e.dias || {}).flat().length + Object.values(e.wk || {}).flat().length; }catch(err){}
-    return `<div class="rlinha"><span class="q">${quando} · ${n} lançamento${n===1?"":"s"}</span>` +
-           `<button data-local="${ring.length - 1 - i}">Trazer de volta</button></div>`;
-  }).join("") || `<div class="rlinha"><span class="q">nenhuma cópia ainda</span></div>`;
-}
-async function recuperarLocal(idx, bt){
-  bt.disabled = true; bt.textContent = "trazendo…";
-  try{
-    const b = lerBackups()[idx];
-    if(!b) throw new Error("cópia sumiu");
-    const antes = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
-    adotarEstado(mesclarEstados(estadoAtual(), JSON.parse(b.corpo)));
-    const depois = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
-    recalcDays(); renderAll();
-    await salvar();
-    bt.textContent = depois > antes ? `voltaram ${depois - antes}` : "nada faltava aqui";
-  }catch(e){ bt.textContent = "falhou: " + (e.message || e); }
-  setTimeout(() => { bt.disabled = false; bt.textContent = "Trazer de volta"; }, 4000);
-}
-// exportar: o diário inteiro num arquivo, para migrar ou só para ter na mão
-$("p-exportar").onclick = () => {
-  const corpo = JSON.stringify(estadoAtual(), null, 1);
-  const url = URL.createObjectURL(new Blob([corpo], {type:"application/json"}));
-  const a = document.createElement("a");
-  a.href = url; a.download = `fite-${TODAY_ISO}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-};
-$("p-rec-local").onclick = listarBackupsLocais;
 // a IA desistiu de um lançamento (pedido recusado): a pessoa manda tentar de novo
 document.addEventListener("click", e => {
   const b = e.target.closest("button[data-retentar]");
@@ -2662,10 +2594,6 @@ document.addEventListener("click", e => {
   for(const arr of Object.values(DIA_MEALS))
     for(const m of arr || []) if(m.id === b.dataset.retentar){ delete m.desistiu; delete m.erro; }
   reiniciarFila(); renderAll();
-});
-$("p-rec-lista").addEventListener("click", e => {
-  const l = e.target.closest("button[data-local]");
-  if(l) recuperarLocal(+l.dataset.local, l);
 });
 $("p-icu-conectar").onclick = icuConectar;
 $("p-icu-sync").onclick = () => icuSincronizar(false);
