@@ -423,9 +423,9 @@ dialog::backdrop{background:rgba(11,11,11,.45)}
 dialog h3::after{content:attr(data-dia);color:var(--in)}
 dialog{position:relative}
 dialog.confirma{max-width:360px}
-dialog.foto{max-width:720px;padding:10px}
-dialog.foto img{display:block;width:100%;max-height:80vh;object-fit:contain;border-radius:8px}
-dialog.foto .fechar{z-index:1;top:16px;right:16px;width:32px;height:32px;border-radius:50%;
+dialog.ampliada{max-width:720px;padding:10px}
+dialog.ampliada img{display:block;width:100%;max-height:80vh;object-fit:contain;border-radius:8px}
+dialog.ampliada .fechar{z-index:1;top:16px;right:16px;width:32px;height:32px;border-radius:50%;
   background:rgba(255,255,255,.9)}
 .thumb{cursor:zoom-in}
 .confirma .c-o{margin:0 0 6px;font-size:15.5px;font-weight:600;line-height:1.35;word-break:break-word}
@@ -687,7 +687,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   </form>
 </dialog>
 
-<dialog id="dlg-foto" class="foto">
+<dialog id="dlg-foto" class="ampliada">
   <button type="button" class="fechar" data-close="dlg-foto" aria-label="Fechar">×</button>
   <img id="foto-grande" alt="">
 </dialog>
@@ -1118,7 +1118,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922232122";
+const VERSAO = "20260922232542";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
