@@ -22,45 +22,9 @@
   --gasto:#5b9bd5; --gasto-2:#2a6db5; --gasto-3:#123f73;
   --shadow:0 1px 2px rgba(11,11,11,.05);
 }
-@media (prefers-color-scheme:dark){ :root:not([data-theme]){
-  --ground:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
-  --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#898781;
-  --grid:#2c2c2a; --axis:#383835; --hair:rgba(255,255,255,.10);
-  --in:#3987e5; --out:#b8481e; --out-2:#dd6a35; --out-3:#f2996d;
-  --mp:#199e70; --mc:#c98500; --mg:#d55181;
-  --good:#0ca30c; --warn:#fab219; --crit:#e66767;
-  --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
-  --deficit:#3987e5; --surplus:#e66767;
-  --marca:#3d9dc4; --marca-2:#9fd94f;
-  --consumo:#e0683a;
-  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea; --sobre-treino:#0b1f36;
-  --shadow:none;
-}}
-:root[data-theme="dark"]{
-  --ground:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
-  --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#898781;
-  --grid:#2c2c2a; --axis:#383835; --hair:rgba(255,255,255,.10);
-  --in:#3987e5; --out:#b8481e; --out-2:#dd6a35; --out-3:#f2996d;
-  --mp:#199e70; --mc:#c98500; --mg:#d55181;
-  --good:#0ca30c; --warn:#fab219; --crit:#e66767;
-  --sig-good:#22c022; --sig-mid:#fab219; --sig-bad:#e66767;
-  --deficit:#3987e5; --surplus:#e66767;
-  --marca:#3d9dc4; --marca-2:#9fd94f;
-  --consumo:#e0683a;
-  --gasto:#2e6ba8; --gasto-2:#4f93d9; --gasto-3:#8fbdea; --sobre-treino:#0b1f36;
-  --shadow:none;
-}
 </style>
-<script>
-  // o tema vale antes de a página pintar; "claro" é o padrão, o aparelho só manda em "auto"
-  try{
-    const t = localStorage.getItem("fite.tema") || "claro";
-    if(t !== "auto") document.documentElement.dataset.theme = t;
-  }catch(e){ document.documentElement.dataset.theme = "claro"; }
-</script>
 <style>
-:root[data-theme="claro"]{color-scheme:light}
-:root[data-theme="dark"]{color-scheme:dark}
+:root{color-scheme:light}   /* o app é sempre claro */
 *{box-sizing:border-box}
 [hidden]{display:none!important}   /* vence o display:grid do #gate */
 body{
@@ -399,9 +363,6 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .gsi:active{--gsi-bg:#f4f6f5}
 .gsi:disabled{opacity:.6;cursor:default;box-shadow:none}
 .gsi-logo{width:20px;height:20px;flex:none}
-@media (prefers-color-scheme:dark){ :root:not([data-theme]) .gsi{
-  --gsi-bg:#17181a;color:#e3e3e3} }
-:root[data-theme="dark"] .gsi{--gsi-bg:#17181a;color:#e3e3e3}
 .gbtn:disabled{opacity:.5;cursor:default}
 .gbtn.ghost{background:var(--surface-2);color:var(--ink-2);margin-top:12px}
 .gpassos{text-align:left;color:var(--ink-2);font-size:14px;line-height:1.6;
@@ -628,13 +589,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
         </label>
         <label>Nascimento <input type="date" id="p-nasc"></label>
         <label>Altura (cm) <input type="number" id="p-alt" min="100" max="250"></label>
-        <label>Tema
-          <select id="p-tema">
-            <option value="claro">Claro</option>
-            <option value="dark">Escuro</option>
-            <option value="auto">Como o aparelho</option>
-          </select>
-        </label>
       </div>
       <div class="pconta" id="p-conta"></div>
       <div class="flownote" id="p-versao" style="margin-top:10px"></div>
@@ -790,6 +744,7 @@ const idade = () => {
   if(m < 0 || (m === 0 && h.getDate() < n.getDate())) a--;
   return a;
 };
+const kgTexto = kg => Number(kg).toFixed(1).replace(".", ",") + " kg";
 const pesoAtual = () => WEIGHTS.length ? WEIGHTS[WEIGHTS.length-1].kg : 85;
 // o peso que valia naquele dia: o último registro até ali. Antes do primeiro registro,
 // usa o primeiro — assim um dia passado não muda de saldo quando você se pesa hoje.
@@ -1036,7 +991,8 @@ function drawWeight(){
   const host = document.getElementById("c-weight");
   if(WEIGHTS.length < 2){
     host.insertAdjacentHTML("afterbegin",
-      `<div class="hempty">${WEIGHTS.length ? "Um registro só — o segundo já monta o gráfico."
+      `<div class="hempty">${WEIGHTS.length
+        ? `${kgTexto(WEIGHTS[0].kg)} em ${dayShort(WEIGHTS[0].d)} — o segundo registro já monta o gráfico.`
         : "Nenhum peso registrado ainda."}</div>`);
     return;
   }
@@ -1141,7 +1097,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922222824";
+const VERSAO = "20260922223550";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -2143,8 +2099,10 @@ function aplicarPerfil(){
   $(id).addEventListener("change", aplicarPerfil);
 });
 /* ---------- peso ---------- */
+// com um registro só não há "desde": mostra o próprio peso, senão parece que não gravou
 function renderPesoSide(){
-  if(WEIGHTS.length < 2){ $("peso-side").textContent = ""; return; }
+  if(!WEIGHTS.length){ $("peso-side").textContent = ""; return; }
+  if(WEIGHTS.length < 2){ $("peso-side").textContent = `${kgTexto(WEIGHTS[0].kg)} em ${dayShort(WEIGHTS[0].d)}`; return; }
   const dif = WEIGHTS[WEIGHTS.length-1].kg - WEIGHTS[0].kg;
   $("peso-side").textContent =
     `${dif>0?"+":"−"}${Math.abs(dif).toFixed(1).replace(".",",")} kg desde ${dayShort(WEIGHTS[0].d)}`;
@@ -2518,7 +2476,6 @@ function icuAuto(){
 function renderIntegracoes(){
   $("btn-admin").hidden = !usuario?.admin;
   $("p-versao").textContent = "versão do app: " + versaoLegivel(VERSAO);
-  try{ $("p-tema").value = localStorage.getItem("fite.tema") || "claro"; }catch(e){}
   $("p-icu-desde").value = TREINOS.desde || "";
   $("p-icu-status").textContent = ICU.conectado
     ? (ICU.rotulo ? `conectado · ${ICU.rotulo}` : "conectado") : "não conectado";
@@ -2533,14 +2490,6 @@ function renderIntegracoes(){
   const bs = $("p-sair");
   if(bs) bs.onclick = sair;
 }
-$("p-tema").onchange = () => {
-  const t = $("p-tema").value;
-  try{ localStorage.setItem("fite.tema", t); }catch(e){}
-  if(t === "auto") delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = t;
-  mountCharts();                 // os gráficos leem as cores do CSS na hora de desenhar
-  remedirBarras();
-};
 /* ---------- restaurar lançamentos por link (?restaurar=…) ---------- */
 // Serve para devolver o que se perdeu sem depender do servidor. Só acrescenta: item com a
 // mesma descrição e as mesmas calorias no mesmo dia é considerado o mesmo e não entra de novo.
@@ -2700,8 +2649,8 @@ function abrirApp(){
 
 async function boot(){
   conferirVersao();     // também na porta: quem não passou do login precisa saber
-  // as chaves de IA agora moram no servidor; as que ficaram no aparelho não servem mais
-  try{ ["fite.gemini","fite.openai","fite.groq","fite.tsChaves"].forEach(k => localStorage.removeItem(k)); }catch(e){}
+  // chaves de IA (moram no servidor) e tema (o app é sempre claro): o que ficou no aparelho não serve mais
+  try{ ["fite.gemini","fite.openai","fite.groq","fite.tsChaves","fite.tema"].forEach(k => localStorage.removeItem(k)); }catch(e){}
 
   diag("iniciando");
   passo("g-carregando");
