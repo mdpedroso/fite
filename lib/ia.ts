@@ -197,10 +197,16 @@ export async function estimar(prompt: string, imagem: Imagem | null, jaRedescobr
   return { r: lerJSON(String(txt)), modelo: "groq/" + modelo.replace(/^.*\//, "") };
 }
 
-// Áudio → texto. O whisper-large-v3-turbo transcreveu um áudio de teste em português sem
-// erro em meio segundo (22/09); o large-v3 empatou em acerto e foi mais lento. O reconhecimento
-// de voz do navegador ficava bem abaixo disso, e varia de aparelho para aparelho.
-const TRANSCRICAO = "whisper-large-v3-turbo";
+// Áudio → texto. Em 23/09, com a lista de palavras abaixo, o whisper-large-v3 acertou
+// "whey" e "bolonhesa" (os erros que apareceram no uso) e o turbo não; custa ~0,2 s a mais
+// por fala (0,5 s contra 0,35 s numa frase de 10 s). O reconhecimento de voz do navegador
+// ficava bem abaixo disso, e varia de aparelho para aparelho.
+const TRANSCRICAO = "whisper-large-v3";
+// O Whisper puxa a grafia do que aparece no prompt: sem isto, "whey" virava "ei" e
+// "bolonhesa" virava "bolognese". Palavra que ele errar no uso entra aqui.
+const VOCABULARIO = "Refeição ou treino, em português do Brasil. Palavras comuns: whey, scoop, " +
+  "shake, bolonhesa, strogonoff, parmesão, tapioca, açaí, cuscuz, farofa, requeijão, iogurte, " +
+  "granola, pão francês, feijão preto, crossfit, WOD, burpee.";
 // o Groq descobre o formato pela extensão do nome do arquivo
 const EXTENSAO: Record<string, string> = {
   "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/x-m4a": "m4a",
@@ -221,8 +227,7 @@ export async function transcrever(mime: string, b64: string): Promise<string> {
   form.append("language", "pt");
   form.append("temperature", "0");
   form.append("response_format", "json");
-  // dá contexto ao modelo: fala curta sobre comida sai melhor sabendo do que se trata
-  form.append("prompt", "Descrição de refeição ou treino, em português do Brasil.");
+  form.append("prompt", VOCABULARIO);
 
   const r = await fetch(`${GROQ}/audio/transcriptions`, {
     method: "POST", headers: { Authorization: "Bearer " + c.chave }, body: form,
