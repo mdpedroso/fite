@@ -832,9 +832,12 @@ function dayTitle(iso, curto){
     : dt(iso).toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
   return (diff===0 ? "Hoje · " : diff===1 ? "Ontem · " : "") + data;
 }
-// "Hoje" ganha as cores da marca (azul, com o traço verde do acento): o resto do título
-// fica igual, é só o sinal de que se está no dia corrente
-const tituloDia = (iso, curto) => dayTitle(iso, curto).replace(/^Hoje/, '<span class="hj">Hoje</span>');
+// o dia corrente ganha as cores da marca (azul, com o traço verde do acento) no título
+// inteiro; os outros dias ficam no cinza de sempre
+const tituloDia = (iso, curto) => {
+  const t = dayTitle(iso, curto);
+  return iso === TODAY_ISO ? `<span class="hj">${t}</span>` : t;
+};
 document.getElementById("day-title").innerHTML = tituloDia(TODAY);
 
 /* ---------- tooltip ---------- */
@@ -1118,7 +1121,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922233435";
+const VERSAO = "20260922233746";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1130,12 +1133,14 @@ async function conferirVersao(){
     if(v && v !== VERSAO){ versaoNoAr = v; $("nova-versao").hidden = false; }
   }catch(e){}
 }
-// recarregar pelo endereço com a versão nova: um reload simples pode devolver o HTML
-// que o navegador guardou (o GitHub Pages manda cache de 10 minutos)
-$("nova-versao").onclick = () => {
-  gravarLocal();
-  location.replace(location.pathname + "?v=" + (versaoNoAr || Date.now()));
-};
+// O Vercel entrega a página com max-age=0 e must-revalidate: o navegador confere a cada
+// carga, então recarregar basta. O ?v= era para o GitHub Pages, que guardava 10 minutos.
+$("nova-versao").onclick = () => { gravarLocal(); location.reload(); };
+// quem abriu por um link antigo com ?v= fica com o endereço limpo
+if(new URLSearchParams(location.search).has("v")){
+  const q = new URLSearchParams(location.search); q.delete("v");
+  history.replaceState(null, "", location.pathname + (q.size ? "?" + q : "") + location.hash);
+}
 setInterval(conferirVersao, 5*60*1000);
 addEventListener("focus", conferirVersao);
 // "21/09 20:58" a partir do carimbo AAAAMMDDhhmmss

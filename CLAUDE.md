@@ -185,8 +185,10 @@ Antes de qualquer DDL que mexa em tabela com dado dentro: dump primeiro.
   `cp app/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit`.
 - Deploy conferido por `versao.txt` no ar e pelo status do commit no GitHub
   (`gh api repos/mdpedroso/fite/commits/<sha>/statuses`); log com `npx vercel inspect <id> --logs`.
-- O app compara as versões e mostra a tarja amarela "versão nova", que recarrega por
-  `?v=<versão>`. `.nojekyll` evita o build Jekyll no Pages.
+- O app compara as versões e mostra a tarja amarela "versão nova", que recarrega a
+  página normalmente: o Vercel serve o HTML com `max-age=0, must-revalidate`, então não
+  precisa de `?v=` no endereço (o app velho, no Pages, ainda usa). `.nojekyll` evita o
+  build Jekyll no Pages.
 - Variáveis no Vercel: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (fotos).
   O `DATABASE_URL` do Vercel é o **pooler em modo transaction (porta 6543)**; em modo
   session (5432) o limite é de 15 conexões presas, e em 22/09 isso derrubou o app. O
