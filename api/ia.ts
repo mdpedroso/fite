@@ -1,13 +1,13 @@
 // /api/ia — POST estima: recebe o pedido montado pela tela e devolve o JSON do modelo.
 // POST com `audio` transcreve a fala para o campo de texto (a pessoa confere antes de enviar).
 // POST com `ean` busca o produto embalado pelo código de barras (a tabela dispensa a IA).
-// GET e PUT são do admin: veem a situação e trocam a chave do Groq.
+// GET e PUT são do admin: veem a situação e trocam a chave de um serviço (Groq, Gemini).
 //
 // A tela continua dona do prompt (é ela que sabe o formato da refeição e do treino); o
 // servidor só guarda a chave e fala com o modelo. Chave e estimativa moram na mesma rota
 // porque o plano gratuito do Vercel aceita 12 funções, e cada arquivo em api/ é uma.
 import { rota, corpoJson } from "../lib/rota.js";
-import { estimar, situacao, cadastrarGroq, transcrever, type Imagem } from "../lib/ia.js";
+import { estimar, situacao, cadastrar, SERVICOS, transcrever, type Imagem } from "../lib/ia.js";
 import { buscarProduto } from "../lib/produto.js";
 import { texto, Recusa } from "../lib/validar.js";
 import type { Quem } from "../lib/sessao.js";
@@ -47,6 +47,9 @@ export default rota({
   GET: async (_req, _res, quem) => { exigirAdmin(quem); return situacao(); },
   PUT: async (req, _res, quem) => {
     exigirAdmin(quem);
-    return cadastrarGroq(texto(corpoJson(req).chave, "chave", 300), quem.id);
+    const c = corpoJson(req);
+    const s = c.servico === undefined ? "groq" : texto(c.servico, "serviço", 20);
+    if (!(s in SERVICOS)) throw new Recusa("serviço de IA desconhecido");
+    return cadastrar(s, texto(c.chave, "chave", 300), quem.id);
   },
 });

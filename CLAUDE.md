@@ -31,7 +31,7 @@ dia inteiro de um aparelho pelo do outro. Quase tudo neste arquivo sai daí.
 **App novo (o que vale):** `index.html` servido pelo Vercel em https://www.fite.app.br
 (`fite.app.br` redireciona para o `www`; `fite-psi.vercel.app` continua respondendo),
 com funções em `api/*.ts` (TypeScript) sobre `lib/*.ts`. Dados no Postgres do Supabase
-(São Paulo), fotos no bucket privado `fotos` do Supabase Storage, chave de IA (Groq) no
+(São Paulo), fotos no bucket privado `fotos` do Supabase Storage, chaves de IA (Gemini e Groq) no
 banco, entrada só pelo Google. Utilitários (migração, contas, consultas) em Python, em `db/`.
 
 **App velho:** `velho.html`, no GitHub Pages (https://mdpedroso.github.io/fite/velho.html),
@@ -53,7 +53,9 @@ Decisões que sustentam isso:
   Atenção: os papéis `anon` e `authenticated` ainda têm permissão total em todas as
   tabelas de `public` — se a Data API for ligada, tudo fica exposto. Falta o `revoke`.
 - **Chave de IA no servidor**: chave no navegador é chave entregue. O app chama
-  `/api/ia`, que chama o Groq com a chave da tabela `chave_ia`. Quem cadastra a chave é o
+  `/api/ia`, que chama o modelo com a chave da tabela `chave_ia`: a salva por último estima,
+  a outra é reserva quando a primeira dá limite (429), cai (5xx) ou tem a chave recusada.
+  A voz (Whisper) só existe no Groq. Quem cadastra a chave é o
   admin, na aba Admin do app; quem usa o app não configura nada.
 - **Fotos pelo backend**: `/api/foto` sobe e devolve a foto; o caminho no bucket começa
   pelo id do usuário e só o dono lê. A cópia no aparelho (IndexedDB) só vive até a foto
@@ -292,4 +294,5 @@ número na cara.
 | 22/09 | Usuário pré-cadastrado por nós | saber a URL e ter Gmail não pode dar acesso |
 | 22/09 | App não carimba slot (café, ceia…) | não interessa; nem pela hora, nem pelo modelo |
 | 23/09 | Um só botão "+": estima, mostra, e só então adiciona | o "?" duplicava o modal; ver o número antes de gravar serve aos dois usos |
+| 23/09 | Gemini volta como segundo motor, com reserva automática | o Groq bateu no limite e o plano pago dele estava fechado |
 | 23/09 | Código de barras: leitura no aparelho, tabela do Open Food Facts via `/api/ia` | industrializado tem número de fábrica, melhor que estimativa; sem rota nova (limite de 12) |

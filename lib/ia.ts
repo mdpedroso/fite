@@ -2,27 +2,56 @@
 //
 // A chave fica aqui para não ser entregue a cada navegador, e para quem usa o app não
 // precisar saber o que é chave de API: o admin cadastra uma vez e vale para todos.
-// Por ora só o Groq; outro serviço entra como mais uma linha em `chave_ia`.
+// Cada serviço é uma linha em `chave_ia`. Os dois falam o formato do OpenAI
+// (chat/completions, models), então o código é o mesmo e só muda o endereço.
 import { consulta, uma } from "./db.js";
 import { Recusa } from "./validar.js";
 
-const GROQ = "https://api.groq.com/openai/v1";
+type Servico = {
+  nome: string; base: string;
+  // nome de modelo não se confia: a chave diz o que tem, e um teste real diz o que responde.
+  // Ordem de preferência; o que a chave não tiver é pulado.
+  prefTexto: string[]; prefFoto: string[];
+  fora: RegExp;                    // o que o /models lista mas não é modelo de conversa
+  extra?: Record<string, unknown>; // parâmetros próprios do serviço, testados junto
+};
+export const SERVICOS: Record<string, Servico> = {
+  groq: {
+    nome: "Groq", base: "https://api.groq.com/openai/v1",
+    prefTexto: ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b",
+                "qwen/qwen3.6-27b", "openai/gpt-oss-20b", "llama-3.1-8b-instant",
+                "meta-llama/llama-4-scout-17b-16e-instruct"],
+    prefFoto: ["qwen/qwen3.8-27b", "qwen/qwen3.6-27b",
+               "meta-llama/llama-4-scout-17b-16e-instruct",
+               "meta-llama/llama-4-maverick-17b-128e-instruct"],
+    fora: /whisper|guard|tts|orpheus|safeguard|compound|allam|embed/i,
+  },
+  // Entrou em 23/09, quando o Groq bateu no limite e o plano pago dele estava fechado.
+  gemini: {
+    nome: "Gemini", base: "https://generativelanguage.googleapis.com/v1beta/openai",
+    prefTexto: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash",
+                "gemini-flash-latest", "gemini-2.5-flash", "gemini-3.5-flash-lite"],
+    // todo Gemini de conversa lê imagem
+    prefFoto: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash",
+               "gemini-flash-latest", "gemini-2.5-flash", "gemini-3.5-flash-lite"],
+    fora: /tts|live|image|imagen|veo|embed|audio|transcri|translate|robotics|aqa|gemma|computer|omni|pro/i,
+    // pensar demais só atrasa uma conta de caloria; "low" vale do 2.5 ao 3.x
+    extra: { reasoning_effort: "low" },
+  },
+};
+const servico = (s: string) => {
+  const v = SERVICOS[s];
+  if (!v) throw new Recusa("serviço de IA desconhecido");
+  return v;
+};
 
-// nome de modelo não se confia: a chave diz o que tem, e um teste real diz o que responde.
-// Ordem de preferência; o que a chave não tiver é pulado.
-const PREF_TEXTO = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b",
-                    "qwen/qwen3.6-27b", "openai/gpt-oss-20b", "llama-3.1-8b-instant",
-                    "meta-llama/llama-4-scout-17b-16e-instruct"];
-const PREF_FOTO = ["qwen/qwen3.8-27b", "qwen/qwen3.6-27b",
-                   "meta-llama/llama-4-scout-17b-16e-instruct",
-                   "meta-llama/llama-4-maverick-17b-128e-instruct"];
 // 64×64: o Qwen exige pelo menos 32 px por lado
 const PNG_TESTE = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAeklEQVR4nO3PUQkAIBTAwJfTYGYyliH8OITBAtzm7PV1wwUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWPHYB8nOBln5JujwAAAAASUVORK5CYII=";
 const SISTEMA = "Responda apenas com um objeto JSON válido, sem texto fora dele.";
 
 export type Imagem = { mime: string; b64: string };
 type Conta = {
-  chave: string; modelo_texto: string | null; modelo_foto: string | null;
+  servico: string; chave: string; modelo_texto: string | null; modelo_foto: string | null;
   foto_sem_json: boolean; foto_motivo: string | null;
 };
 type Descoberta = {
@@ -41,21 +70,24 @@ function conteudo(texto: string, imagem?: Imagem | null) {
 
 async function motivo(r: Response): Promise<string> {
   const corpo = await r.text().catch(() => "");
-  try { return JSON.parse(corpo).error?.message || `HTTP ${r.status}`; } catch { return `HTTP ${r.status}`; }
+  try {
+    const j = JSON.parse(corpo);
+    return (Array.isArray(j) ? j[0] : j).error?.message || `HTTP ${r.status}`;   // o Google às vezes devolve lista
+  } catch { return `HTTP ${r.status}`; }
 }
 
 type Teste = { ok: boolean; json?: boolean; status?: number; motivo?: string };
 
-async function testar(chave: string, modelo: string, comImagem: boolean): Promise<Teste> {
+async function testar(sv: Servico, chave: string, modelo: string, comImagem: boolean): Promise<Teste> {
   const tentar = async (json: boolean): Promise<Teste> => {
     const body: any = {
-      model: modelo, max_tokens: 60,
+      model: modelo, max_tokens: 60, ...sv.extra,
       messages: [{ role: "user", content: comImagem
         ? conteudo('Descreva a imagem em um JSON: {"desc": "..."}', { mime: "image/png", b64: PNG_TESTE })
         : 'Responda com um JSON: {"ok":true}' }],
     };
     if (json) body.response_format = { type: "json_object" };
-    const r = await fetch(`${GROQ}/chat/completions`, {
+    const r = await fetch(`${sv.base}/chat/completions`, {
       method: "POST", headers: cabecalho(chave), body: JSON.stringify(body),
       signal: AbortSignal.timeout(20_000),
     });
@@ -63,7 +95,7 @@ async function testar(chave: string, modelo: string, comImagem: boolean): Promis
   };
   try {
     let r = await tentar(true);
-    if (!r.ok && comImagem && r.status === 400) r = await tentar(false);   // sem JSON, lemos tolerante
+    if (!r.ok && r.status === 400) r = await tentar(false);   // sem JSON, lemos tolerante
     return r;
   } catch (e: any) {
     return { ok: false, motivo: e?.name === "TimeoutError" ? "sem resposta em 20s" : String(e?.message || e) };
@@ -71,75 +103,89 @@ async function testar(chave: string, modelo: string, comImagem: boolean): Promis
 }
 
 /** Lista os modelos da chave e testa até achar um de texto e um de foto que respondam. */
-export async function descobrir(chave: string): Promise<Descoberta> {
-  const r = await fetch(`${GROQ}/models`, {
+export async function descobrir(s: string, chave: string): Promise<Descoberta> {
+  const sv = servico(s);
+  const r = await fetch(`${sv.base}/models`, {
     headers: cabecalho(chave), signal: AbortSignal.timeout(15_000),
-  }).catch(() => { throw new Recusa("o Groq não respondeu em 15s"); });
-  if (r.status === 401) throw new Recusa("o Groq recusou a chave; confira se copiou inteira");
-  if (!r.ok) throw new Recusa(`o Groq respondeu ${r.status}`);
-  const ids: string[] = ((await r.json()).data || []).map((m: any) => String(m.id))
-    .filter((id: string) => !/whisper|guard|tts|orpheus|safeguard|compound|allam|embed/i.test(id));
+  }).catch(() => { throw new Recusa(`o ${sv.nome} não respondeu em 15s`); });
+  if (r.status === 401 || r.status === 403 || r.status === 400)
+    throw new Recusa(`o ${sv.nome} recusou a chave; confira se copiou inteira`);
+  if (!r.ok) throw new Recusa(`o ${sv.nome} respondeu ${r.status}`);
+  // o Google lista como "models/gemini-…"; o chat quer só o nome
+  const ids: string[] = ((await r.json()).data || []).map((m: any) => String(m.id).replace(/^models\//, ""))
+    .filter((id: string) => !sv.fora.test(id));
   if (!ids.length) throw new Recusa("a chave não lista nenhum modelo de texto");
 
   let modelo_texto: string | null = null, ultimo = "";
-  for (const m of [...new Set([...PREF_TEXTO.filter(p => ids.includes(p)), ...ids])].slice(0, 8)) {
-    const t = await testar(chave, m, false);
+  for (const m of [...new Set([...sv.prefTexto.filter(p => ids.includes(p)), ...ids])].slice(0, 8)) {
+    const t = await testar(sv, chave, m, false);
     if (t.ok) { modelo_texto = m; break; }
     ultimo = t.motivo || ultimo;
   }
   if (!modelo_texto) throw new Recusa("nenhum modelo de texto respondeu" + (ultimo ? ": " + ultimo.slice(0, 80) : ""));
 
   let modelo_foto: string | null = null, foto_sem_json = false, foto_motivo: string | null = null;
-  const candFoto = PREF_FOTO.filter(v => ids.includes(v));
+  const candFoto = sv.prefFoto.filter(v => ids.includes(v));
   if (!candFoto.length) foto_motivo = "a chave não lista modelo de visão";
   for (const m of candFoto) {
-    const t = await testar(chave, m, true);
+    const t = await testar(sv, chave, m, true);
     if (t.ok) { modelo_foto = m; foto_sem_json = !t.json; foto_motivo = null; break; }
     foto_motivo = `${m.replace(/^.*\//, "")}: ${t.motivo}`;
   }
   return { modelo_texto, modelo_foto, foto_sem_json, foto_motivo };
 }
 
-const contaGroq = () =>
-  uma<Conta>(`select chave, modelo_texto, modelo_foto, foto_sem_json, foto_motivo
-                from chave_ia where servico = 'groq'`);
+// A chave salva por último é a que estima; a outra fica de reserva para quando a primeira
+// bater no limite ou cair.
+const contas = () =>
+  consulta<Conta>(`select servico, chave, modelo_texto, modelo_foto, foto_sem_json, foto_motivo
+                     from chave_ia order by atualizado_em desc`);
+const conta = (s: string) =>
+  uma<Conta>(`select servico, chave, modelo_texto, modelo_foto, foto_sem_json, foto_motivo
+                from chave_ia where servico = $1`, [s]);
 
-async function guardarDescoberta(d: Descoberta) {
+async function guardarDescoberta(s: string, d: Descoberta) {
   await consulta(
     `update chave_ia set modelo_texto = $1, modelo_foto = $2, foto_sem_json = $3,
                          foto_motivo = $4, testado_em = now()
-      where servico = 'groq'`,
-    [d.modelo_texto, d.modelo_foto, d.foto_sem_json, d.foto_motivo]);
+      where servico = $5`,
+    [d.modelo_texto, d.modelo_foto, d.foto_sem_json, d.foto_motivo, s]);
 }
 
 /** Testa a chave antes de guardar: chave errada tem que falhar agora, não na primeira refeição. */
-export async function cadastrarGroq(chave: string, admin: string) {
-  const d = await descobrir(chave);
+export async function cadastrar(s: string, chave: string, admin: string) {
+  const d = await descobrir(s, chave);
   await consulta(
     `insert into chave_ia (servico, chave, modelo_texto, modelo_foto, foto_sem_json,
                            foto_motivo, testado_em, atualizado_por)
-     values ('groq', $1, $2, $3, $4, $5, now(), $6)
+     values ($7, $1, $2, $3, $4, $5, now(), $6)
      on conflict (servico) do update set
        chave = excluded.chave, modelo_texto = excluded.modelo_texto,
        modelo_foto = excluded.modelo_foto, foto_sem_json = excluded.foto_sem_json,
        foto_motivo = excluded.foto_motivo, testado_em = now(),
        atualizado_por = excluded.atualizado_por`,
-    [chave, d.modelo_texto, d.modelo_foto, d.foto_sem_json, d.foto_motivo, admin]);
+    [chave, d.modelo_texto, d.modelo_foto, d.foto_sem_json, d.foto_motivo, admin, s]);
   return situacao();
 }
 
 /** O que a aba de admin mostra. A chave em si nunca volta ao navegador, só o final dela. */
 export async function situacao() {
-  const c = await uma<Conta & { testado_em: string | null; atualizado_em: string; por: string | null }>(
-    `select k.chave, k.modelo_texto, k.modelo_foto, k.foto_sem_json, k.foto_motivo,
+  const linhas = (await consulta<Conta & { testado_em: string | null; atualizado_em: string; por: string | null }>(
+    `select k.servico, k.chave, k.modelo_texto, k.modelo_foto, k.foto_sem_json, k.foto_motivo,
             k.testado_em, k.atualizado_em, u.email as por
        from chave_ia k left join usuario u on u.id = k.atualizado_por
-      where k.servico = 'groq'`);
-  if (!c) return { groq: null };
-  return { groq: {
-    final: c.chave.slice(-4), modelo_texto: c.modelo_texto, modelo_foto: c.modelo_foto,
-    foto_motivo: c.foto_motivo, testado_em: c.testado_em, atualizado_em: c.atualizado_em, por: c.por,
-  } };
+      order by k.atualizado_em desc`));
+  const r: Record<string, unknown> = {};
+  for (const s of Object.keys(SERVICOS)) r[s] = null;
+  linhas.forEach((c, i) => {
+    if (!(c.servico in SERVICOS)) return;
+    r[c.servico] = {
+      final: c.chave.slice(-4), modelo_texto: c.modelo_texto, modelo_foto: c.modelo_foto,
+      foto_motivo: c.foto_motivo, testado_em: c.testado_em, atualizado_em: c.atualizado_em, por: c.por,
+      em_uso: i === 0,
+    };
+  });
+  return r;
 }
 
 // o modo JSON já impede texto fora do objeto; isto é rede de segurança
@@ -152,49 +198,70 @@ function lerJSON(txt: string): unknown {
 
 // na hora de estimar, qualquer falha ao descobrir modelo é problema da casa, não do pedido:
 // o app espera e tenta de novo em vez de desistir da refeição
-const redescobrir = (chave: string) => descobrir(chave).catch(e => {
+const redescobrir = (s: string, chave: string) => descobrir(s, chave).catch(e => {
   throw e instanceof Recusa ? new Recusa(e.message, 503) : e;
 });
 
-/** Pergunta ao modelo e devolve o JSON que ele respondeu, com o nome de quem respondeu. */
-export async function estimar(prompt: string, imagem: Imagem | null, jaRedescobriu = false): Promise<{ r: unknown; modelo: string }> {
-  let c = await contaGroq();
-  if (!c) throw new Recusa("a IA ainda não foi configurada; peça ao admin", 503);
+/** Pergunta ao modelo e devolve o JSON que ele respondeu, com o nome de quem respondeu.
+ *  Se o serviço principal estiver no limite, fora do ar ou com a chave recusada, tenta o
+ *  outro: a refeição não fica esperando por causa de um só provedor. */
+export async function estimar(prompt: string, imagem: Imagem | null): Promise<{ r: unknown; modelo: string }> {
+  const cs = (await contas()).filter(c => c.servico in SERVICOS);
+  if (!cs.length) throw new Recusa("a IA ainda não foi configurada; peça ao admin", 503);
+  let erro: unknown;
+  for (const c of cs) {
+    try { return await estimarCom(c, prompt, imagem); }
+    catch (e) {
+      // 503 aqui é "problema da casa"; erro do pedido (4xx) não melhora trocando de serviço
+      if (!(e instanceof Recusa) || e.status !== 503) throw e;
+      erro = erro ?? e;
+    }
+  }
+  throw erro;
+}
+
+async function estimarCom(c0: Conta, prompt: string, imagem: Imagem | null, jaRedescobriu = false, semJson = false): Promise<{ r: unknown; modelo: string }> {
+  const s = c0.servico, sv = servico(s);
+  let c: Conta | null = c0;
   if (!c.modelo_texto) {
-    await guardarDescoberta(await redescobrir(c.chave));
-    c = await contaGroq();
-    if (!c?.modelo_texto) throw new Recusa("o Groq está sem modelo de texto", 503);
+    await guardarDescoberta(s, await redescobrir(s, c.chave));
+    c = await conta(s);
+    if (!c?.modelo_texto) throw new Recusa(`o ${sv.nome} está sem modelo de texto`, 503);
   }
   if (imagem && !c.modelo_foto)
     throw new Recusa("a IA não lê foto agora" + (c.foto_motivo ? ": " + c.foto_motivo.slice(0, 90) : ""), 503);
 
   const modelo = (imagem ? c.modelo_foto : c.modelo_texto) as string;
-  const r = await fetch(`${GROQ}/chat/completions`, {
+  const r = await fetch(`${sv.base}/chat/completions`, {
     method: "POST", headers: cabecalho(c.chave),
     body: JSON.stringify({
-      model: modelo, temperature: 0.2,
-      ...(imagem && c.foto_sem_json ? {} : { response_format: { type: "json_object" } }),
+      model: modelo, temperature: 0.2, ...sv.extra,
+      ...(semJson || (imagem && c.foto_sem_json) ? {} : { response_format: { type: "json_object" } }),
       messages: [{ role: "system", content: SISTEMA }, { role: "user", content: conteudo(prompt, imagem) }],
     }),
     signal: AbortSignal.timeout(40_000),
-  }).catch(() => { throw new Recusa("o Groq não respondeu a tempo", 503); });
+  }).catch(() => { throw new Recusa(`o ${sv.nome} não respondeu a tempo`, 503); });
 
   if (!r.ok) {
     const msg = await motivo(r);
     if (r.status === 404 && !jaRedescobriu) {      // o modelo saiu do ar: redescobre uma vez
-      await guardarDescoberta(await redescobrir(c.chave));
-      return estimar(prompt, imagem, true);
+      await guardarDescoberta(s, await redescobrir(s, c.chave));
+      const novo = await conta(s);
+      if (novo) return estimarCom(novo, prompt, imagem, true, semJson);
     }
-    console.error("groq", r.status, msg);
-    if (r.status === 401) throw new Recusa("a chave do Groq foi recusada; peça ao admin para trocar", 503);
-    if (r.status === 429) throw new Recusa("Groq no limite de requisições; tenta de novo sozinho", 503);
-    if (r.status >= 500) throw new Recusa("Groq instável agora; tenta de novo sozinho", 503);
-    throw new Recusa(`Groq recusou (${r.status}): ${msg.slice(0, 100)}`);
+    // o modelo de texto recusou o modo JSON (o teste ao salvar passou sem ele): lemos tolerante
+    if (r.status === 400 && !semJson && /json|response_format|mime/i.test(msg))
+      return estimarCom(c, prompt, imagem, jaRedescobriu, true);
+    console.error(s, r.status, msg);
+    if (r.status === 401 || r.status === 403) throw new Recusa(`a chave do ${sv.nome} foi recusada; peça ao admin para trocar`, 503);
+    if (r.status === 429) throw new Recusa(`${sv.nome} no limite de requisições; tenta de novo sozinho`, 503);
+    if (r.status >= 500) throw new Recusa(`${sv.nome} instável agora; tenta de novo sozinho`, 503);
+    throw new Recusa(`${sv.nome} recusou (${r.status}): ${msg.slice(0, 100)}`);
   }
   const txt = (await r.json())?.choices?.[0]?.message?.content;
-  if (!txt) throw new Recusa("o Groq respondeu vazio; tenta de novo sozinho", 503);
+  if (!txt) throw new Recusa(`o ${sv.nome} respondeu vazio; tenta de novo sozinho`, 503);
   // `llm` guarda o modelo, não o provedor: é o que permite comparar estimativas depois
-  return { r: lerJSON(String(txt)), modelo: "groq/" + modelo.replace(/^.*\//, "") };
+  return { r: lerJSON(String(txt)), modelo: `${s}/` + modelo.replace(/^.*\//, "") };
 }
 
 // Áudio → texto. Em 23/09, com a lista de palavras abaixo, o whisper-large-v3 acertou
@@ -218,8 +285,9 @@ export async function transcrever(mime: string, b64: string): Promise<string> {
   const ext = EXTENSAO[mime.split(";")[0]!.trim()];
   if (!ext) throw new Recusa("formato de áudio que o app não conhece");
   if (!b64 || b64.length > MAX_AUDIO_B64) throw new Recusa("áudio vazio ou longo demais");
-  const c = await contaGroq();
-  if (!c) throw new Recusa("a IA ainda não foi configurada; peça ao admin", 503);
+  // só o Groq tem o Whisper; sem a chave dele, a voz fica de fora e o texto segue normal
+  const c = await conta("groq");
+  if (!c) throw new Recusa("a voz precisa da chave do Groq; digite a refeição", 503);
 
   const form = new FormData();
   form.append("file", new Blob([Buffer.from(b64, "base64")], { type: mime }), `fala.${ext}`);
@@ -229,7 +297,7 @@ export async function transcrever(mime: string, b64: string): Promise<string> {
   form.append("response_format", "json");
   form.append("prompt", VOCABULARIO);
 
-  const r = await fetch(`${GROQ}/audio/transcriptions`, {
+  const r = await fetch(`${SERVICOS.groq!.base}/audio/transcriptions`, {
     method: "POST", headers: { Authorization: "Bearer " + c.chave }, body: form,
     signal: AbortSignal.timeout(30_000),
   }).catch(() => { throw new Recusa("o Groq não respondeu a tempo", 503); });

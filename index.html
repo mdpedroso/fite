@@ -654,9 +654,22 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <div id="view-admin" hidden>
   <div class="grid two">
     <section class="card">
+      <h2>Gemini <span class="side" id="a-gemini-status"></span></h2>
+      <p class="soon">A chave salva por último faz as estimativas de todo mundo; a outra fica de reserva
+        para quando a primeira bater no limite. Fica no servidor: nenhum aparelho vê a chave.
+        Gere em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
+      <div class="pform" style="margin-top:12px">
+        <label>Chave de API
+          <input id="a-gemini-key" type="password" autocomplete="off"
+            spellcheck="false" placeholder="Cole a chave do Gemini (AIza…)">
+        </label>
+      </div>
+      <button class="addbtn" id="a-gemini-salvar">Testar e salvar</button>
+      <div class="flownote" id="a-gemini-info" style="margin-top:8px"></div>
+    </section>
+    <section class="card">
       <h2>Groq <span class="side" id="a-groq-status"></span></h2>
-      <p class="soon">A chave que faz todas as estimativas do app, para todo mundo. Fica no
-        servidor: nenhum aparelho vê a chave, e quem usa o app não precisa configurar nada.
+      <p class="soon">Além de estimar, é quem transcreve a voz (Whisper): sem ela, o microfone não funciona.
         Gere em <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>.</p>
       <div class="pform" style="margin-top:12px">
         <label>Chave de API
@@ -1149,7 +1162,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260923142143";
+const VERSAO = "20260923161142";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1748,7 +1761,7 @@ $("in-meal").addEventListener("input", descartarResultado);
 ["in-foto-cam", "in-foto-gal"].forEach(id => $(id).addEventListener("change", descartarResultado));
 $("foto-tirar").addEventListener("click", descartarResultado);
 /* ---------- falar em vez de digitar ---------- */
-// Grava no aparelho, o servidor transcreve (Whisper, no Groq) e o texto cai no campo para
+// Grava no aparelho, o servidor transcreve (Whisper, no Groq, mesmo quando quem estima é o Gemini) e o texto cai no campo para
 // a pessoa conferir e editar. O envio continua sendo o botão de sempre: a voz só troca o
 // digitar. O reconhecimento de voz do navegador ficou de fora de propósito: erra muito
 // em português e muda de aparelho para aparelho.
@@ -2819,46 +2832,52 @@ $("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-des
 /* ---------- admin ---------- */
 // A aba só aparece para quem está na tabela `admin`; quem barra de verdade é o servidor.
 let ADMIN_IA = null;
+const SERVICOS_IA = {gemini: "Gemini (AIza…)", groq: "Groq (gsk_…)"};
 async function adminVer(){
   if(!usuario?.admin) return;
-  try{ ADMIN_IA = await api("ia"); $("a-groq-info").textContent = ""; }
-  catch(e){ $("a-groq-info").textContent = "Não consegui ler: " + (e.message || e); }
+  const infos = Object.keys(SERVICOS_IA).map(k => $(`a-${k}-info`));
+  try{ ADMIN_IA = await api("ia"); infos.forEach(el => el.textContent = ""); }
+  catch(e){ infos[0].textContent = "Não consegui ler: " + (e.message || e); }
   renderAdmin();
 }
 function renderAdmin(){
-  const g = ADMIN_IA?.groq;
   const curto = m => String(m).replace(/^.*\//, "");
-  $("a-groq-status").textContent = !ADMIN_IA ? "" : !g ? "não configurado"
-    : curto(g.modelo_texto || "sem modelo") + (g.modelo_foto ? " · foto ok" : " · sem foto");
-  $("a-groq-key").placeholder = g ? `••••${g.final} (trocar)` : "Cole a chave do Groq (gsk_…)";
-  if(g && !$("a-groq-info").textContent){
-    const quando = g.testado_em ? new Date(g.testado_em).toLocaleDateString("pt-BR") : "";
-    $("a-groq-info").textContent = [
-      g.modelo_foto ? `foto: ${curto(g.modelo_foto)}` : g.foto_motivo ? `sem foto: ${g.foto_motivo}` : "",
-      g.por ? `salva por ${g.por}${quando ? " em " + quando : ""}` : "",
-    ].filter(Boolean).join(" · ");
+  for(const [k, ph] of Object.entries(SERVICOS_IA)){
+    const g = ADMIN_IA?.[k], info = $(`a-${k}-info`);
+    $(`a-${k}-status`).textContent = !ADMIN_IA ? "" : !g ? "não configurado"
+      : (g.em_uso ? "em uso · " : "reserva · ") + curto(g.modelo_texto || "sem modelo")
+        + (g.modelo_foto ? " · foto ok" : " · sem foto");
+    $(`a-${k}-key`).placeholder = g ? `••••${g.final} (trocar)` : "Cole a chave do " + ph;
+    if(g && !info.textContent){
+      const quando = g.testado_em ? new Date(g.testado_em).toLocaleDateString("pt-BR") : "";
+      info.textContent = [
+        g.modelo_foto ? `foto: ${curto(g.modelo_foto)}` : g.foto_motivo ? `sem foto: ${g.foto_motivo}` : "",
+        g.por ? `salva por ${g.por}${quando ? " em " + quando : ""}` : "",
+      ].filter(Boolean).join(" · ");
+    }
   }
 }
-$("a-groq-salvar").onclick = async () => {
-  const k = $("a-groq-key").value.trim();
-  if(!k) return;
-  const bt = $("a-groq-salvar");
+Object.keys(SERVICOS_IA).forEach(k => $(`a-${k}-salvar`).onclick = async () => {
+  const chave = $(`a-${k}-key`).value.trim();
+  if(!chave) return;
+  const bt = $(`a-${k}-salvar`), info = $(`a-${k}-info`);
   bt.disabled = true; bt.textContent = "Testando modelos…";
-  $("a-groq-info").textContent = "";
+  info.textContent = "";
   try{
     // testar os modelos da chave leva até um minuto e pouco
-    ADMIN_IA = await api("ia", {method: "PUT", prazo: 180000, body: JSON.stringify({chave: k})});
-    $("a-groq-key").value = "";
+    ADMIN_IA = await api("ia", {method: "PUT", prazo: 180000, body: JSON.stringify({servico: k, chave})});
+    $(`a-${k}-key`).value = "";
     bt.textContent = "Salva";
+    Object.keys(SERVICOS_IA).forEach(o => $(`a-${o}-info`).textContent = "");
     reiniciarFila();     // o que estava parado esperando IA anda agora
   }catch(e){
     bt.textContent = "Não salvou";
-    $("a-groq-info").textContent = e.message || String(e);
+    info.textContent = e.message || String(e);
   }
   bt.disabled = false;
   renderAdmin();
   setTimeout(() => { bt.textContent = "Testar e salvar"; }, 4000);
-};
+});
 
 /* ==================== render e boot ==================== */
 const vazio = (o, hoje) => {
