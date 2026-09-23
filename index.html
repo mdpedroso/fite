@@ -275,7 +275,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .hoje .hnav button{width:30px;height:30px;font-size:17px}
 /* largura fixa: "quinta-feira, 30 de setembro" é o texto mais longo; as setas não se movem */
 .hoje .hnav .t{width:330px;min-width:0;padding:0 4px;color:var(--ink-2);white-space:nowrap}
-@media (max-width:640px){ .hoje .hnav .t{width:calc(100% - 150px);flex:none} }
+@media (max-width:640px){ .hoje .hnav .t{width:calc(100% - 186px);flex:none} }
 .hoje .hnav .cal svg,.hoje .hnav .olho svg{width:16px;height:16px}
 .hnav button{font:inherit;font-size:20px;line-height:1;width:34px;height:34px;flex:none;
   border-radius:8px;border:1px solid var(--axis);background:var(--surface-2);
@@ -290,7 +290,7 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 .hnav.mini{gap:4px;margin:0}
 .hnav.mini button{width:24px;height:24px;font-size:15px;border-radius:6px}
 .hnav.mini .t{width:100px;font-size:11.5px;text-transform:none;letter-spacing:.02em;font-weight:600}
-.hnav .t{flex:none;width:min(340px,calc(100% - 180px));text-align:center;font-size:12px;   /* 4 botões de 34px + folgas */
+.hnav .t{flex:none;width:min(340px,calc(100% - 216px));text-align:center;font-size:12px;   /* 5 botões de 34px + folgas */
   font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 /* calendário: o input de data fica invisível por cima do botão, e o toque abre o seletor nativo */
 .hnav .cal{position:relative;margin-left:4px;color:var(--ink-2)}
@@ -298,10 +298,15 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
 @media (max-width:480px){
   .hnav:not(.mini){gap:6px}
   .hnav:not(.mini) button{width:30px;height:30px;font-size:18px}
-  .hnav:not(.mini) .t{width:calc(100% - 150px);flex:1}
+  .hnav:not(.mini) .t{width:calc(100% - 186px);flex:1}
   .hnav .cal{margin-left:2px}
 }
-.hnav .olho{color:var(--ink-2)}
+.hnav .olho,.hnav .volta{color:var(--ink-2)}
+.hnav .volta svg{width:18px;height:18px;display:block;margin:auto}
+.hoje .hnav .volta svg{width:16px;height:16px}
+/* em hoje o botão some mas guarda o lugar: o título não pula ao trocar de dia */
+.hnav .volta.escondido{visibility:hidden}
+.hj{color:var(--marca);box-shadow:inset 0 -2px 0 var(--marca-2)}
 .hnav .olho svg{width:18px;height:18px;display:block;margin:auto}
 .hnav .olho .fechado{display:none}
 .hnav .olho.on{background:var(--ink-2);border-color:var(--ink-2);color:var(--surface)}
@@ -418,6 +423,11 @@ dialog::backdrop{background:rgba(11,11,11,.45)}
 dialog h3::after{content:attr(data-dia);color:var(--in)}
 dialog{position:relative}
 dialog.confirma{max-width:360px}
+dialog.foto{max-width:720px;padding:10px}
+dialog.foto img{display:block;width:100%;max-height:80vh;object-fit:contain;border-radius:8px}
+dialog.foto .fechar{z-index:1;top:16px;right:16px;width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,.9)}
+.thumb{cursor:zoom-in}
 .confirma .c-o{margin:0 0 6px;font-size:15.5px;font-weight:600;line-height:1.35;word-break:break-word}
 .confirma .c-nota{margin:0 0 14px;font-size:13px;color:var(--ink-3)}
 .confirma .addactions{justify-content:flex-end}
@@ -491,6 +501,9 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       <button class="cal" title="Escolher uma data" aria-label="Escolher uma data">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
         <input type="date" id="h-data" aria-label="Escolher uma data">
+      </button>
+      <button class="volta escondido" id="h-hoje" title="Voltar para hoje" aria-label="Voltar para hoje">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
       </button>
       <button class="olho" id="h-olho" title="Ignorar este dia" aria-label="Ignorar este dia">
         <svg class="aberto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -674,6 +687,11 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   </form>
 </dialog>
 
+<dialog id="dlg-foto" class="foto">
+  <button type="button" class="fechar" data-close="dlg-foto" aria-label="Fechar">×</button>
+  <img id="foto-grande" alt="">
+</dialog>
+
 <dialog id="dlg-confirma" class="confirma">
   <h3>Excluir</h3>
   <p class="c-o" id="c-o"></p>
@@ -814,7 +832,10 @@ function dayTitle(iso, curto){
     : dt(iso).toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
   return (diff===0 ? "Hoje · " : diff===1 ? "Ontem · " : "") + data;
 }
-document.getElementById("day-title").textContent = dayTitle(TODAY);
+// "Hoje" ganha as cores da marca (azul, com o traço verde do acento): o resto do título
+// fica igual, é só o sinal de que se está no dia corrente
+const tituloDia = (iso, curto) => dayTitle(iso, curto).replace(/^Hoje/, '<span class="hj">Hoje</span>');
+document.getElementById("day-title").innerHTML = tituloDia(TODAY);
 
 /* ---------- tooltip ---------- */
 function bindTip(host, tipEl, hitFn){
@@ -1097,7 +1118,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922230333";
+const VERSAO = "20260922232122";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1612,9 +1633,10 @@ const CABECALHO_REFEICOES = `<div class="meal cab">
 // um só painel: mostra o dia selecionado (histIso), que abre em hoje
 const diaAberto = () => ({meals: DIA_MEALS[histIso] || [], wks: DIA_WK[histIso] || []});
 function renderToday(){
-  $("day-title").textContent = dayTitle(TODAY_ISO);
-  $("h-title").textContent = dayTitle(histIso, innerWidth < 480);
+  $("day-title").innerHTML = tituloDia(TODAY_ISO);
+  $("h-title").innerHTML = tituloDia(histIso, innerWidth < 480);
   $("h-next").disabled = histIso >= TODAY_ISO;
+  $("h-hoje").classList.toggle("escondido", histIso === TODAY_ISO);
   $("h-data").value = histIso; $("h-data").max = TODAY_ISO;
   const oculto = !!OCULTOS[histIso];
   $("h-olho").classList.toggle("on", oculto);
@@ -1812,6 +1834,20 @@ async function thumbDe(m){
   THUMBS.set(m.id, url);
   return url;
 }
+// tocar na miniatura abre a foto inteira; a miniatura é só um recorte de 96 px
+document.addEventListener("click", async e => {
+  const el = e.target.closest("img.thumb[data-thumb]");
+  if(!el) return;
+  const m = [...Object.values(DIA_MEALS).flat(), ...Object.values(DIA_WK).flat()].find(x => x.id === el.dataset.thumb);
+  if(!m) return;
+  const img = $("foto-grande");
+  img.src = el.src || "";                 // a miniatura aparece na hora; a inteira chega logo depois
+  $("dlg-foto").showModal();
+  const f = await fotoDoItem(m);
+  if(f && $("dlg-foto").open) img.src = `data:${f.mime};base64,${f.b64}`;
+});
+$("dlg-foto").addEventListener("click", e => { if(e.target === $("dlg-foto")) $("dlg-foto").close(); });
+
 // depois de qualquer render: preenche as miniaturas que ainda não têm imagem
 function hidratarThumbs(){
   document.querySelectorAll("img.thumb[data-thumb]:not([src])").forEach(async el => {
@@ -2201,6 +2237,7 @@ function irPara(iso){
 }
 $("h-prev").onclick  = () => irPara(somaDias(histIso, -1));
 $("h-next").onclick  = () => irPara(somaDias(histIso, 1));
+$("h-hoje").onclick = () => irPara(TODAY_ISO);
 $("h-data").addEventListener("change", e => { if(e.target.value) irPara(e.target.value); });
 $("h-olho").onclick = () => {
   if(OCULTOS[histIso]) delete OCULTOS[histIso]; else OCULTOS[histIso] = true;

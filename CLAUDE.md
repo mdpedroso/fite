@@ -16,30 +16,47 @@ dia inteiro de um aparelho pelo do outro. Quase tudo neste arquivo sai daí.
 1. **Ausência nunca significa exclusão.** Apagar é fato registrado (lápide no JSON,
    `apagado_em` no banco). Item que sumiu sem registro é bug, não intenção.
 2. **Gravação que encolhe é barrada.** Antes de escrever, compara-se com o que havia; se
-   algo sumiria sem exclusão explícita, não grava e avisa.
+   algo sumiria sem exclusão explícita, não grava e avisa. (Valia para o `fite.json`; no
+   banco cada lançamento é uma linha e o app manda só o que mudou, então não há gravação
+   que troque a lista inteira. `perdeuItem` segue no `index.html`, só usado pelos testes.)
 3. **Backup é nosso, não do provedor.** Nenhum plano gratuito guarda o que a gente
    precisa. Dump diário, cifrado, fora do provedor, com restauração testada.
+   **Ainda não existe** — não há script nem agendamento de dump.
 4. **Mudou a camada de dados? O teste vem antes da mudança.**
 
 ---
 
 # Arquitetura
 
-**Hoje:** `index.html` único no GitHub Pages, dados em `fite.json` no Google Drive de
-cada pessoa, chaves de IA no aparelho.
+**App novo (o que vale):** `index.html` servido pelo Vercel em https://fite-psi.vercel.app,
+com funções em `api/*.ts` (TypeScript) sobre `lib/*.ts`. Dados no Postgres do Supabase
+(São Paulo), fotos no bucket privado `fotos` do Supabase Storage, chave de IA (Groq) no
+banco, entrada só pelo Google. Utilitários (migração, contas, consultas) em Python, em `db/`.
 
-**Para onde vai:** Postgres no Supabase (São Paulo), backend próprio em **TypeScript** no
-Vercel, autenticação própria por e-mail e senha, fotos em bucket, chaves de IA no
-servidor. Utilitários (migração, backup, análise de `data/`) seguem em Python.
+**App velho:** `velho.html`, no GitHub Pages (https://mdpedroso.github.io/fite/velho.html),
+ainda lê e grava `fite.json` no Google Drive de cada pessoa. Fica no ar só para exportar
+o que ainda não migrou (Perfil → "Baixar tudo num arquivo"). Nada novo deve ser lançado
+nele. A raiz do Pages serve o app novo, que avisa que mudou de endereço.
+
+**Limites do plano gratuito do Vercel:** no máximo **12 funções** — cada arquivo em `api/`
+é uma. O 13º faz o deploy falhar na publicação (o build passa). Rota nova entra como
+método numa rota existente, não como arquivo novo.
 
 Decisões que sustentam isso:
 
 - **Auth própria**, não a do provedor: usuários e sessões são linhas no nosso banco, então
   trocar de hospedagem é mover um container, não reconstruir contas.
-- **Data API do Supabase desligada**: o navegador não fala com o banco. Quem consulta é o
-  backend, com a connection string.
-- **Chaves de IA no servidor**: chave no navegador é chave entregue. O app chama uma
-  função nossa, que chama o modelo.
+- **Data API do Supabase desligada** (conferido no painel em 22/09: Project Settings →
+  Data API → "Enable Data API" desligado; pelo banco não dá para ver): o navegador não
+  fala com o banco. Quem consulta é o backend, com a connection string.
+  Atenção: os papéis `anon` e `authenticated` ainda têm permissão total em todas as
+  tabelas de `public` — se a Data API for ligada, tudo fica exposto. Falta o `revoke`.
+- **Chave de IA no servidor**: chave no navegador é chave entregue. O app chama
+  `/api/ia`, que chama o Groq com a chave da tabela `chave_ia`. Quem cadastra a chave é o
+  admin, na aba Admin do app; quem usa o app não configura nada.
+- **Fotos pelo backend**: `/api/foto` sobe e devolve a foto; o caminho no bucket começa
+  pelo id do usuário e só o dono lê. A cópia no aparelho (IndexedDB) só vive até a foto
+  estar no servidor e estimada.
 - **TypeScript no back web**: o formato de uma refeição é declarado uma vez e vale no
   servidor e na tela.
 
@@ -48,7 +65,7 @@ Decisões que sustentam isso:
 | onde | o que guarda | quem escreve |
 |------|--------------|--------------|
 | `data/*.jsonl` | histórico completo, com `raw` e `confidence` | eu, ao registrar por conversa |
-| banco (hoje `fite.json` no Drive) | o que o app mostra e edita | o app |
+| banco (Postgres no Supabase) | o que o app mostra e edita | o app |
 
 O `data/` é mais rico de propósito: guarda o que foi dito e o quanto confiei na
 estimativa, o que permite reprocessar tudo depois. **Nunca reescrever ou apagar linhas
@@ -62,12 +79,17 @@ Migrações numeradas em `db/migracoes/`, aplicadas com `db/rodar.py`.
 
 - `usuario`, `admin`, `sessao` — contas (001).
 - `refeicao`, `treino` — uma linha por lançamento, com `ordem` para arrastar na lista,
-  `bruto` (o que a pessoa escreveu), `interpretacao` (como o modelo entendeu) e `llm`
-  (quem estimou).
+  `bruto` (o que a pessoa escreveu), `interpretacao` (como o modelo entendeu), `llm`
+  (quem estimou, como `provedor/modelo`: `groq/qwen3.8-27b`) e `foto_url` (caminho no
+  bucket). Refeição **não tem slot** (café, ceia…): a coluna saiu na 005.
+- Lançamento com texto ou foto, sem kcal e sem `llm` é um que a IA ainda não estimou: o
+  app o trata como pendente. O banco não guarda "pendente".
 - `medicao` — métricas do corpo no formato `(dia, metrica, valor)`. A chave é texto e o
   catálogo (rótulo, unidade, faixa válida, casas decimais) mora **no backend**: métrica
   nova não exige mexer no banco. Peso é `peso_kg`.
 - `dia_ignorado`, `perfil`.
+- `integracao` — chave do intervals.icu por usuário (003).
+- `chave_ia` — chave de IA da casa, uma linha por serviço (004). Não é por usuário.
 - Treino vindo de fora usa `fonte` + `external_id`, únicos juntos: id externo só é único
   dentro do sistema que o emitiu.
 - Nada derivado é gravado (IMC se calcula de peso e altura).
@@ -79,10 +101,12 @@ Migrações numeradas em `db/migracoes/`, aplicadas com `db/rodar.py`.
 - **Toda linha sabe quando mudou** (`atualizado_em`) e se morreu (`apagado_em`).
 - **Toda consulta filtra por usuário no backend.** O navegador manda o cookie de sessão,
   nunca "de quem é o dado". Se a tela puder pedir `?usuario=X`, acabou a segurança.
-- **O banco também filtra**, via RLS com `set local app.usuario`. A proteção não pode
-  depender de alguém lembrar de escrever o `where`.
-- **Acesso ao diário do outro é explícito** (tabela `acesso`), visível para o dono e
-  revogável por ele. Nada de "papel = dono vê tudo" escondido no código.
+- **O banco ainda não filtra.** Não há RLS nem `set local app.usuario`: a única proteção
+  é o `where usuario = $1` do backend, conferido rota a rota em 22/09. A meta continua
+  sendo o banco filtrar também, para a proteção não depender de alguém lembrar do `where`.
+- **Ninguém vê o diário do outro.** Se um dia precisar, o acesso tem que ser explícito
+  (uma tabela, visível e revogável pelo dono), não "papel = dono vê tudo" no código. Essa
+  tabela não existe hoje.
 
 # Contas: a linha é a permissão
 
@@ -104,8 +128,8 @@ substitui a lista de e-mails em hash que ficava no código, que era sinalizaçã
 O servidor do banco está em **UTC** e o `DateStyle` é `ISO, MDY`. Daí três regras:
 
 - **O dia é decidido no backend, nunca pelo banco.** `current_date` no servidor vira o
-  dia às 21h de Brasília. A conexão declara `America/Sao_Paulo` e, ainda assim, toda
-  data vai explícita na consulta.
+  dia às 21h de Brasília. `hojeISO()` (`lib/db.ts`) calcula o dia em `America/Sao_Paulo`
+  e toda data vai explícita na consulta. A conexão não declara fuso.
 - **Data sempre em ISO** (`2026-09-22`). Com `MDY`, mandar `22/09/2026` é pedir erro.
 - **Número guarda ponto, exibe vírgula.** `85,4` é formatação de tela
   (`toLocaleString("pt-BR")`), nunca o valor gravado.
@@ -129,30 +153,42 @@ Antes de qualquer DDL que mexa em tabela com dado dentro: dump primeiro.
 
 # Segurança
 
-- Senha com `argon2id`; nunca em texto, em log ou em argumento de linha de comando
-  (histórico do shell e lista de processos vazam).
+- Não há senha: a entrada é só pelo Google (ID token conferido em `lib/google.ts`).
 - Sessão: token opaco de 32 bytes em cookie `httpOnly; Secure; SameSite=Lax`, com linha
   na tabela `sessao`. Preferido a JWT porque revoga na hora e não tem chave a rotacionar.
-- Rate limit no login, por e-mail e por IP.
+- Admin é conferido no servidor (`quem.admin`, da tabela `admin`); esconder a aba na tela
+  é conforto, não segurança.
+- **Pendente:** limite de chamadas no login e em `/api/ia` (qualquer conta gasta a chave
+  do Groq sem limite); escapar texto de lançamento antes de pôr no `innerHTML`.
 - Segredos vivem em variáveis de ambiente e `.env` fora do Git. Nunca no repositório,
   nunca no chat.
 
 # Testes
 
-- `app/testes-dados.mjs` roda no `pre-commit` e **trava o commit** se falhar. Ele extrai
-  as funções do próprio `index.html` — testar uma cópia não provaria nada.
-- Cobre: o caso de 21/09 item a item, exclusão entre aparelhos, aparelho dias offline,
-  lápide expirando, e dois fuzzes (3 aparelhos × 300 rodadas; ordem trocada × 200).
+- `app/testes-dados.mjs` e `app/testes-servidor.mjs` rodam no `pre-commit` e **travam o
+  commit** se falharem. Os dois extraem o código do próprio `index.html` — testar uma
+  cópia não provaria nada.
+- `testes-dados`: a mescla do `fite.json` (caso de 21/09 item a item, exclusão entre
+  aparelhos, offline, lápide expirando, dois fuzzes).
+- `testes-servidor`: a camada que leva o diário ao banco, contra um servidor de mentira —
+  envio sem duplicar (recarregar, envios simultâneos), exclusão, offline, pendente,
+  fotos entre aparelhos, treino apagado que não volta, e que o app não fala com provedor
+  de IA nem guarda chave.
+- Não há teste contra Postgres de verdade: SQL é conferido lendo o arquivo.
 - Invariante de todo teste novo: **nada some sem exclusão, nada apagado ressuscita.**
 
 # Deploy e versão
 
-- `git push` publica. O hook `app/pre-commit` roda os testes, carimba `const VERSAO` no
-  `index.html` e grava `versao.txt`. Se o hook sumir:
+- `git push` publica no Vercel (app novo) e no GitHub Pages (app velho). O hook
+  `app/pre-commit` roda os testes, carimba `const VERSAO` no `index.html` e no
+  `velho.html` e grava `versao.txt`. Se o hook sumir:
   `cp app/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit`.
-- O app compara os dois e mostra a tarja amarela "versão nova", que recarrega por
-  `?v=<versão>` — o GitHub Pages guarda a página por 10 minutos e um refresh comum
-  devolve a cópia velha. `.nojekyll` evita o build Jekyll.
+- Deploy conferido por `versao.txt` no ar e pelo status do commit no GitHub
+  (`gh api repos/mdpedroso/fite/commits/<sha>/statuses`); log com `npx vercel inspect <id> --logs`.
+- O app compara as versões e mostra a tarja amarela "versão nova", que recarrega por
+  `?v=<versão>`. `.nojekyll` evita o build Jekyll no Pages.
+- Variáveis no Vercel: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (fotos).
+  Variável nova só vale a partir do deploy seguinte.
 - **Nada é dado por pronto sem conferir no site publicado.** Deploy que não foi aberto e
   medido não conta como feito.
 
@@ -242,5 +278,9 @@ número na cara.
 | 22/09 | Backend em TypeScript | tipo compartilhado entre servidor e tela |
 | 22/09 | Um só CLAUDE.md | o que precisa valer sempre tem que estar no arquivo que sempre carrega |
 | 22/09 | Entrada só pelo Google, sem senha | menos código de auth para manter; conta já existe |
+| 22/09 | Chave de IA da casa, cadastrada pelo admin | a Isa não precisa saber o que é chave; chave fora do navegador |
+| 22/09 | Só Groq como motor de IA | um motor basta por ora; Gemini e ChatGPT saíram do app |
+| 22/09 | Fotos em bucket privado, servidas pelo backend | foto aparece em qualquer aparelho e só para o dono |
+| 22/09 | App sempre claro, sem tema | não interessa |
 | 22/09 | Usuário pré-cadastrado por nós | saber a URL e ter Gmail não pode dar acesso |
 | 22/09 | App não carimba slot (café, ceia…) | não interessa; nem pela hora, nem pelo modelo |
