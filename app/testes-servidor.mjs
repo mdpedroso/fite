@@ -98,7 +98,10 @@ function criarAparelho(servidor) {
     TODAY_ISO: "2026-09-22",
     api: servidor.api, apiEnvia: servidor.apiEnvia,
     diag: () => {}, sincHoje: () => {}, console,
+    // o cache do aparelho: guarda uma cópia a cada gravação, como o localStorage
+    cache: null,
   };
+  ambiente.gravarLocal = () => { ambiente.cache = JSON.parse(JSON.stringify(ambiente.DIA_MEALS)); return true; };
   const nomes = Object.keys(ambiente);
   const corpo = `${CAMADA}\n;return {SUJOS, APAGAR, adotarDoServidor, remarcarSujos, enviarPendentes,` +
                 ` lerServidor, refeicaoParaApi, treinoParaApi, refeicaoDaApi, treinoDaApi,` +
@@ -112,6 +115,7 @@ function criarAparelho(servidor) {
   app.DIA_WK = ambiente.DIA_WK;
   app.PERF = ambiente.PERF;
   app.TREINOS = ambiente.TREINOS;
+  app.cache = () => ambiente.cache;
   return app;
 }
 
@@ -265,6 +269,64 @@ await teste("exclusão de item que já não existe lá não trava a fila", async
   app.APAGAR.push({ tabela: "refeicao", sid: "refeicao-inexistente" });
   await app.enviarPendentes();
   conferir("a fila esvaziou mesmo assim", app.APAGAR.length === 0);
+});
+
+// 22/09: a refeição subiu, o id não foi para o cache, o app recarregou e mandou de novo.
+await teste("recarregar depois de enviar não duplica", async () => {
+  const s = criarServidor(), app = criarAparelho(s);
+  app.DIA_MEALS["2026-09-22"] = [refeicao()];
+  app.SUJOS.add("2026-09-22");
+  await app.enviarPendentes();
+  conferir("o id do servidor foi para o cache", !!app.cache()?.["2026-09-22"]?.[0]?.sid);
+
+  const recarregado = criarAparelho(s);         // abre de novo, pelo cache
+  recarregado.DIA_MEALS["2026-09-22"] = JSON.parse(JSON.stringify(app.cache()["2026-09-22"]));
+  recarregado.remarcarSujos();
+  await recarregado.enviarPendentes();
+  conferir("continua uma linha só", s.banco.refeicao.size === 1, `tem ${s.banco.refeicao.size}`);
+});
+
+await teste("dois envios ao mesmo tempo mandam a refeição uma vez", async () => {
+  const s = criarServidor(), app = criarAparelho(s);
+  app.DIA_MEALS["2026-09-22"] = [refeicao()];
+  app.SUJOS.add("2026-09-22");
+  await Promise.all([app.enviarPendentes(), app.enviarPendentes()]);
+  conferir("uma linha só", s.banco.refeicao.size === 1, `tem ${s.banco.refeicao.size}`);
+});
+
+// A marca de pendente não vai para o banco: sem isto, a refeição que a IA ainda não
+// estimou voltava do servidor como 0 kcal, sem aviso e fora da fila.
+await teste("lançamento não estimado volta do servidor como pendente", async () => {
+  const s = criarServidor(), app = criarAparelho(s);
+  app.DIA_MEALS["2026-09-22"] = [refeicao({ kc: 0, p: 0, c: 0, g: 0, pendente: true, raw: "1 banana" }),
+                                 refeicao({ desc: "Água", raw: "", kc: 0, p: 0, c: 0, g: 0 }),
+                                 refeicao({ via: "groq" })];
+  app.SUJOS.add("2026-09-22");
+  await app.enviarPendentes();
+  app.adotarDoServidor(await app.lerServidor());
+  const [a, b, c] = app.DIA_MEALS["2026-09-22"];
+  conferir("a não estimada está pendente", a.pendente === true);
+  conferir("zero digitado sem texto não vira pendente", !b.pendente);
+  conferir("a estimada não está pendente", !c.pendente);
+});
+
+// Sem Postgres aqui, confere-se o SQL que está no arquivo: o `on conflict` do treino
+// importado já limpou `apagado_em`, e o treino apagado voltava na sincronização seguinte.
+await teste("treino apagado não ressuscita ao ser importado de novo", async () => {
+  const diario = readFileSync(new URL("../lib/diario.ts", import.meta.url), "utf8");
+  const ini = diario.indexOf("export async function criarTreino");
+  const conflito = diario.slice(diario.indexOf("on conflict", ini), diario.indexOf("returning", ini));
+  conferir("achei o on conflict do treino", conflito.includes("do update"));
+  conferir("não limpa apagado_em", !/apagado_em\s*=\s*null/.test(conflito), conflito);
+  conferir("só atualiza linha viva", /where\s+treino\.apagado_em\s+is\s+null/.test(conflito), conflito);
+});
+
+// A chave de IA mora no servidor. Se o app voltar a falar direto com um provedor, a
+// chave voltou para o aparelho — e para quem abrir o código da página.
+await teste("o app não fala com provedor de IA nem guarda chave", async () => {
+  for (const host of ["api.groq.com", "api.openai.com", "generativelanguage.googleapis.com"])
+    conferir(`nenhuma chamada a ${host}`, !html.includes(host));
+  conferir("nenhuma chave no estado sincronizado", !/chaves\s*:/.test(html));
 });
 
 if (falhas) {

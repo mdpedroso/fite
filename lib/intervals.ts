@@ -119,8 +119,8 @@ export async function sincronizar(usuario: string, desde: string) {
     if (t.casca) { cascas++; continue; }
     const { casca, ...treino } = t;
     if (!MODALIDADES.includes(treino.modalidade as any)) treino.modalidade = "outro";
-    await criarTreino(usuario, treino);
-    gravados++;
+    // null = a pessoa apagou esse treino; continua apagado
+    if (await criarTreino(usuario, treino)) gravados++;
   }
 
   await consulta(

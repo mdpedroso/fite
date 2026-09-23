@@ -20,7 +20,7 @@ export function rota(metodos: Record<string, Corpo>) {
       const saida = await corpo(req, res, quem);
       if (!res.headersSent) res.json(saida ?? { ok: true });
     } catch (e) {
-      if (e instanceof Recusa) return res.status(400).json({ erro: e.message });
+      if (e instanceof Recusa) return res.status(e.status).json({ erro: e.message });
       // A mensagem do Postgres pode carregar nome de coluna e trecho de consulta: fica no
       // log do servidor, não na tela.
       console.error(req.url, e);

@@ -168,9 +168,12 @@ Antes de qualquer DDL que mexa em tabela com dado dentro: dump primeiro.
 
 # Como registrar por conversa
 
-Quando o usuário mencionar comida, treino, peso ou algo relevante da rotina:
-**registrar na hora, sem pedir confirmação.** O ponto do projeto é atrito zero — se eu
-perguntar três coisas antes de cada refeição, ele para de usar.
+**Só registro quando o usuário mandar registrar.** Mencionar comida, treino ou peso na
+conversa não é ordem de gravar. Em 22/09/2026 gravei refeições, treinos e pesos sem ser
+mandado, e tudo teve de ser apagado. Nada entra em `data/` nem no banco por iniciativa
+minha: nem carga, nem migração, nem seed, nem exemplo.
+
+Quando ele mandar, gravo sem enrolar: nada de três perguntas antes de cada refeição.
 
 ```bash
 echo '{"who":"marcos","type":"meal",...}' | python3 app/log.py

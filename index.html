@@ -270,6 +270,8 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   .wko .t,.wko .m{margin-top:0}
 }
 .pend{color:var(--marca);font-style:italic}
+.retentar{font:inherit;font-style:normal;color:inherit;background:none;border:0;padding:0;
+  text-decoration:underline;cursor:pointer}
 @keyframes pulsa{0%,100%{opacity:.45}50%{opacity:1}}
 .pend{animation:pulsa 1.6s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.pend{animation:none}}
@@ -540,6 +542,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
       <button id="btn-perf" aria-pressed="false">Perfil</button>
+      <button id="btn-admin" aria-pressed="false" hidden>Admin</button>
     </div>
   </div>
 </header>
@@ -656,49 +659,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
   <div class="grid two">
     <section class="card">
-      <h2>Gemini <span class="side" id="p-gem-status"></span></h2>
-      <p class="soon">Faz as estimativas de caloria, inclusive a partir de foto.
-        Gere a sua em <a href="https://aistudio.google.com/apikey" target="_blank"
-        rel="noopener">Google AI Studio</a> — é gratuita e fica só neste aparelho.</p>
-      <div class="pform" style="margin-top:12px">
-        <label>Chave de API
-          <input id="p-gem-key" type="password" autocomplete="off"
-            spellcheck="false" placeholder="Cole a chave do Google AI Studio">
-        </label>
-      </div>
-      <button class="addbtn" id="p-gem-salvar">Salvar chave</button>
-    </section>
-
-    <section class="card">
-      <h2>ChatGPT <span class="side" id="p-oai-status"></span></h2>
-      <p class="soon">Segundo motor, opcional. Com os dois configurados o app pergunta
-        aos dois e usa quem responder primeiro. Chave em
-        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>
-        — fica só neste aparelho.</p>
-      <div class="pform" style="margin-top:12px">
-        <label>Chave de API
-          <input id="p-oai-key" type="password" autocomplete="off"
-            spellcheck="false" placeholder="Cole a chave da OpenAI (sk-…)">
-        </label>
-      </div>
-      <button class="addbtn" id="p-oai-salvar">Salvar chave</button>
-    </section>
-
-    <section class="card">
-      <h2>Groq <span class="side" id="p-groq-status"></span></h2>
-      <p class="soon">Terceiro motor, gratuito e muito rápido. Chave em
-        <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>
-        — fica só neste aparelho.</p>
-      <div class="pform" style="margin-top:12px">
-        <label>Chave de API
-          <input id="p-groq-key" type="password" autocomplete="off"
-            spellcheck="false" placeholder="Cole a chave do Groq (gsk_…)">
-        </label>
-      </div>
-      <button class="addbtn" id="p-groq-salvar">Salvar chave</button>
-    </section>
-
-    <section class="card">
       <h2>Treinos automáticos <span class="side" id="p-icu-status"></span></h2>
       <p class="soon">Puxa do <a href="https://intervals.icu" target="_blank" rel="noopener">intervals.icu</a>,
         que é gratuito e se conecta ao Garmin. Lá em <b>Settings → Developer</b> tem a
@@ -711,6 +671,25 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       <button class="addbtn" id="p-icu-conectar">Conectar</button>
       <button class="addbtn" id="p-icu-sync" hidden>Buscar treinos novos</button>
       <div class="flownote" id="p-icu-diag" style="margin-top:8px"></div>
+    </section>
+  </div>
+</div>
+
+<div id="view-admin" hidden>
+  <div class="grid two">
+    <section class="card">
+      <h2>Groq <span class="side" id="a-groq-status"></span></h2>
+      <p class="soon">A chave que faz todas as estimativas do app, para todo mundo. Fica no
+        servidor: nenhum aparelho vê a chave, e quem usa o app não precisa configurar nada.
+        Gere em <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>.</p>
+      <div class="pform" style="margin-top:12px">
+        <label>Chave de API
+          <input id="a-groq-key" type="password" autocomplete="off"
+            spellcheck="false" placeholder="Cole a chave do Groq (gsk_…)">
+        </label>
+      </div>
+      <button class="addbtn" id="a-groq-salvar">Testar e salvar</button>
+      <div class="flownote" id="a-groq-info" style="margin-top:8px"></div>
     </section>
   </div>
 </div>
@@ -1148,7 +1127,7 @@ function renderMeals(target, showKc, lista = MEALS){
         ${m.temFoto || m.fotoId ? `<img class="thumb" data-thumb="${m.id}" alt="">` : ""}
         <div>
         <div class="desc">${m.desc}</div>
-        ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || rotuloFila()}</div>`
+        ${m.pendente ? `<div class="mm pend" data-pend="${m.id}">${m.erro || rotuloFila()}${m.desistiu ? ` · <button class="retentar" data-retentar="${m.id}">tentar de novo</button>` : ""}</div>`
           : showKc ? `<div class="mm num mac3"><span><b class="ml">P </b>${m.p}</span><span><b class="ml">C </b>${m.c}</span><span><b class="ml">G </b>${m.g}</span></div>` : ""}
         </div>
       </div>
@@ -1173,7 +1152,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922215337";
+const VERSAO = "20260922222115";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1243,7 +1222,7 @@ async function api(caminho, opt = {}){
   const r = await fetchPrazo("/api/" + caminho, {
     credentials: "same-origin", cache: "no-store", ...opt,
     headers: {...(opt.body ? {"Content-Type":"application/json"} : {}), ...(opt.headers || {})},
-  }, 25000);
+  }, opt.prazo || 25000);
   let d = null;
   try{ d = await r.json(); }catch(e){}
   if(r.status === 401){
@@ -1307,322 +1286,18 @@ async function sair(){
   location.reload();
 }
 
-/* ==================== Gemini ==================== */
-let geminiKey = null, geminiModelo = null, geminiCandidatos = [];
-function guardarGemini(){
-  try{ localStorage.setItem(LS_GEMINI,
-    JSON.stringify({k:geminiKey, modelo:geminiModelo, candidatos:geminiCandidatos})); }catch(e){}
-}
-
-const MODELOS_PADRAO = ["gemini-2.5-flash","gemini-flash-latest","gemini-2.0-flash",
-                        "gemini-2.5-flash-lite","gemini-1.5-flash"];
-
-// devolve {modelo} ou {erro}; nunca lança, para a tela não travar
-async function descobrirModelo(chave){
-  let candidatos = [];
-  try{
-    const r = await fetchPrazo(
-      "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
-      {headers:{"x-goog-api-key": chave}});
-    if(!r.ok){
-      const corpo = await r.text().catch(() => "");
-      let msg = `HTTP ${r.status}`;
-      try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
-      if(r.status === 400) msg = "Chave inválida. Confira se copiou inteira.";
-      if(r.status === 403) msg = "Chave sem permissão. Se você restringiu por site, " +
-        "inclua https://mdpedroso.github.io/*";
-      return {erro: msg};
-    }
-    const nomes = ((await r.json()).models || [])
-      .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
-      .map(m => m.name.replace("models/", ""));
-    // preferidos primeiro, depois qualquer flash, depois o resto
-    candidatos = [
-      ...MODELOS_PADRAO.filter(p => nomes.includes(p)),
-      ...nomes.filter(n => n.includes("flash") && !MODELOS_PADRAO.includes(n)),
-      ...nomes.filter(n => !n.includes("flash") && !MODELOS_PADRAO.includes(n)),
-    ];
-  }catch(e){
-    if(e.name === "AbortError")
-      return {erro:"Sem resposta de generativelanguage.googleapis.com em 15s."};
-    candidatos = MODELOS_PADRAO;    // lista falhou: testa os conhecidos mesmo assim
-  }
-  if(!candidatos.length) return {erro:"Nenhum modelo disponível nessa chave."};
-
-  // estar na lista não garante que responde: testa até um funcionar
-  let ultimo = "";
-  for(const m of candidatos.slice(0, 6)){
-    const r = await testarModelo(chave, m);
-    if(r.ok) return {modelo: m, candidatos: candidatos.slice(0, 6)};
-    ultimo = r.msg || ultimo;
-  }
-  return {erro: `Nenhum modelo respondeu${ultimo ? ": " + ultimo.slice(0,110) : "."}`};
-}
-async function testarModelo(chave, modelo){
-  try{
-    const r = await fetchPrazo(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
-      {method:"POST", headers:{"content-type":"application/json","x-goog-api-key":chave},
-       body: JSON.stringify({contents:[{parts:[{text:"ok"}]}],
-         generationConfig:{maxOutputTokens:1, responseMimeType:"application/json"}})}, 20000);
-    if(r.ok) return {ok:true};
-    const corpo = await r.text().catch(() => "");
-    let msg = `HTTP ${r.status}`;
-    try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
-    return {ok:false, msg};
-  }catch(e){ return {ok:false, msg: e.message}; }
-}
-
+/* ==================== IA ==================== */
+// Quem fala com o modelo é o servidor, com a chave da casa: o aparelho não guarda chave
+// nenhuma. Erro 503 do servidor é passageiro (IA fora, sem chave ainda) e a fila tenta
+// de novo; 400 é o pedido que não serve, e aí desiste.
 const dormir = ms => new Promise(r => setTimeout(r, ms));
-// 500/502/503/504 são sobrecarga passageira do Google: insistir resolve
-const TRANSITORIO = [500, 502, 503, 504];
-
-async function geminiJSON(prompt, imagem, jaTentou, tentativa = 0){
-  if(!geminiKey) throw new Error("sem-chave");
-  if(!geminiModelo){
-    const d = await descobrirModelo(geminiKey);
-    if(d.modelo){ geminiModelo = d.modelo; guardarGemini(); }
-  }
-  const parts = [{text: prompt}];
-  if(imagem) parts.push({inline_data:{mime_type: imagem.mime, data: imagem.b64}});
-  if(!geminiModelo) throw new Error("modelo não definido — salve a chave no Perfil");
-  const emCorrida = !!openaiKey;          // o outro motor cobre: aqui não vale insistir
-  const r = await fetchPrazo(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModelo}:generateContent`,
-    {method:"POST",
-     headers:{"content-type":"application/json", "x-goog-api-key": geminiKey},
-     body: JSON.stringify({contents:[{parts}],
-       generationConfig:{responseMimeType:"application/json", temperature:0.2}})},
-    emCorrida ? 20000 : 30000);
-  if(!r.ok){
-    const corpo = await r.text().catch(() => "");
-    if(r.status === 404 && !jaTentou){
-      const d = await descobrirModelo(geminiKey);       // modelo saiu do ar: procura outro
-      if(d.modelo){ geminiModelo = d.modelo; guardarGemini(); return geminiJSON(prompt, imagem, true); }
-    }
-    if(TRANSITORIO.includes(r.status) && tentativa < (emCorrida ? 0 : 2)){
-      avisarTentativa(tentativa + 1);
-      await dormir(1500 * (tentativa + 1));
-      return geminiJSON(prompt, imagem, jaTentou, tentativa + 1);
-    }
-    if((TRANSITORIO.includes(r.status) || r.status === 429) && !jaTentou){
-      const outro = geminiCandidatos.find(m => m !== geminiModelo);
-      if(outro){                       // este modelo está lotado: tenta outro pool
-        console.warn(`gemini ${geminiModelo} em ${r.status}; trocando para ${outro}`);
-        geminiCandidatos = [outro, ...geminiCandidatos.filter(m => m !== outro)];
-        geminiModelo = outro; guardarGemini();
-        return geminiJSON(prompt, imagem, true, 0);
-      }
-    }
-    const e = new Error(`gemini ${r.status}`);
-    e.status = r.status; e.corpo = corpo;
-    console.warn("gemini", r.status, corpo);
-    throw e;
-  }
-  const j = await r.json();
-  const txt = j.candidates?.[0]?.content?.parts?.[0]?.text;
-  if(!txt) throw new Error("gemini-vazio");
-  return lerJSON(txt, "gemini");
-}
-
-// o modo JSON das APIs já impede texto fora do objeto; isto é rede de segurança
-function lerJSON(txt, origem){
-  try{ return JSON.parse(txt); }
-  catch(e){
-    const m = String(txt).match(/\{[\s\S]*\}/);
-    if(m){ try{ return JSON.parse(m[0]); }catch(x){} }
-    console.warn(`[${origem}] resposta sem JSON legível:`, txt);
-    const err = new SyntaxError("resposta sem JSON"); err.bruto = String(txt).slice(0, 200);
-    throw err;
-  }
-}
-
-/* ==================== OpenAI (ChatGPT) ==================== */
-const LS_OPENAI = "fite.openai";
-let openaiKey = null;
-const OPENAI_MODELO = "gpt-4o-mini";        // barato e entende imagem
-function guardarOpenai(){ try{ localStorage.setItem(LS_OPENAI, JSON.stringify({k:openaiKey})); }catch(e){} }
-async function validarOpenai(chave){
-  try{
-    const r = await fetchPrazo("https://api.openai.com/v1/models",
-      {headers:{Authorization:"Bearer " + chave}}, 15000);
-    if(r.ok) return {ok:true};
-    return {erro: r.status === 401 ? "Chave recusada. Confira se copiou inteira."
-                : r.status === 429 ? "Chave sem crédito ou acima do limite." : `HTTP ${r.status}`};
-  }catch(e){ return {erro: e.name === "AbortError" ? "A OpenAI não respondeu em 15s." : e.message}; }
-}
-async function openaiJSON(prompt, imagem){
-  if(!openaiKey) throw new Error("sem-chave");
-  const conteudo = imagem
-    ? [{type:"text", text:prompt},
-       {type:"image_url", image_url:{url:`data:${imagem.mime};base64,${imagem.b64}`}}]
-    : prompt;
-  const r = await fetchPrazo("https://api.openai.com/v1/chat/completions", {
-    method:"POST",
-    headers:{"content-type":"application/json", Authorization:"Bearer " + openaiKey},
-    body: JSON.stringify({model: OPENAI_MODELO, temperature:0.2,
-      response_format:{type:"json_object"},
-      messages:[{role:"system", content:"Responda apenas com um objeto JSON válido, sem texto fora dele."},
-                {role:"user", content: conteudo}]}),
-  }, 45000);
-  if(!r.ok){
-    const corpo = await r.text().catch(() => "");
-    const e = new Error(`openai ${r.status}`); e.status = r.status; e.corpo = corpo; e.prov = "openai";
-    throw e;
-  }
-  const txt = (await r.json()).choices?.[0]?.message?.content;
-  if(!txt) throw new Error("openai-vazio");
-  return lerJSON(txt, "openai");
-}
-
-/* ==================== Groq ==================== */
-const LS_GROQ = "fite.groq";
-let groqKey = null, groqTexto = null, groqFoto = null;
-let groqTestadoEm = 0;
-function guardarGroq(){
-  try{ localStorage.setItem(LS_GROQ, JSON.stringify({k:groqKey, texto:groqTexto, foto:groqFoto,
-    fotoSemJSON:groqFotoSemJSON, fotoMotivo:groqFotoMotivo, testadoEm:groqTestadoEm})); }catch(e){}
-}
-function adotarGroq(d){
-  groqTexto = d.texto; groqFoto = d.foto || null;
-  groqFotoSemJSON = !!d.fotoSemJSON; groqFotoMotivo = d.fotoMotivo || "";
-  groqTestadoEm = d.testadoEm || Date.now();
-  guardarGroq();
-}
-// nome de modelo não se confia: a chave diz o que tem, e um teste real diz o que responde
-// ordem de preferência; o que a chave não tiver é pulado, e tudo é testado antes de valer
-const GROQ_PREF_TEXTO = ["openai/gpt-oss-120b","llama-3.3-70b-versatile","qwen/qwen3.8-27b",
-                         "qwen/qwen3.6-27b","openai/gpt-oss-20b","llama-3.1-8b-instant",
-                         "meta-llama/llama-4-scout-17b-16e-instruct"];
-const GROQ_PREF_FOTO  = ["qwen/qwen3.8-27b","qwen/qwen3.6-27b",
-                         "meta-llama/llama-4-scout-17b-16e-instruct",
-                         "meta-llama/llama-4-maverick-17b-128e-instruct"];
-const PNG_TESTE = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAeklEQVR4nO3PUQkAIBTAwJfTYGYyliH8OITBAtzm7PV1wwUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWPHYB8nOBln5JujwAAAAASUVORK5CYII=";   // 64×64: o Qwen exige pelo menos 32 px por lado
-let groqFotoSemJSON = false, groqFotoMotivo = "";
-// devolve {ok} ou {ok:false, motivo}; para foto, tenta com e sem modo JSON
-async function testarGroq(chave, modelo, comImagem){
-  const tentar = async (jsonMode) => {
-    const conteudo = comImagem
-      ? [{type:"text", text:"Descreva a imagem em um JSON: {\"desc\": \"...\"}"},
-         {type:"image_url", image_url:{url:"data:image/png;base64," + PNG_TESTE}}]
-      : "Responda com um JSON: {\"ok\":true}";
-    const body = {model: modelo, max_tokens: 60,
-      messages:[{role:"user", content: conteudo}]};
-    if(jsonMode) body.response_format = {type:"json_object"};
-    const r = await fetchPrazo("https://api.groq.com/openai/v1/chat/completions", {
-      method:"POST", headers:{"content-type":"application/json", Authorization:"Bearer " + chave},
-      body: JSON.stringify(body)}, 20000);
-    if(r.ok) return {ok:true, jsonMode};
-    const corpo = await r.text().catch(() => "");
-    let msg = `HTTP ${r.status}`;
-    try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
-    return {ok:false, status:r.status, motivo: msg};
-  };
-  try{
-    let r = await tentar(true);
-    if(!r.ok && comImagem && r.status === 400) r = await tentar(false);   // sem modo JSON, lemos tolerante
-    return r;
-  }catch(e){ return {ok:false, motivo: e.name === "AbortError" ? "sem resposta em 20s" : e.message}; }
-}
-async function descobrirGroq(chave){
-  let ids = [];
-  try{
-    const r = await fetchPrazo("https://api.groq.com/openai/v1/models",
-      {headers:{Authorization:"Bearer " + chave}}, 15000);
-    if(!r.ok) return {erro: r.status === 401 ? "Chave recusada. Confira se copiou inteira." : `HTTP ${r.status}`};
-    ids = ((await r.json()).data || []).map(m => m.id)
-      .filter(id => !/whisper|guard|tts|orpheus|safeguard|compound|allam|embed/i.test(id));
-  }catch(e){ return {erro: e.name === "AbortError" ? "O Groq não respondeu em 15s." : e.message}; }
-  if(!ids.length) return {erro: "A chave não lista nenhum modelo de texto."};
-
-  let texto = null, ultimoTexto = "";
-  for(const c of [...GROQ_PREF_TEXTO.filter(p => ids.includes(p)), ...ids].slice(0, 8)){
-    const r = await testarGroq(chave, c, false);
-    if(r.ok){ texto = c; break; }
-    ultimoTexto = r.motivo || ultimoTexto;
-  }
-  if(!texto) return {erro: "Nenhum modelo de texto respondeu" + (ultimoTexto ? ": " + ultimoTexto.slice(0, 80) : ".")};
-  let foto = null, fotoSemJSON = false, fotoMotivo = "";
-  const candFoto = GROQ_PREF_FOTO.filter(v => ids.includes(v));
-  if(!candFoto.length) fotoMotivo = "a chave não lista modelo de visão";
-  for(const c of candFoto){
-    const r = await testarGroq(chave, c, true);
-    if(r.ok){ foto = c; fotoSemJSON = !r.jsonMode; break; }
-    fotoMotivo = `${c.replace(/^.*\//, "")}: ${r.motivo}`;
-  }
-  return {texto, foto, fotoSemJSON, fotoMotivo, testadoEm: Date.now()};
-}
-async function groqJSON(prompt, imagem, jaTentou){
-  if(!groqKey) throw new Error("sem-chave");
-  if(!groqTexto){
-    const d = await descobrirGroq(groqKey);
-    if(d.erro){ const e = new Error("groq-sem-modelo"); e.prov = "groq"; e.detalhe = d.erro; throw e; }
-    adotarGroq(d);
-  }
-  if(imagem && !groqFoto){            // sem modelo de visão nesta chave: os outros cobrem
-    const e = new Error("groq-sem-visao"); e.prov = "groq"; e.detalhe = groqFotoMotivo; throw e;
-  }
-  const conteudo = imagem
-    ? [{type:"text", text:prompt},
-       {type:"image_url", image_url:{url:`data:${imagem.mime};base64,${imagem.b64}`}}]
-    : prompt;
-  const r = await fetchPrazo("https://api.groq.com/openai/v1/chat/completions", {
-    method:"POST",
-    headers:{"content-type":"application/json", Authorization:"Bearer " + groqKey},
-    body: JSON.stringify({model: imagem ? groqFoto : groqTexto, temperature:0.2,
-      ...(imagem && groqFotoSemJSON ? {} : {response_format:{type:"json_object"}}),
-      messages:[{role:"system", content:"Responda apenas com um objeto JSON válido, sem texto fora dele."},
-                {role:"user", content: conteudo}]}),
-  }, 30000);
-  if(!r.ok){
-    const corpo = await r.text().catch(() => "");
-    if(r.status === 404 && !jaTentou){   // o modelo sumiu: redescobre uma vez
-      groqTexto = groqFoto = null;
-      return groqJSON(prompt, imagem, true);
-    }
-    const e = new Error(`groq ${r.status}`); e.status = r.status; e.corpo = corpo; e.prov = "groq";
-    throw e;
-  }
-  const txt = (await r.json()).choices?.[0]?.message?.content;
-  if(!txt) throw new Error("groq-vazio");
-  return lerJSON(txt, "groq");
-}
-
-// texto: o Groq responde em menos de um segundo, então vai primeiro e os outros
-// ficam de reserva (sem gastar cota). Foto: corrida entre todos — aí a
-// qualidade de Gemini/GPT compensa o custo.
 let ultimoMotor = null;
-const nomeado = (p, prov) => p.then(r => ({r, prov}));
-function outrosMotores(prompt, imagem){
-  const c = [];
-  if(geminiKey) c.push(nomeado(geminiJSON(prompt, imagem), "gemini"));
-  if(openaiKey) c.push(nomeado(openaiJSON(prompt, imagem), "openai"));
-  return c;
-}
 async function estimarJSON(prompt, imagem){
-  let corridas;
-  if(groqKey && !imagem){
-    const g = nomeado(groqJSON(prompt, imagem), "groq");
-    // dá 12 s ao Groq; se falhar ou demorar, os outros entram sem cancelar o Groq
-    const primeiro = await Promise.race([g.catch(() => null), dormir(12000).then(() => null)]);
-    if(primeiro){ ultimoMotor = primeiro.prov; return primeiro.r; }
-    corridas = [g, ...outrosMotores(prompt, imagem)];
-  } else {
-    corridas = outrosMotores(prompt, imagem);
-    if(groqKey) corridas.push(nomeado(groqJSON(prompt, imagem), "groq"));
-  }
-  if(!corridas.length) throw new Error("sem-chave");
-  try{
-    const {r, prov} = await Promise.any(corridas);
-    ultimoMotor = prov;
-    return r;
-  }catch(agg){
-    const erros = agg.errors || [agg];
-    if(erros.length === 1) throw erros[0];
-    const e = new Error("todos-falharam");
-    e.detalhes = erros.map(x => erroMsg(x));
-    throw e;
-  }
+  // o servidor pode precisar redescobrir o modelo antes de responder: prazo maior
+  const d = await api("ia", {method: "POST", prazo: 90000,
+    body: JSON.stringify({prompt, imagem: imagem || null})});
+  ultimoMotor = d.motor || null;
+  return d.r;
 }
 
 /* ==================== estado ==================== */
@@ -1631,53 +1306,12 @@ const TS_DIA = {};
 let tsGeral = 0;
 function marcarDia(iso){ TS_DIA[iso] = tsGeral = Date.now(); SUJOS.add(iso); }
 
-// as chaves de IA ainda ficam no aparelho; cada uma com seu carimbo, a mais nova vence
-// qualquer aparelho basta. Cada chave tem seu carimbo; a mais nova vence na mescla.
-const LS_TSCHAVES = "fite.tsChaves";
-let TS_CHAVES = {};
-try{ TS_CHAVES = JSON.parse(localStorage.getItem(LS_TSCHAVES) || "{}"); }catch(e){}
-function marcarChave(nome){
-  TS_CHAVES[nome] = Date.now();
-  try{ localStorage.setItem(LS_TSCHAVES, JSON.stringify(TS_CHAVES)); }catch(e){}
-}
-// só as chaves de IA: a do intervals.icu mora no servidor agora
-function chavesAtuais(){
-  return {gemini: geminiKey || "", openai: openaiKey || "", groq: groqKey || "", ts: {...TS_CHAVES}};
-}
-function mesclarChaves(L, R){
-  L = L || {}; R = R || {};
-  const tl = L.ts || {}, tr = R.ts || {}, out = {ts: {}};
-  for(const n of ["gemini","openai","groq"]){
-    const F = (tl[n] || 0) >= (tr[n] || 0) ? L : R;
-    out[n] = F[n] || ""; out.ts[n] = Math.max(tl[n] || 0, tr[n] || 0);
-  }
-  return out;
-}
-// adota as chaves que chegaram com carimbo mais novo que o daqui
-function adotarChaves(c){
-  if(!c) return;
-  const t = c.ts || {};
-  const vence = n => (t[n] || 0) > (TS_CHAVES[n] || 0);
-  let groqMudou = false;
-  if(vence("gemini") && (c.gemini || "") !== (geminiKey || "")){
-    geminiKey = c.gemini || null; geminiModelo = null; geminiCandidatos = []; guardarGemini();
-  }
-  if(vence("openai") && (c.openai || "") !== (openaiKey || "")){ openaiKey = c.openai || null; guardarOpenai(); }
-  if(vence("groq") && (c.groq || "") !== (groqKey || "")){
-    groqKey = c.groq || null; groqTexto = null; groqFoto = null; guardarGroq(); groqMudou = !!groqKey;
-  }
-  for(const n of ["gemini","openai","groq"]) if(vence(n)) TS_CHAVES[n] = t[n];
-  try{ localStorage.setItem(LS_TSCHAVES, JSON.stringify(TS_CHAVES)); }catch(e){}
-  if(groqMudou) descobrirGroq(groqKey).then(d => {
-    if(d.texto){ adotarGroq(d); renderIntegracoes(); reiniciarFila(); }
-  });
-}
 const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 function estadoAtual(){
   return {versao:3, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
           pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, ocultos:{...OCULTOS},
-          apagados: APAGADOS, chaves: chavesAtuais()};
+          apagados: APAGADOS};
 }
 // o item já existe no banco: a exclusão vira uma chamada, não um "não mandar mais".
 // A lápide continua aqui só para o cache do aparelho não ressuscitar o item ao reabrir.
@@ -1721,8 +1355,7 @@ function mesclarEstados(L, R){
           lixoFotos: [...new Set([...(L.lixoFotos || []), ...(R.lixoFotos || [])])],
           pesos: (N.pesos && N.pesos.length) ? N.pesos : (V.pesos || []),
           perfil: {...(V.perfil || {}), ...(N.perfil || {})},
-          treinos: (N.treinos || N.strava)?.desde ? (N.treinos || N.strava) : (V.treinos || V.strava || {}),
-          chaves: mesclarChaves(L.chaves, R.chaves)};
+          treinos: (N.treinos || N.strava)?.desde ? (N.treinos || N.strava) : (V.treinos || V.strava || {})};
 }
 
 // o que existe em "antes" e não existe em "depois" sem uma lápide explicando.
@@ -1757,7 +1390,6 @@ function adotarEstado(e){
   if(tr?.desde) TREINOS.desde = tr.desde;
   OCULTOS = {}; Object.entries(e.ocultos || {}).forEach(([k, v]) => { if(v) OCULTOS[k] = true; });
   APAGADOS = {}; Object.entries(e.apagados || {}).forEach(([iso, m]) => { APAGADOS[iso] = {...m}; });
-  adotarChaves(e.chaves);
   sincHoje();
 }
 function aplicarEstado(d){ if(d) adotarEstado(mesclarEstados(estadoAtual(), d)); else sincHoje(); }
@@ -2139,7 +1771,7 @@ $("bt-meal").onclick   = () => abrirRefeicao(false, histIso);
 $("bt-duvida").onclick = () => abrirRefeicao(true, histIso);
 $("bt-wk").onclick     = () => { fotoWk.limpar(); abrir("dlg-wk","st-wk", histIso); };
 
-// sem o seletor, a hora dá o palpite quando o Gemini não classifica
+// sem o seletor, a hora dá o palpite quando a IA não classifica
 function slotPorHora(){
   const h = new Date().getHours();
   if(h < 10) return "café";
@@ -2248,59 +1880,11 @@ function hidratarThumbs(){
 }
 
 function erroMsg(e){
-  if(e?.message === "todos-falharam") return e.detalhes.join("  ·  ");
   if(e?.message === "sem-material") return "a foto se perdeu antes de estimar — exclua e adicione de novo";
-  if(e?.message === "sem-chave") return "Configure uma chave (Gemini, ChatGPT ou Groq) no Perfil.";
-  if(e?.prov === "groq"){
-    if(e.message === "groq-sem-modelo") return "Groq: " + (e.detalhe || "sem modelo disponível");
-    if(e.message === "groq-sem-visao") return "Groq sem foto" + (e.detalhe ? ": " + e.detalhe.slice(0, 90) : "");
-    if(e.status === 401) return "Groq: chave recusada — confira no Perfil";
-    if(e.status === 429) return "Groq: limite de requisições — tenta de novo sozinho";
-    if(TRANSITORIO.includes(e.status)) return "Groq: instável agora — tenta de novo sozinho";
-    return `Groq: ${e.status}${corpoMsg(e) ? " — " + corpoMsg(e).slice(0, 80) : ""}`;
-  }
-  if(e?.prov === "openai"){
-    let cod = "";
-    try{ cod = JSON.parse(e.corpo || "{}").error?.code || ""; }catch(x){}
-    if(e.status === 401) return "ChatGPT: chave recusada — confira no Perfil";
-    if(e.status === 429) return cod === "insufficient_quota"
-      ? "ChatGPT: sem crédito na conta OpenAI (é pré-pago)"
-      : "ChatGPT: limite de requisições — tenta de novo sozinho";
-    if(TRANSITORIO.includes(e.status)) return "ChatGPT: instável agora — tenta de novo sozinho";
-    return `ChatGPT: ${e.status}${corpoMsg(e) ? " — " + corpoMsg(e).slice(0, 80) : ""}`;
-    if(TRANSITORIO.includes(e.status)) return "O ChatGPT está instável agora. Tente de novo.";
-  }
-  if(e?.status === 429){
-    // o corpo do Google diz o plano: "FreeTier" no texto = chave sem faturamento na API
-    let det = "";
-    try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
-    const gratuito = /free/i.test(det + (e.corpo || ""));
-    return "Gemini: limite atingido" + (gratuito ? " (chave no plano gratuito da API)" : "") +
-      (det ? " — " + det.slice(0, 80) : "") + " — tenta de novo sozinho";
-  }
-  if(TRANSITORIO.includes(e?.status)){
-    let det = "";
-    try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
-    return `Gemini: ${e.status}${det ? " — " + det.slice(0, 70) : " sobrecarregado"}`;
-  }
-  if(e?.status === 404) return `Gemini: o modelo "${geminiModelo}" não existe nessa chave — ` +
-    `salve a chave de novo no Perfil`;
-  if(e?.status === 400 || e?.status === 403){
-    let det = "";
-    try{ det = JSON.parse(e.corpo || "{}").error?.message || ""; }catch(x){}
-    return `Gemini recusou (${e.status})${det ? ": " + det.slice(0,120) : ""}`;
-  }
-  if(e instanceof SyntaxError || e?.message === "gemini-vazio")
-    return "Não consegui ler a resposta do Gemini. Descreva de outro jeito.";
-  if(e?.name === "AbortError") return "O Gemini demorou demais. Tente de novo.";
-  return `Falhou ao estimar: ${e?.message || e}`;
+  if(e?.name === "AbortError") return "A IA demorou demais. Tenta de novo sozinho.";
+  return e?.message ? e.message : `Falhou ao estimar: ${e}`;
 }
 async function comIA(statusEl, botao, trabalho){
-  if(!(geminiKey || openaiKey || groqKey)){
-    statusEl.className = "addstatus err";
-    statusEl.textContent = "Configure uma chave (Gemini, ChatGPT ou Groq) no Perfil.";
-    return;
-  }
   botao.disabled = true;
   statusEl.className = "addstatus";
   statusEl.textContent = "Estimando…";
@@ -2360,9 +1944,6 @@ function adicionarConsulta(){
 // tira-dúvida: estima na hora e mostra no próprio modal; nada entra no dia
 async function consultar(texto, foto){
   const bt = $("bt-meal-go"), st = $("st-meal"), box = $("consulta");
-  if(!(geminiKey || openaiKey || groqKey)){
-    st.textContent = "Configure uma chave de IA no Perfil."; st.className = "addstatus err"; return;
-  }
   bt.disabled = true; st.className = "addstatus"; st.textContent = "Estimando…";
   try{
     const r = await estimarJSON(promptRefeicao(texto, foto, true), foto);
@@ -2415,14 +1996,13 @@ setInterval(() => {
     const it = pendentes().find(p => p.item.id === el.dataset.pend)?.item;
     if(!it || it.erro || !it.desde || estadoFila !== "estimando…") return;
     const seg = Math.round((Date.now() - it.desde) / 1000);
-    const quem = [geminiKey && "Gemini", openaiKey && "ChatGPT", groqKey && "Groq"].filter(Boolean).join(" + ");
-    el.textContent = `estimando com ${quem}… ${seg}s`;
+    el.textContent = `estimando… ${seg}s`;
   });
 }, 1000);
 
 let rodandoFila = false, filaGeracao = 0;
 let estadoFila = "estimando…";
-const rotuloFila = () => (geminiKey || openaiKey || groqKey) ? estadoFila : "sem chave de IA — configure no Perfil";
+const rotuloFila = () => estadoFila;
 // nova chave ou troca de motor: a rodada em andamento é descartada e outra começa já
 function reiniciarFila(){ filaGeracao++; rodandoFila = false; tocarFila(); }
 const pendentes = () => {
@@ -2510,7 +2090,6 @@ async function estimarItem(p){
 
 async function tocarFila(){
   if(rodandoFila) return;
-  if(!(geminiKey || openaiKey || groqKey)) return;
   rodandoFila = true;
   const gen = filaGeracao;
   const morta = () => gen !== filaGeracao;   // outra rodada assumiu
@@ -2538,7 +2117,7 @@ async function tocarFila(){
       if(!pendentes().length) break;
       // nada saiu da fila: o serviço está fora — espera mais antes de insistir
       espera = avancou ? 4000 : Math.min(espera * 2, 60000);
-      estadoFila = `Gemini indisponível — nova tentativa em ${Math.round(espera/1000)}s`;
+      estadoFila = `IA indisponível — nova tentativa em ${Math.round(espera/1000)}s`;
       renderAll();
       await dormir(espera);
       if(morta()) return;
@@ -2671,7 +2250,7 @@ $("h-olho").onclick = () => {
   salvarDia(histIso);
   renderAll();
 };
-const ABAS = [["btn-full","view-full"],["btn-perf","view-perf"]];
+const ABAS = [["btn-full","view-full"],["btn-perf","view-perf"],["btn-admin","view-admin"]];
 function setView(botao){
   ABAS.forEach(([b,v])=>{
     const on = b === botao;
@@ -2685,6 +2264,7 @@ function setView(botao){
   remedirBarras();      // a aba que acabou de aparecer tinha largura zero até agora
   // os gráficos medem a largura do container: só dá para desenhar com a aba visível
   if(botao === "btn-full") mountCharts();
+  if(botao === "btn-admin") adminVer();
 }
 ABAS.forEach(([b])=> $(b).onclick = () => setView(b));
 
@@ -2717,7 +2297,12 @@ const refeicaoParaApi = (iso, m) => ({
     : null,
   llm: m.via || null,
 });
+// O banco não guarda "pendente". Lançamento com texto, sem caloria e sem modelo que o
+// tenha estimado é um que a IA ainda não processou: volta para a fila em vez de ficar
+// na tela como 0 kcal para sempre.
+const naoEstimado = x => !x.llm && !x.kcal && !!x.bruto;
 const refeicaoDaApi = r => ({
+  ...(naoEstimado(r) ? {pendente: true} : {}),
   id: r.id, sid: r.id, slot: SLOT_TELA[r.slot] || r.slot || "",
   desc: r.descricao, raw: r.bruto || "", interp: r.interpretacao || "",
   kc: r.kcal, p: r.p, c: r.c, g: r.g,
@@ -2732,6 +2317,7 @@ const treinoParaApi = (iso, w) => ({
   llm: w.via || null,
 });
 const treinoDaApi = w => ({
+  ...(naoEstimado(w) && !w.fonte ? {pendente: true} : {}),
   id: w.id, sid: w.id, mod: w.modalidade, t: w.titulo, m: w.detalhe || "",
   raw: w.bruto || "", kc: w.kcal, kcMedido: w.kcal_medido,
   icu: w.external_id || null, via: w.llm || "",
@@ -2828,16 +2414,27 @@ async function enviarItem(tabela, iso, item, monta){
         item.sid = null;
         const r = await apiEnvia(tabela, "POST", corpo);
         item.sid = r.id;
+        gravarLocal();
       }else throw e;
     }
   }else{
     const r = await apiEnvia(tabela, "POST", corpo);
+    // o id vai para o cache na hora: se a página recarregar sem ele, o item parece
+    // nunca ter subido e é mandado de novo — foi assim que a refeição duplicou em 22/09
     item.sid = r.id;
+    gravarLocal();
   }
   item._enviado = assinatura;
 }
 
-async function enviarPendentes(){
+// Um envio por vez: salvar, sincronizar e o intervals chamam isto, e dois envios juntos
+// veriam o mesmo item sem id e mandariam os dois.
+let enviando = null;
+function enviarPendentes(){
+  if(!enviando) enviando = enviarTudo().finally(() => { enviando = null; });
+  return enviando;
+}
+async function enviarTudo(){
   while(APAGAR.length){
     const alvo = APAGAR[0];
     try{
@@ -2948,14 +2545,7 @@ function icuAuto(){
 }
 
 function renderIntegracoes(){
-  $("p-gem-status").textContent = geminiKey ? "conectado" : "não configurado";
-  $("p-oai-status").textContent = openaiKey ? "conectado" : "não configurado";
-  $("p-groq-status").textContent = !groqKey ? "não configurado"
-    : !groqTexto ? "descobrindo modelos…"
-    : groqTexto.replace(/^.*\//, "") + (groqFoto ? " · foto ok" : " · sem foto" + (groqFotoMotivo ? ": " + groqFotoMotivo.slice(0, 60) : ""));
-  $("p-groq-key").placeholder = groqKey ? "•••••••• (trocar)" : "Cole a chave do Groq (gsk_…)";
-  $("p-oai-key").placeholder = openaiKey ? "•••••••• (trocar)" : "Cole a chave da OpenAI (sk-…)";
-  $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
+  $("btn-admin").hidden = !usuario?.admin;
   $("p-versao").textContent = "versão do app: " + versaoLegivel(VERSAO);
   try{ $("p-tema").value = localStorage.getItem("fite.tema") || "claro"; }catch(e){}
   $("p-icu-desde").value = TREINOS.desde || "";
@@ -3065,6 +2655,14 @@ $("p-exportar").onclick = () => {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 };
 $("p-rec-local").onclick = listarBackupsLocais;
+// a IA desistiu de um lançamento (pedido recusado): a pessoa manda tentar de novo
+document.addEventListener("click", e => {
+  const b = e.target.closest("button[data-retentar]");
+  if(!b) return;
+  for(const arr of Object.values(DIA_MEALS))
+    for(const m of arr || []) if(m.id === b.dataset.retentar){ delete m.desistiu; delete m.erro; }
+  reiniciarFila(); renderAll();
+});
 $("p-rec-lista").addEventListener("click", e => {
   const l = e.target.closest("button[data-local]");
   if(l) recuperarLocal(+l.dataset.local, l);
@@ -3073,51 +2671,50 @@ $("p-icu-conectar").onclick = icuConectar;
 $("p-icu-sync").onclick = () => icuSincronizar(false);
 $("bt-wk-sync").onclick = () => icuSincronizar(false);
 $("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-desde").value; salvar(); });
-$("p-groq-salvar").onclick = async () => {
-  const k = $("p-groq-key").value.trim();
+
+
+/* ---------- admin ---------- */
+// A aba só aparece para quem está na tabela `admin`; quem barra de verdade é o servidor.
+let ADMIN_IA = null;
+async function adminVer(){
+  if(!usuario?.admin) return;
+  try{ ADMIN_IA = await api("ia-chave"); $("a-groq-info").textContent = ""; }
+  catch(e){ $("a-groq-info").textContent = "Não consegui ler: " + (e.message || e); }
+  renderAdmin();
+}
+function renderAdmin(){
+  const g = ADMIN_IA?.groq;
+  const curto = m => String(m).replace(/^.*\//, "");
+  $("a-groq-status").textContent = !ADMIN_IA ? "" : !g ? "não configurado"
+    : curto(g.modelo_texto || "sem modelo") + (g.modelo_foto ? " · foto ok" : " · sem foto");
+  $("a-groq-key").placeholder = g ? `••••${g.final} (trocar)` : "Cole a chave do Groq (gsk_…)";
+  if(g && !$("a-groq-info").textContent){
+    const quando = g.testado_em ? new Date(g.testado_em).toLocaleDateString("pt-BR") : "";
+    $("a-groq-info").textContent = [
+      g.modelo_foto ? `foto: ${curto(g.modelo_foto)}` : g.foto_motivo ? `sem foto: ${g.foto_motivo}` : "",
+      g.por ? `salva por ${g.por}${quando ? " em " + quando : ""}` : "",
+    ].filter(Boolean).join(" · ");
+  }
+}
+$("a-groq-salvar").onclick = async () => {
+  const k = $("a-groq-key").value.trim();
   if(!k) return;
-  const bt = $("p-groq-salvar");
-  bt.disabled = true; bt.textContent = "Validando…";
-  const r = await descobrirGroq(k);
-  if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
-  else{ groqKey = k; adotarGroq(r); marcarChave("groq"); salvar();
-        $("p-groq-key").value = ""; bt.textContent = `Salva — ${r.texto}`; reiniciarFila(); }
-  bt.disabled = false;
-  renderIntegracoes();
-  setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
-};
-$("p-oai-salvar").onclick = async () => {
-  const k = $("p-oai-key").value.trim();
-  if(!k) return;
-  const bt = $("p-oai-salvar");
-  bt.disabled = true; bt.textContent = "Validando…";
-  const r = await validarOpenai(k);
-  if(r.erro){ bt.textContent = r.erro.slice(0, 60); }
-  else{ openaiKey = k; guardarOpenai(); marcarChave("openai"); salvar();
-        $("p-oai-key").value = ""; bt.textContent = "Chave salva"; reiniciarFila(); }
-  bt.disabled = false;
-  renderIntegracoes();
-  setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
-};
-$("p-gem-salvar").onclick = async () => {
-  const k = $("p-gem-key").value.trim();
-  if(!k) return;
-  const bt = $("p-gem-salvar");
-  bt.disabled = true; bt.textContent = "Validando…";
-  let r;
-  try{ r = await descobrirModelo(k); }
-  catch(e){ r = {erro: "Falha inesperada"}; }
-  if(r.erro){
-    bt.textContent = r.erro.slice(0, 60);
-  } else {
-    geminiKey = k; geminiModelo = r.modelo; geminiCandidatos = r.candidatos || [r.modelo];
-    guardarGemini(); marcarChave("gemini"); salvar(); reiniciarFila();
-    $("p-gem-key").value = "";
-    bt.textContent = `Salva — usando ${r.modelo}`;
+  const bt = $("a-groq-salvar");
+  bt.disabled = true; bt.textContent = "Testando modelos…";
+  $("a-groq-info").textContent = "";
+  try{
+    // testar os modelos da chave leva até um minuto e pouco
+    ADMIN_IA = await api("ia-chave", {method: "PUT", prazo: 180000, body: JSON.stringify({chave: k})});
+    $("a-groq-key").value = "";
+    bt.textContent = "Salva";
+    reiniciarFila();     // o que estava parado esperando IA anda agora
+  }catch(e){
+    bt.textContent = "Não salvou";
+    $("a-groq-info").textContent = e.message || String(e);
   }
   bt.disabled = false;
-  renderIntegracoes();
-  setTimeout(() => { bt.textContent = "Salvar chave"; }, 4000);
+  renderAdmin();
+  setTimeout(() => { bt.textContent = "Testar e salvar"; }, 4000);
 };
 
 /* ==================== render e boot ==================== */
@@ -3167,30 +2764,16 @@ function abrirApp(){
     $("aviso").textContent = avisoServidor;
     $("aviso").hidden = false;
   }
-  try{ const aba = localStorage.getItem("fite.aba"); setView(ABAS.some(([b]) => b === aba) ? aba : "btn-full"); }catch(e){ setView("btn-full"); }
+  try{ const aba = localStorage.getItem("fite.aba"); setView(ABAS.some(([b]) => b === aba) && !$(aba).hidden ? aba : "btn-full"); }catch(e){ setView("btn-full"); }
   tocarFila();          // o que ficou pendente de outra sessão retoma agora
   icuAuto();            // treinos novos do relógio, sem precisar ir ao perfil
   conferirVersao();     // a página no ar pode ser mais nova que esta
-  const fotoVelha = !groqFoto && Date.now() - groqTestadoEm > 6*3600*1000;
-  if(groqKey && (!groqTexto || fotoVelha))   // sem texto, ou sem foto há tempo: tenta de novo
-    descobrirGroq(groqKey).then(d => {
-      if(d.texto){ adotarGroq(d); renderIntegracoes(); reiniciarFila(); }
-    });
 }
 
 async function boot(){
   conferirVersao();     // também na porta: quem não passou do login precisa saber
-  try{
-    const g = JSON.parse(localStorage.getItem(LS_GEMINI) || "null");
-    if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; geminiCandidatos = g.candidatos || []; }
-    const o = JSON.parse(localStorage.getItem(LS_OPENAI) || "null");
-    if(o?.k) openaiKey = o.k;
-    const q = JSON.parse(localStorage.getItem(LS_GROQ) || "null");
-    if(q?.k){ groqKey = q.k; groqTexto = q.texto || null; groqFoto = q.foto || null;
-              groqFotoSemJSON = !!q.fotoSemJSON; groqFotoMotivo = q.fotoMotivo || ""; groqTestadoEm = 0; }
-  }catch(e){}
-  [["gemini", geminiKey], ["openai", openaiKey], ["groq", groqKey]]
-    .forEach(([n, k]) => { if(k && !TS_CHAVES[n]) marcarChave(n); });
+  // as chaves de IA agora moram no servidor; as que ficaram no aparelho não servem mais
+  try{ ["fite.gemini","fite.openai","fite.groq","fite.tsChaves"].forEach(k => localStorage.removeItem(k)); }catch(e){}
 
   diag("iniciando");
   passo("g-carregando");

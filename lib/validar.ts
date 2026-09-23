@@ -4,7 +4,11 @@
 // injeção — as consultas são parametrizadas —, é evitar que um `undefined` ou um texto
 // gigante vire linha no banco e só apareça como problema meses depois.
 
-export class Recusa extends Error {}
+// 400 por padrão: o dado foi recusado e repetir não adianta. 503 quando o problema é
+// passageiro do nosso lado (IA sem chave, fora do ar) — o app tenta de novo sozinho.
+export class Recusa extends Error {
+  constructor(msg: string, readonly status = 400) { super(msg); }
+}
 
 export function texto(v: unknown, campo: string, max = 2000): string {
   if (typeof v !== "string") throw new Recusa(`${campo} precisa ser texto`);

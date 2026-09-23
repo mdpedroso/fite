@@ -12,7 +12,6 @@ const pega = re => {
 };
 const fonte =
   pega(/const chaveItem = [\s\S]*?\nfunction unirListas[\s\S]*?\n}\n/) +
-  pega(/function mesclarChaves[\s\S]*?\n}\n/) +
   pega(/const LAPIDE_DIAS[\s\S]*?function mesclarEstados[\s\S]*?\n}\n/) +
   pega(/function perdeuItem[\s\S]*?\n}\n/);
 const { mesclarEstados, chaveItem, perdeuItem } =

@@ -145,7 +145,9 @@ export async function criarTreino(usuario: string, corpo: Record<string, unknown
   const d = lerTreino(corpo);
   const ordem = await proximaOrdem("treino", usuario, d.dia);
   // vindo de fora (intervals), o mesmo treino pode chegar duas vezes: o índice único
-  // (usuario, fonte, external_id) transforma a segunda vez em atualização.
+  // (usuario, fonte, external_id) transforma a segunda vez em atualização. Se a pessoa
+  // apagou o treino, a linha fica como está: reimportar não é desfazer a exclusão.
+  // Nesse caso não volta linha nenhuma (null).
   return uma<Treino>(
     `insert into treino (usuario, dia, ordem, modalidade, titulo, detalhe, bruto,
                          kcal, kcal_medido, fonte, external_id, foto_url, llm)
@@ -153,7 +155,8 @@ export async function criarTreino(usuario: string, corpo: Record<string, unknown
      on conflict (usuario, fonte, external_id) where external_id is not null
      do update set dia = excluded.dia, titulo = excluded.titulo, detalhe = excluded.detalhe,
                    modalidade = excluded.modalidade, kcal = excluded.kcal,
-                   kcal_medido = excluded.kcal_medido, apagado_em = null
+                   kcal_medido = excluded.kcal_medido
+       where treino.apagado_em is null
      returning id, ${DIA}, ordem, modalidade, titulo, detalhe, bruto,
                kcal, kcal_medido, fonte, external_id, foto_url, llm`,
     [usuario, d.dia, ordem, d.modalidade, d.titulo, d.detalhe, d.bruto,
