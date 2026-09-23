@@ -1149,7 +1149,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260923131341";
+const VERSAO = "20260923142143";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1737,10 +1737,10 @@ function limparRefeicao(){
   $("in-meal").value = ""; limparFoto();
   $("st-meal").textContent = "";
 }
-// O rascunho (texto e foto) sobrevive a fechar sem querer; o resultado não, porque o
-// botão dele diz em que dia grava e o dia pode ter mudado.
+// Fechou, limpou: quem fecha sem adicionar desistiu daquilo, e abrir de novo com o texto
+// e a foto antigos (ou o número de outra refeição) confunde mais do que ajuda.
 function abrirRefeicao(dia){
-  descartarResultado();
+  limparRefeicao();
   abrir("dlg-meal", "st-meal", dia);
 }
 // mexeu no que descreveu: o número mostrado já não é daquilo
@@ -1804,7 +1804,7 @@ const voz = (() => {
   // fechou o diálogo gravando: o áudio é jogado fora, não vira texto num campo que sumiu
   return {cancelar(){ if(rec){ descartar = true; rec.stop(); } }};
 })();
-$("dlg-meal").addEventListener("close", () => voz.cancelar());
+$("dlg-meal").addEventListener("close", () => { voz.cancelar(); limparRefeicao(); });
 
 function abrir(dlgId, statusId, dia){
   alvoDia = dia || TODAY_ISO;
