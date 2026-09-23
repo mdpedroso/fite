@@ -7,7 +7,9 @@ import { consulta, uma } from "./db.js";
 import { Recusa, texto, textoOpcional, inteiro, numero, dia as validarDia, daLista } from "./validar.js";
 
 export const SLOTS = ["cafe", "lanche_manha", "almoco", "lanche_tarde", "janta", "ceia"] as const;
-export const MODALIDADES = ["corrida", "pedal", "natacao", "forca", "funcional", "aerobico", "outro"] as const;
+// As mesmas do app: mudar aqui sem mudar lá faria o treino chegar como "outro".
+export const MODALIDADES = ["corrida", "bike", "natacao", "musculacao", "crossfit",
+  "caminhada", "funcional", "aerobico", "esporte", "outro"] as const;
 
 // O catálogo de métricas mora aqui, não no banco: incluir "gordura_pct" amanhã é uma linha
 // neste objeto, sem migração.
