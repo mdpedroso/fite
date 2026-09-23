@@ -219,9 +219,25 @@ export async function situacao() {
 // o modo JSON já impede texto fora do objeto; isto é rede de segurança
 function lerJSON(txt: string): unknown {
   try { return JSON.parse(txt); } catch { /* procura o objeto dentro do texto */ }
-  const m = txt.match(/\{[\s\S]*\}/);
-  if (m) { try { return JSON.parse(m[0]); } catch { /* cai na recusa */ } }
-  throw new Recusa("a IA respondeu sem JSON legível; descreva de outro jeito");
+  // o primeiro objeto completo, com as chaves contadas fora de string: pega o caso de o
+  // modelo repetir o JSON ou comentar depois dele, que um "do primeiro { ao último }" junta
+  const ini = txt.indexOf("{");
+  if (ini >= 0) {
+    let nivel = 0, emTexto = false, escape = false;
+    for (let i = ini; i < txt.length; i++) {
+      const ch = txt[i];
+      if (emTexto) {
+        if (escape) escape = false;
+        else if (ch === "\\") escape = true;
+        else if (ch === '"') emTexto = false;
+      } else if (ch === '"') emTexto = true;
+      else if (ch === "{") nivel++;
+      else if (ch === "}" && --nivel === 0) {
+        try { return JSON.parse(txt.slice(ini, i + 1)); } catch { break; }
+      }
+    }
+  }
+  return undefined;
 }
 
 // na hora de estimar, qualquer falha ao descobrir modelo é problema da casa, não do pedido:
@@ -248,7 +264,7 @@ export async function estimar(prompt: string, imagem: Imagem | null): Promise<{ 
   throw erro;
 }
 
-async function estimarCom(c0: Conta, prompt: string, imagem: Imagem | null, jaRedescobriu = false, semJson = false): Promise<{ r: unknown; modelo: string }> {
+async function estimarCom(c0: Conta, prompt: string, imagem: Imagem | null, jaRedescobriu = false, semJson = false, jaRepetiu = false): Promise<{ r: unknown; modelo: string }> {
   const s = c0.servico, sv = servico(s);
   let c: Conta | null = c0;
   if (!c.modelo_texto) {
@@ -287,10 +303,20 @@ async function estimarCom(c0: Conta, prompt: string, imagem: Imagem | null, jaRe
     if (r.status >= 500) throw new Recusa(`${sv.nome} instável agora; tenta de novo sozinho`, 503);
     throw new Recusa(`${sv.nome} recusou (${r.status}): ${msg.slice(0, 100)}`);
   }
-  const txt = (await r.json())?.choices?.[0]?.message?.content;
+  const corpo = await r.json();
+  const bruto = corpo?.choices?.[0]?.message?.content;
+  // alguns provedores devolvem a resposta em partes, não numa string só
+  const txt = Array.isArray(bruto) ? bruto.map((p: any) => p?.text ?? "").join("") : bruto;
   if (!txt) throw new Recusa(`o ${sv.nome} respondeu vazio; tenta de novo sozinho`, 503);
+  const json = lerJSON(String(txt));
+  if (json === undefined) {
+    // registra o que veio: sem isso não há como saber por que falhou (23/09, uma foto)
+    console.error(s, modelo, "JSON ilegível", corpo?.choices?.[0]?.finish_reason, String(txt).slice(0, 1500));
+    if (!jaRepetiu) return estimarCom(c, prompt, imagem, jaRedescobriu, semJson, true);   // costuma ser acaso
+    throw new Recusa("a IA respondeu sem JSON legível; descreva de outro jeito");
+  }
   // `llm` guarda o modelo, não o provedor: é o que permite comparar estimativas depois
-  return { r: lerJSON(String(txt)), modelo: `${s}/` + modelo.replace(/^.*\//, "") };
+  return { r: json, modelo: `${s}/` + modelo.replace(/^.*\//, "") };
 }
 
 // Áudio → texto. Em 23/09, com a lista de palavras abaixo, o whisper-large-v3 acertou
