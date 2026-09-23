@@ -1,0 +1,82 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FiTê — entrar</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  :root{ color-scheme: light; }
+  body{ margin:0; min-height:100dvh; display:flex; align-items:center; justify-content:center;
+        font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background:#f6f7f9; color:#111; padding:24px; }
+  .cartao{ width:100%; max-width:360px; background:#fff; border:1px solid #e4e6ea; border-radius:16px;
+           padding:28px 24px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  h1{ font-size:22px; margin:0 0 4px; letter-spacing:-.01em; }
+  p{ margin:0 0 20px; color:#6b7280; font-size:14px; }
+  #botao{ display:flex; justify-content:center; min-height:44px; }
+  #aviso{ margin-top:18px; font-size:14px; white-space:pre-wrap; text-align:left; }
+  #aviso.ruim{ color:#b42318; }
+  #aviso.bom{ color:#067647; }
+  button.sair{ margin-top:16px; background:none; border:0; color:#6b7280; font:inherit;
+               font-size:13px; text-decoration:underline; cursor:pointer; }
+</style>
+
+<div class="cartao">
+  <h1>FiTê</h1>
+  <p>Entre com a conta Google cadastrada.</p>
+  <div id="botao"></div>
+  <div id="aviso"></div>
+  <button class="sair" id="sair" hidden>sair</button>
+</div>
+
+<script type="module">
+const CLIENT_ID = "351322862966-fjpla5icgsq4uqth36d35fe6nke8o9jv.apps.googleusercontent.com";
+const aviso = document.getElementById("aviso");
+const botaoSair = document.getElementById("sair");
+
+function dizer(texto, classe = ""){ aviso.textContent = texto; aviso.className = classe; }
+
+// O cookie de sessão é HttpOnly: a única forma de saber quem está logado é perguntar.
+async function quemSou(){
+  const r = await fetch("/api/eu", { credentials: "same-origin" });
+  if(!r.ok) return null;
+  return r.json();
+}
+
+function mostrarLogado(eu){
+  dizer(`entrou como ${eu.email}\nnome: ${eu.nome ?? "—"}\nadmin: ${eu.admin ? "sim" : "não"}`, "bom");
+  botaoSair.hidden = false;
+  document.getElementById("botao").hidden = true;
+}
+
+async function entrar(resposta){
+  dizer("entrando…");
+  const r = await fetch("/api/entrar", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ credential: resposta.credential }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok) return dizer(d.erro || `falhou (${r.status})`, "ruim");
+  mostrarLogado(d);
+}
+
+botaoSair.onclick = async () => {
+  await fetch("/api/sair", { method: "POST", credentials: "same-origin" });
+  location.reload();
+};
+
+const eu = await quemSou();
+if(eu){ mostrarLogado(eu); }
+else {
+  // A biblioteca do Google carrega com `async`; esperar o objeto aparecer é mais simples
+  // que amarrar no onload e continua funcionando se o script vier do cache.
+  const pronto = setInterval(() => {
+    if(!window.google?.accounts?.id) return;
+    clearInterval(pronto);
+    google.accounts.id.initialize({ client_id: CLIENT_ID, callback: entrar });
+    google.accounts.id.renderButton(document.getElementById("botao"),
+      { theme: "outline", size: "large", text: "signin_with", locale: "pt-BR" });
+  }, 60);
+}
+</script>
