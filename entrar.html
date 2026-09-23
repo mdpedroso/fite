@@ -16,19 +16,6 @@
   #aviso{ margin-top:18px; font-size:14px; white-space:pre-wrap; text-align:left; }
   #aviso.ruim{ color:#b42318; }
   #aviso.bom{ color:#067647; }
-  #painel{ margin-top:22px; text-align:left; border-top:1px solid #e4e6ea; padding-top:18px; }
-  #painel h2{ font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:#6b7280;
-              margin:18px 0 8px; }
-  #painel h2:first-child{ margin-top:0; }
-  .sub{ font-size:13px; color:#6b7280; margin:6px 0; }
-  #painel input{ width:100%; box-sizing:border-box; padding:10px 12px; font:inherit; font-size:14px;
-                 border:1px solid #d5d8dd; border-radius:9px; margin-bottom:8px; }
-  button.acao{ padding:9px 14px; font:inherit; font-size:14px; border-radius:9px; cursor:pointer;
-               border:0; background:#111; color:#fff; margin:0 6px 6px 0; }
-  button.acao.ghost{ background:#eef0f3; color:#111; }
-  button.acao:disabled{ opacity:.5; cursor:default; }
-  pre{ font-size:12px; background:#f6f7f9; border:1px solid #e4e6ea; border-radius:9px;
-       padding:10px; overflow:auto; max-height:320px; white-space:pre-wrap; word-break:break-word; }
   button.sair{ margin-top:16px; background:none; border:0; color:#6b7280; font:inherit;
                font-size:13px; text-decoration:underline; cursor:pointer; }
 </style>
@@ -38,20 +25,6 @@
   <p>Entre com a conta Google cadastrada.</p>
   <div id="botao"></div>
   <div id="aviso"></div>
-
-  <div id="painel" hidden>
-    <h2>intervals.icu</h2>
-    <p id="icu-estado" class="sub">conferindo…</p>
-    <input id="icu-chave" type="password" placeholder="Cole a chave do intervals.icu" autocomplete="off">
-    <button class="acao" id="icu-conectar">Conectar</button>
-    <button class="acao" id="icu-buscar">Buscar treinos</button>
-    <p id="icu-saida" class="sub"></p>
-
-    <h2>o que está no banco</h2>
-    <button class="acao ghost" id="ver">Ver os últimos 30 dias</button>
-    <pre id="diario" hidden></pre>
-  </div>
-
   <button class="sair" id="sair" hidden>sair</button>
 </div>
 
@@ -70,75 +43,10 @@ async function quemSou(){
 }
 
 function mostrarLogado(eu){
-  dizer(`entrou como ${eu.email}${eu.admin ? " · admin" : ""}`, "bom");
+  dizer(`entrou como ${eu.email}\nnome: ${eu.nome ?? "—"}\nadmin: ${eu.admin ? "sim" : "não"}`, "bom");
   botaoSair.hidden = false;
   document.getElementById("botao").hidden = true;
-  document.getElementById("painel").hidden = false;
-  verIntervals();
 }
-
-// Toda chamada passa por aqui: o cookie de sessão é same-origin e o erro vem no corpo.
-async function api(caminho, opt = {}){
-  const r = await fetch("/api/" + caminho, {
-    credentials: "same-origin", ...opt,
-    headers: opt.body ? { "content-type": "application/json", ...(opt.headers || {}) } : opt.headers,
-  });
-  const d = await r.json().catch(() => ({}));
-  if(!r.ok) throw new Error(d.erro || `HTTP ${r.status}`);
-  return d;
-}
-
-const estado = document.getElementById("icu-estado");
-const saida = document.getElementById("icu-saida");
-
-async function verIntervals(){
-  try{
-    const c = await api("intervals");
-    estado.textContent = c.conectado
-      ? `conectado${c.rotulo ? " · " + c.rotulo : ""}${c.desde ? " · importa desde " + c.desde : ""}`
-      : "não conectado";
-    document.getElementById("icu-buscar").hidden = !c.conectado;
-  }catch(e){ estado.textContent = "não consegui conferir: " + e.message; }
-}
-
-document.getElementById("icu-conectar").onclick = async ev => {
-  const campo = document.getElementById("icu-chave");
-  const chave = campo.value.trim();
-  if(!chave) return campo.focus();
-  ev.target.disabled = true; saida.textContent = "conferindo a chave no intervals.icu…";
-  try{
-    const r = await api("intervals", { method: "PUT", body: JSON.stringify({ chave }) });
-    campo.value = "";                       // a chave não fica na tela depois de guardada
-    saida.textContent = `conectado como ${r.rotulo}`;
-    verIntervals();
-  }catch(e){ saida.textContent = "falhou: " + e.message; }
-  ev.target.disabled = false;
-};
-
-document.getElementById("icu-buscar").onclick = async ev => {
-  ev.target.disabled = true; saida.textContent = "buscando no intervals.icu…";
-  try{
-    const r = await api("intervals", { method: "POST", body: JSON.stringify({ desde: "2026-09-19" }) });
-    saida.textContent = `${r.atividades} atividade(s) lidas · ${r.gravados} gravada(s)` +
-      (r.cascas ? ` · ${r.cascas} ainda sem dados no intervals.icu` : "");
-  }catch(e){ saida.textContent = "falhou: " + e.message; }
-  ev.target.disabled = false;
-};
-
-document.getElementById("ver").onclick = async ev => {
-  const pre = document.getElementById("diario");
-  ev.target.disabled = true;
-  try{
-    const d = await api("diario");
-    pre.textContent =
-      d.refeicoes.map(r => `${r.dia}  ${String(r.kcal).padStart(5)} kcal  ${r.descricao}`).join("\n") +
-      "\n" +
-      d.treinos.map(t => `${t.dia}  ${String(t.kcal).padStart(5)} kcal  ${t.modalidade} · ${t.titulo}` +
-                         `${t.detalhe ? " · " + t.detalhe : ""}`).join("\n");
-    pre.hidden = false;
-  }catch(e){ pre.textContent = "falhou: " + e.message; pre.hidden = false; }
-  ev.target.disabled = false;
-};
 
 async function entrar(resposta){
   dizer("entrando…");
