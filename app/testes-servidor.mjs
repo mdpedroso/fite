@@ -1,14 +1,14 @@
 // Testes da camada que leva o diário ao servidor — as funções são extraídas do próprio
-// novo.html, porque testar uma cópia não provaria nada sobre o que está no ar.
+// index.html, porque testar uma cópia não provaria nada sobre o que está no ar.
 //
 // O que estes testes protegem: nenhum lançamento pode sumir. Nem o feito sem rede, nem o
 // que estava aqui quando o servidor respondeu, nem o que outro aparelho apagou por engano.
 import { readFileSync } from "node:fs";
 
-const html = readFileSync(new URL("../novo.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ini = html.indexOf("/* ==================== o diário no servidor ==================== */");
 const fim = html.indexOf("/* ==================== intervals.icu ==================== */");
-if (ini < 0 || fim < 0) { console.error("não achei a camada de dados no novo.html"); process.exit(1); }
+if (ini < 0 || fim < 0) { console.error("não achei a camada de dados no index.html"); process.exit(1); }
 const CAMADA = html.slice(ini, fim);
 
 /* ---------- o servidor de mentira ---------- */

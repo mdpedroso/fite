@@ -5,7 +5,7 @@ node app/testes-servidor.mjs || exit 1
 # carimba a versão nos dois apps e em versao.txt; cada um compara com o servidor para
 # avisar que há versão nova. Enquanto o app velho existir, os dois carregam o mesmo carimbo.
 V=$(date +%Y%m%d%H%M%S)
-for f in index.html novo.html; do
+for f in index.html velho.html; do
   [ -f "$f" ] || continue
   sed -i '' "s/^const VERSAO = \"[^\"]*\";/const VERSAO = \"$V\";/" "$f"
   git add "$f"

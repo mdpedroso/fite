@@ -497,15 +497,8 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     <div class="logo glogo">FiT<span class="e">e</span></div>
 
     <div class="gstep" id="g-entrar">
-      <button class="gsi" id="g-google">
-        <svg class="gsi-logo" viewBox="0 0 48 48" aria-hidden="true">
-          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-        </svg>
-        <span>Fazer login com o Google</span>
-      </button>
+      <!-- o Google desenha o botão dele aqui: o fluxo de ID token exige o botão oficial -->
+      <div id="g-google"></div>
       <p class="gnote gerro-inline" id="g-erro" hidden></p>
     </div>
 
@@ -543,7 +536,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
       </button>
     </div>
     </div>
-    <div class="seg" id="sync-wrap" hidden><button class="sync ok" id="sync">salvo no Drive</button></div>
+    <div class="seg" id="sync-wrap" hidden><button class="sync ok" id="sync">salvo</button></div>
     <div class="seg" role="group" aria-label="Modo de exibição">
       <button id="btn-full" aria-pressed="true">Dashboard</button>
       <button id="btn-perf" aria-pressed="false">Perfil</button>
@@ -647,10 +640,9 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 
     <section class="card">
       <h2>Recuperar <span class="side" id="p-rec-status"></span></h2>
-      <p class="soon">O Drive guarda as versões anteriores do arquivo. Se algo sumiu,
-      abra uma versão de antes e traga de volta: o que já existe aqui não é tocado,
-      e o que você apagou de propósito não volta.</p>
-      <button class="addbtn" id="p-rec-listar">Ver versões anteriores</button>
+      <p class="soon">O histórico agora é o banco: nada é apagado de verdade lá, nem
+      quando some da tela. Estas cópias são só do aparelho, para quando ele passar um
+      tempo sem servidor.</p>
       <button class="addbtn" id="p-rec-local">Ver cópias deste aparelho</button>
       <button class="addbtn" id="p-exportar">Baixar tudo num arquivo</button>
       <div class="rlista" id="p-rec-lista"></div>
@@ -763,7 +755,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 <dialog id="dlg-confirma" class="confirma">
   <h3>Excluir</h3>
   <p class="c-o" id="c-o"></p>
-  <p class="c-nota">Sai do dia e do Drive. Não dá para desfazer.</p>
+  <p class="c-nota">Sai do dia. Não dá para desfazer.</p>
   <div class="addactions">
     <button type="button" class="btn-cancel" id="c-nao">Manter</button>
     <button type="button" class="btn-del" id="c-sim">Excluir</button>
@@ -817,7 +809,6 @@ for(let i = JANELA-1; i >= 0; i--){
 
 // estado: um registro por dia, mais a série de pesos
 const DIA_MEALS = {}, DIA_WK = {};
-let LIXO_FOTOS = [];   // ids de fotos no Drive cujas refeições foram excluídas
 let OCULTOS = {};      // iso → true: dia ignorado (esqueci de anotar); fora do gráfico e dos totais
 let APAGADOS = {};     // iso → {chave do item: quando}. Sem isso, "sumiu" e "apaguei" são a mesma coisa
 let WEIGHTS = [];
@@ -1182,7 +1173,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922214310";
+const VERSAO = "20260922214937";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1206,48 +1197,20 @@ addEventListener("focus", conferirVersao);
 const versaoLegivel = v => /^\d{14}$/.test(v) ? `${v.slice(6,8)}/${v.slice(4,6)} ${v.slice(8,10)}:${v.slice(10,12)}` : v;
 
 /* ==================== configuração ==================== */
-// criado no Google Cloud Console; a origem do GitHub Pages precisa estar autorizada nele
+// O Client ID só prova quem é a pessoa. Quem decide se ela entra é o backend: tem que
+// existir linha em `usuario`. A lista de e-mails que ficava aqui era sinalização.
 const CLIENT_ID = "351322862966-fjpla5icgsq4uqth36d35fe6nke8o9jv.apps.googleusercontent.com";
-// sha-256 dos e-mails liberados — o e-mail em si nunca aparece no código
-const EMAILS_OK = [
-  "177a35ee343f492e3360f4375c679e8d129200771208848e0ead23430e45656b", // marcos
-  "639d4a7440dccdb54b19920eb6ca7bfba242deb31697bf2cb2f98d616419eea5", // isabela
-];
-const ESCOPOS = "openid email profile https://www.googleapis.com/auth/drive.file";
-const ARQUIVO = "fite.json";
-const LS_GEMINI = "fite.gemini";
+
+// onde o app e o backend moram juntos; fora daqui não existe /api para chamar
+const CASA = "https://fite-psi.vercel.app";
+const foraDeCasa = () => location.protocol.startsWith("http") &&
+  !/(^|\.)vercel\.app$|(^|\.)fite\.app\.br$|^localhost$|^127\.0\.0\.1$/.test(location.hostname);
 
 /* ==================== entrada ==================== */
-let tokenClient = null, accessToken = null, tokenExpira = 0, usuario = null;
-const LS_SESSAO = "fite.sessao";
+// A sessão é um cookie HttpOnly que o backend grava: o JavaScript não lê e o navegador
+// manda sozinho. Saber quem está logado é perguntar em /api/eu — não há token aqui.
+let usuario = null;
 
-// o Google só devolve token por popup, e popup exige clique. Guardamos o token
-// (vale 1h) para que recarregar a página não force login de novo.
-function guardarSessao(){
-  try{
-    localStorage.setItem(LS_SESSAO, JSON.stringify({
-      t: accessToken, exp: tokenExpira, u: usuario,
-    }));
-  }catch(e){}
-}
-function lerSessao(){
-  try{
-    const d = JSON.parse(localStorage.getItem(LS_SESSAO) || "null");
-    if(d?.t && d.exp > Date.now() + 60000) return d;
-  }catch(e){}
-  return null;
-}
-// a mesma sessão, mesmo vencida: serve para saber QUEM é, não para acessar o Drive
-function lerSessaoVencida(){
-  try{ return JSON.parse(localStorage.getItem(LS_SESSAO) || "null"); }catch(e){ return null; }
-}
-function limparSessao(){ try{ localStorage.removeItem(LS_SESSAO); }catch(e){} }
-
-const sha256 = async t => {
-  const b = await crypto.subtle.digest("SHA-256",
-    new TextEncoder().encode(String(t).trim().toLowerCase()));
-  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,"0")).join("");
-};
 const T0 = Date.now();
 addEventListener("error", e => diag("ERRO: " + (e.message || e.error)));
 addEventListener("unhandledrejection", e => diag("PROMESSA: " + (e.reason?.message || e.reason)));
@@ -1264,72 +1227,6 @@ function diag(txt){
 function passo(id){
   ["g-entrar","g-negado","g-carregando"].forEach(x => $(x).hidden = x !== id);
 }
-const esperarGIS = () => new Promise(ok => {
-  const t = setInterval(() => {
-    if(window.google?.accounts?.oauth2){ clearInterval(t); ok(); }
-  }, 60);
-});
-// o Google renova o acesso sem perguntar nada enquanto a sessão dele estiver ativa,
-// por isso não guardamos token em lugar nenhum
-const pedirToken = (silencioso, ms = 20000) => new Promise((ok, falha) => {
-  let pronto = false;
-  const t = setTimeout(() => {
-    if(!pronto){ pronto = true; falha(new Error("token-timeout")); }
-  }, ms);
-  const fim = fn => v => { if(pronto) return; pronto = true; clearTimeout(t); fn(v); };
-  tokenClient.callback = fim(r => r.access_token ? ok(r) : falha(r));
-  tokenClient.error_callback = fim(falha);
-  // hint fixa a conta: sem ele o Google mostra o seletor de contas a cada renovação
-  tokenClient.requestAccessToken({prompt: "", hint: usuario?.email || undefined});
-});
-// uma renovação por vez; quem precisar de token enquanto ela roda espera a mesma promessa
-let renovacao = null, ultimaRenovacao = 0;
-function renovarToken(){
-  if(renovacao) return renovacao;
-  ultimaRenovacao = Date.now();
-  renovacao = pedirToken(true).then(r => {
-    accessToken = r.access_token;
-    tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
-    guardarSessao();
-    return r;
-  }).finally(() => { renovacao = null; });
-  return renovacao;
-}
-async function garantirToken(){
-  if(accessToken && Date.now() < tokenExpira) return;
-  await renovarToken();                   // precisa de clique; só chega aqui se expirou
-}
-// o popup do Google só abre dentro de um toque. Então a renovação pega carona no
-// toque que o usuário já ia dar: perto de vencer, qualquer clique no app renova, e o
-// popup abre e fecha sozinho porque a permissão já foi dada.
-document.addEventListener("click", () => {
-  if(!usuario || !tokenClient || $("app").hidden) return;
-  if(accessToken && Date.now() < tokenExpira - 10*60*1000) return;
-  if(renovacao || Date.now() - ultimaRenovacao < 2*60*1000) return;
-  const vencido = !accessToken || Date.now() >= tokenExpira;
-  renovarToken().then(() => {
-    if(vencido || syncEstado !== "ok") salvar();
-    tocarFila();
-  }).catch(e => console.warn("renovação no toque", e));
-}, true);
-
-async function entrar(silencioso = false){
-  // no silencioso o Google responde por iframe, sem abrir nada para o usuário
-  const r = await pedirToken(silencioso, silencioso ? 7000 : 20000);
-  accessToken = r.access_token;
-  tokenExpira = Date.now() + ((r.expires_in || 3600) - 120) * 1000;
-  usuario = await fetch("https://www.googleapis.com/oauth2/v3/userinfo",
-    {headers:{Authorization:"Bearer " + accessToken}}).then(x => x.json());
-  guardarSessao();
-  if(!EMAILS_OK.includes(await sha256(usuario.email))){
-    limparSessao();
-    try{ google.accounts.oauth2.revoke(accessToken); }catch(e){}
-    accessToken = null;
-    const erro = new Error("nao-autorizado");
-    erro.email = usuario.email;
-    throw erro;
-  }
-}
 
 // toda chamada externa passa por aqui — sem exceção, senão volta a travar
 async function fetchPrazo(url, opt = {}, ms = 15000){
@@ -1339,86 +1236,75 @@ async function fetchPrazo(url, opt = {}, ms = 15000){
   finally{ clearTimeout(t); }
 }
 
-/* ==================== Google Drive ==================== */
-let arquivoId = null;
+/* ==================== o backend ==================== */
+// `permanente` separa o que não adianta repetir (4xx: o dado foi recusado) do que vale
+// tentar de novo (rede, 5xx). Sem essa distinção a fila fica presa num item inválido.
+async function api(caminho, opt = {}){
+  const r = await fetchPrazo("/api/" + caminho, {
+    credentials: "same-origin", cache: "no-store", ...opt,
+    headers: {...(opt.body ? {"Content-Type":"application/json"} : {}), ...(opt.headers || {})},
+  }, 25000);
+  let d = null;
+  try{ d = await r.json(); }catch(e){}
+  if(r.status === 401){
+    usuario = null;
+    const e = new Error("a sessão expirou"); e.status = 401; throw e;
+  }
+  if(!r.ok){
+    const e = new Error(d?.erro || `HTTP ${r.status}`);
+    e.status = r.status;
+    e.permanente = r.status >= 400 && r.status < 500;
+    throw e;
+  }
+  return d;
+}
+const apiEnvia = (caminho, metodo, corpo) =>
+  api(caminho, {method: metodo, body: JSON.stringify(corpo)});
 
-async function drive(url, opt = {}){
-  await garantirToken();
-  try{
-    const r = await fetchPrazo(url, {...opt,
-      headers:{Authorization:"Bearer " + accessToken, ...(opt.headers || {})}}, 20000);
-    if(!r.ok){
-      const corpo = await r.text().catch(() => "");
-      let msg = `HTTP ${r.status}`;
-      try{ msg = JSON.parse(corpo).error?.message || msg; }catch(e){}
-      if(r.status === 401){ limparSessao(); accessToken = null; }
-      const err = new Error(msg); err.status = r.status;
-      throw err;
-    }
-    return r.status === 204 ? null : r.json();
-  }catch(e){
-    if(e.name === "AbortError")
-      throw new Error("sem resposta de www.googleapis.com em 20s — algo na rede " +
-        "(VPN, DNS, bloqueador) parece estar barrando esse endereço");
-    throw e;
-  }
+const esperarGIS = () => new Promise(ok => {
+  const t = setInterval(() => {
+    if(window.google?.accounts?.id){ clearInterval(t); ok(); }
+  }, 60);
+});
+
+async function quemSou(){
+  try{ usuario = await api("eu"); return usuario; }
+  catch(e){ if(e.status === 401){ usuario = null; return null; } throw e; }
 }
-const LS_ARQ = "fite.arquivo";
-async function acharArquivo(){
-  try{ const id = localStorage.getItem(LS_ARQ); if(id) return id; }catch(e){}
-  const q = encodeURIComponent(`name='${ARQUIVO}' and trashed=false`);
-  // o mais recente primeiro: se houver duplicatas, lemos o que tem dados
-  const r = await drive(`https://www.googleapis.com/drive/v3/files?q=${q}` +
-    `&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&spaces=drive`);
-  const id = r.files?.[0]?.id || null;
-  if(id){ try{ localStorage.setItem(LS_ARQ, id); }catch(e){} }
-  return id;
+
+// O botão é o do Google porque o fluxo exige: ele devolve o ID token por callback, sem
+// redirecionamento e sem pop-up.
+function montarBotaoGoogle(){
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: async resp => {
+      passo("g-carregando");
+      $("g-carregando-msg").textContent = "Entrando…";
+      try{
+        usuario = await apiEnvia("entrar", "POST", {credential: resp.credential});
+        diag("entrou: " + usuario.email);
+        await depoisDeEntrar();
+      }catch(e){
+        console.warn("entrada", e);
+        if(e.status === 403){
+          $("g-negado-msg").textContent = e.message;
+          passo("g-negado");
+        }else{
+          passo("g-entrar");
+          $("g-erro").textContent = "Não consegui entrar: " + (e.message || e);
+          $("g-erro").hidden = false;
+        }
+      }
+    },
+  });
+  google.accounts.id.renderButton($("g-google"),
+    {theme:"outline", size:"large", text:"signin_with", locale:"pt-BR", width:280});
 }
-async function lerDrive(){
-  arquivoId ||= await acharArquivo();
-  if(!arquivoId) return null;
-  try{
-    return await drive(`https://www.googleapis.com/drive/v3/files/${arquivoId}?alt=media`);
-  }catch(e){
-    if(e.status === 404){        // o id guardado morreu (arquivo apagado): procura de novo
-      try{ localStorage.removeItem(LS_ARQ); }catch(x){}
-      arquivoId = null;
-      arquivoId = await acharArquivo();
-      if(!arquivoId) return null;
-      return await drive(`https://www.googleapis.com/drive/v3/files/${arquivoId}?alt=media`);
-    }
-    throw e;
-  }
-}
-// nunca sobrescreve às cegas: lê o que está lá, junta com o daqui, e só então grava
-async function gravarDrive(){
-  let remoto = null;
-  try{ remoto = await lerDrive(); }catch(e){ diag("leitura antes de gravar falhou: " + e.message); }
-  const final = mesclarEstados(estadoAtual(), remoto);
-  // trava: o que vai subir não pode ter menos do que já está lá, nem menos do que há aqui
-  const perdidos = [...perdeuItem(remoto, final), ...perdeuItem(estadoAtual(), final)];
-  if(perdidos.length){
-    guardarBackup(remoto || estadoAtual());
-    console.error("gravação no Drive barrada", perdidos);
-    const e = new Error(`trava: ${perdidos.length} item(ns) sumiriam — não gravei`);
-    e.permanente = true; throw e;
-  }
-  adotarEstado(final);
-  gravarLocal();
-  const corpo = JSON.stringify(final);
-  if(arquivoId){
-    await drive(`https://www.googleapis.com/upload/drive/v3/files/${arquivoId}?uploadType=media`,
-      {method:"PATCH", headers:{"Content-Type":"application/json"}, body: corpo});
-    return;
-  }
-  const B = "fiteboundary";
-  const meta = JSON.stringify({name: ARQUIVO, mimeType:"application/json"});
-  const r = await drive("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-    {method:"POST", headers:{"Content-Type":`multipart/related; boundary=${B}`},
-     body: `--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
-           `--${B}\r\nContent-Type: application/json\r\n\r\n${corpo}\r\n--${B}--`});
-  arquivoId = r.id;
-  try{ localStorage.setItem(LS_ARQ, r.id); }catch(e){}
+
+async function sair(){
+  try{ await api("sair", {method:"POST"}); }catch(e){}
+  try{ localStorage.removeItem(LS_DADOS); }catch(e){}   // o cache é do dono da sessão
+  location.reload();
 }
 
 /* ==================== Gemini ==================== */
@@ -1743,9 +1629,9 @@ async function estimarJSON(prompt, imagem){
 // cada dia carrega a hora da última mudança, para saber quem é mais recente
 const TS_DIA = {};
 let tsGeral = 0;
-function marcarDia(iso){ TS_DIA[iso] = tsGeral = Date.now(); }
+function marcarDia(iso){ TS_DIA[iso] = tsGeral = Date.now(); SUJOS.add(iso); }
 
-// as chaves (LLMs e intervals.icu) vão junto com a base no Drive: colar uma vez em
+// as chaves de IA ainda ficam no aparelho; cada uma com seu carimbo, a mais nova vence
 // qualquer aparelho basta. Cada chave tem seu carimbo; a mais nova vence na mescla.
 const LS_TSCHAVES = "fite.tsChaves";
 let TS_CHAVES = {};
@@ -1754,18 +1640,16 @@ function marcarChave(nome){
   TS_CHAVES[nome] = Date.now();
   try{ localStorage.setItem(LS_TSCHAVES, JSON.stringify(TS_CHAVES)); }catch(e){}
 }
+// só as chaves de IA: a do intervals.icu mora no servidor agora
 function chavesAtuais(){
-  const ic = icuCfg();
-  return {gemini: geminiKey || "", openai: openaiKey || "", groq: groqKey || "",
-          icu: ic.k || "", icuAtleta: ic.atleta || "", icuId: ic.id || "", ts: {...TS_CHAVES}};
+  return {gemini: geminiKey || "", openai: openaiKey || "", groq: groqKey || "", ts: {...TS_CHAVES}};
 }
 function mesclarChaves(L, R){
   L = L || {}; R = R || {};
   const tl = L.ts || {}, tr = R.ts || {}, out = {ts: {}};
-  for(const n of ["gemini","openai","groq","icu"]){
+  for(const n of ["gemini","openai","groq"]){
     const F = (tl[n] || 0) >= (tr[n] || 0) ? L : R;
     out[n] = F[n] || ""; out.ts[n] = Math.max(tl[n] || 0, tr[n] || 0);
-    if(n === "icu"){ out.icuAtleta = F.icuAtleta || ""; out.icuId = F.icuId || ""; }
   }
   return out;
 }
@@ -1782,10 +1666,7 @@ function adotarChaves(c){
   if(vence("groq") && (c.groq || "") !== (groqKey || "")){
     groqKey = c.groq || null; groqTexto = null; groqFoto = null; guardarGroq(); groqMudou = !!groqKey;
   }
-  if(vence("icu") && (c.icu || "") !== (icuCfg().k || "")){
-    icuGrava(c.icu ? {k: c.icu, atleta: c.icuAtleta || "", id: c.icuId || ""} : {});
-  }
-  for(const n of ["gemini","openai","groq","icu"]) if(vence(n)) TS_CHAVES[n] = t[n];
+  for(const n of ["gemini","openai","groq"]) if(vence(n)) TS_CHAVES[n] = t[n];
   try{ localStorage.setItem(LS_TSCHAVES, JSON.stringify(TS_CHAVES)); }catch(e){}
   if(groqMudou) descobrirGroq(groqKey).then(d => {
     if(d.texto){ adotarGroq(d); renderIntegracoes(); reiniciarFila(); }
@@ -1795,12 +1676,14 @@ const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(
 
 function estadoAtual(){
   return {versao:3, ts:{...TS_DIA}, tsGeral, perfil:{...PERF}, dias:DIA_MEALS, wk:DIA_WK,
-          pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, lixoFotos:[...LIXO_FOTOS], ocultos:{...OCULTOS},
+          pesos:WEIGHTS, treinos:{desde: TREINOS.desde || null}, ocultos:{...OCULTOS},
           apagados: APAGADOS, chaves: chavesAtuais()};
 }
-// registra que este item foi apagado de propósito, para a mescla não ressuscitá-lo
-function marcarApagado(iso, item){
+// o item já existe no banco: a exclusão vira uma chamada, não um "não mandar mais".
+// A lápide continua aqui só para o cache do aparelho não ressuscitar o item ao reabrir.
+function marcarApagado(iso, item, tabela){
   (APAGADOS[iso] ||= {})[chaveItem(item)] = Date.now();
+  if(item.sid && tabela) APAGAR.push({tabela, sid: item.sid});
 }
 
 // identidade de um item, para juntar listas sem duplicar
@@ -1872,7 +1755,6 @@ function adotarEstado(e){
   if(e.perfil) Object.assign(PERF, e.perfil);
   const tr = e.treinos || e.strava;
   if(tr?.desde) TREINOS.desde = tr.desde;
-  LIXO_FOTOS = Array.isArray(e.lixoFotos) ? e.lixoFotos : [];
   OCULTOS = {}; Object.entries(e.ocultos || {}).forEach(([k, v]) => { if(v) OCULTOS[k] = true; });
   APAGADOS = {}; Object.entries(e.apagados || {}).forEach(([iso, m]) => { APAGADOS[iso] = {...m}; });
   adotarChaves(e.chaves);
@@ -1904,7 +1786,7 @@ function sincHoje(){
 
 const LS_DADOS = "fite.dados";
 const LS_BACKUP = "fite.backups";
-// anel de cópias no próprio aparelho: se o Drive der errado, ainda há de onde tirar
+// anel de cópias no próprio aparelho: se o servidor sumir, ainda há de onde tirar
 function guardarBackup(estado){
   try{
     const ring = JSON.parse(localStorage.getItem(LS_BACKUP) || "[]");
@@ -1917,19 +1799,15 @@ function guardarBackup(estado){
   }catch(e){ console.warn("backup local", e); }
 }
 const lerBackups = () => { try{ return JSON.parse(localStorage.getItem(LS_BACKUP) || "[]"); }catch(e){ return []; } };
+// Cache para o app abrir cheio antes de o servidor responder. O registro é o banco: aqui
+// não vai trava de perda, porque um item que sumiu no servidor sumiu de propósito.
 function gravarLocal(){
-  const estado = estadoAtual();
-  const anterior = lerLocal();
-  const perdidos = anterior ? perdeuItem(anterior, estado) : [];
-  if(perdidos.length){
-    // isto nunca deveria acontecer: guarda o que havia e não deixa a perda virar o novo normal
-    console.error("gravação local perderia itens", perdidos);
-    guardarBackup(anterior);
-    setSync("erro", `trava: ${perdidos.length} item(ns) sumiriam — nada foi sobrescrito`);
-    return false;
-  }
-  try{ localStorage.setItem(LS_DADOS, JSON.stringify(estado)); guardarBackup(estado); return true; }
-  catch(e){ console.warn("localStorage recusou", e); return false; }
+  try{
+    const estado = estadoAtual();
+    localStorage.setItem(LS_DADOS, JSON.stringify(estado));
+    guardarBackup(estado);
+    return true;
+  }catch(e){ console.warn("localStorage recusou", e); return false; }
 }
 function lerLocal(){
   try{ return JSON.parse(localStorage.getItem(LS_DADOS) || "null"); }catch(e){ return null; }
@@ -1960,17 +1838,17 @@ async function salvar(){
       precisaGravar = false;
       setSync("salvando", "salvando…");
       try{
-        await gravarDrive();
+        await enviarPendentes();
         syncEspera = 20000;
         clearTimeout(syncTimer);
-        setSync("ok", "salvo no Drive");
+        setSync("ok", "salvo");
       }catch(e){
-        console.warn("não gravou no Drive", e);
-        const semToken = /token|popup|401/i.test(e?.message || "");
+        console.warn("não gravou no servidor", e);
+        const semToken = e?.status === 401;
         setSync(localOk ? "local" : "erro",
           !localOk ? "NÃO SALVOU — toque para tentar"
-          : semToken ? "salvo aqui · toque para enviar ao Drive"
-          : "salvo aqui · Drive fora, tentando de novo");
+          : semToken ? "salvo aqui · toque para entrar de novo"
+          : "salvo aqui · servidor fora, tentando de novo");
         if(!semToken) agendarNovaTentativa();
         break;
       }
@@ -1979,24 +1857,25 @@ async function salvar(){
   })();
   return gravando;
 }
-// toque no indicador: com clique o Google deixa abrir o pop-up, se o token venceu
+// toque no indicador: manda o que está pendente e relê o diário do servidor
 async function sincronizarAgora(){
   if(syncEstado === "salvando") return;
+  setSync("salvando", "sincronizando…");
   try{
-    if(!accessToken || Date.now() >= tokenExpira){
-      setSync("salvando", "reconectando…");
-      await renovarToken();
-      // reconectou: o que houver no Drive entra na mescla antes de gravar
-      try{ adotarEstado(mesclarEstados(estadoAtual(), await lerDrive())); renderTudo(); }
-      catch(e){ console.warn("Drive ao reconectar", e); }
-      tocarFila();            // fotos que esperavam sessão vão para o Drive agora
-    }
+    await enviarPendentes();
+    // só relê depois que tudo saiu: reler com item pendente na memória o apagaria da tela
+    adotarDoServidor(await lerServidor());
+    gravarLocal();
+    renderTudo();
+    syncEspera = 20000;
+    clearTimeout(syncTimer);
+    setSync("ok", "salvo");
   }catch(e){
-    console.warn(e);
-    setSync("local", "não reconectou · toque para tentar de novo");
-    return;
+    console.warn("sincronização", e);
+    if(e.status === 401){ setSync("local", "sessão vencida · toque para entrar de novo"); return void (location.href = location.pathname); }
+    setSync("local", "salvo aqui · servidor fora, tentando de novo");
+    agendarNovaTentativa();
   }
-  salvar();
 }
 // ao voltar para a aba, tenta de novo o que ficou pendente
 document.addEventListener("visibilitychange", () => {
@@ -2328,7 +2207,8 @@ function criarFoto(pref){
 const fotoMeal = criarFoto("foto"), fotoWk = criarFoto("wfoto");
 const limparFoto = () => fotoMeal.limpar();
 
-// miniaturas: memória → IndexedDB → Drive (e volta a guardar no IndexedDB)
+// miniaturas: memória → IndexedDB. Enquanto não houver bucket, a foto fica no aparelho
+// onde foi tirada: serve para a estimativa e para a miniatura, e não atravessa celulares.
 const THUMBS = new Map();
 const blobParaB64 = blob => new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result.split(",")[1]); fr.readAsDataURL(blob); });
 async function fotoDoItem(m){
@@ -2336,18 +2216,6 @@ async function fotoDoItem(m){
   if(f) return f;
   f = await idb.get(m.id);
   if(f){ FOTOS.set(m.id, f); return f; }
-  if(m.fotoId && accessToken){
-    try{
-      const r = await fetchPrazo(`https://www.googleapis.com/drive/v3/files/${m.fotoId}?alt=media`,
-        {headers:{Authorization:"Bearer " + accessToken}}, 20000);
-      if(r.ok){
-        const blob = await r.blob();
-        f = {mime: blob.type || "image/jpeg", b64: await blobParaB64(blob)};
-        FOTOS.set(m.id, f); idb.set(m.id, f);
-        return f;
-      }
-    }catch(e){ console.warn("foto do Drive", e); }
-  }
   return null;
 }
 async function thumbDe(m){
@@ -2483,7 +2351,7 @@ function adicionarConsulta(){
   depoisDeGravar();
   limparRefeicao();
   $("dlg-meal").close();
-  tocarFila();            // a foto, se houver, segue para o Drive
+  tocarFila();
 }
 // tira-dúvida: estima na hora e mostra no próprio modal; nada entra no dia
 async function consultar(texto, foto){
@@ -2530,48 +2398,10 @@ $("fm-wk").onsubmit = ev => {
   tocarFila();
 };
 
-/* ---------- fotos para o Drive ---------- */
-let pastaFotosId = null;
-async function pastaFotos(){
-  if(pastaFotosId) return pastaFotosId;
-  try{ pastaFotosId = localStorage.getItem("fite.pasta"); }catch(e){}
-  if(pastaFotosId) return pastaFotosId;
-  const q = encodeURIComponent(`name='FiTê fotos' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const r = await drive(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`);
-  let id = r.files?.[0]?.id;
-  if(!id){
-    const c = await drive("https://www.googleapis.com/drive/v3/files?fields=id",
-      {method:"POST", headers:{"Content-Type":"application/json"},
-       body: JSON.stringify({name:"FiTê fotos", mimeType:"application/vnd.google-apps.folder"})});
-    id = c.id;
-  }
-  pastaFotosId = id;
-  try{ localStorage.setItem("fite.pasta", id); }catch(e){}
-  return id;
-}
-const fotosPorEnviar = () => {
-  const out = [];
-  [DIA_MEALS, DIA_WK].forEach(mapa => Object.entries(mapa).forEach(([iso, arr]) =>
-    (arr || []).forEach(m => { if(m.temFoto && !m.fotoId && !m.desistiu) out.push({iso, item:m}); })));
-  return out;
-};
-async function enviarFoto(p){
-  const m = p.item;
-  const f = FOTOS.get(m.id) || await idb.get(m.id);
-  if(!f){ m.desistiu = true; return; }     // sem material: não há o que enviar
-  const pasta = await pastaFotos();
-  const bin = atob(f.b64), bytes = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const B = "fitefoto";
-  const meta = JSON.stringify({name:`${p.iso} ${m.id}.jpg`, parents:[pasta], mimeType:f.mime});
-  const body = new Blob([
-    `--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${B}\r\nContent-Type: ${f.mime}\r\n\r\n`,
-    bytes, `\r\n--${B}--`]);
-  const r = await drive("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
-    {method:"POST", headers:{"Content-Type":`multipart/related; boundary=${B}`}, body});
-  m.fotoId = r.id;
-  recalcDia(p.iso); salvarDia(p.iso);
-}
+/* ---------- fotos ---------- */
+// A foto ainda não tem para onde subir. Enquanto o bucket não existe, ela vive no
+// IndexedDB deste aparelho e a fila não tem foto para enviar.
+const fotosPorEnviar = () => [];
 
 /* ---------- fila de estimativas ---------- */
 // relógio leve nos itens pendentes: nunca parece travado
@@ -2644,7 +2474,7 @@ async function estimarItem(p){
       kc: t.kcal, p: t.p, c: t.c, g: t.g,
     });
     if(t.itens.length) m.itens = t.itens.map(i => ({n: i.nome, kc: i.kcal}));
-    delete m.pendente;          // a foto fica: vira miniatura e vai para o Drive
+    delete m.pendente;          // a foto fica: vira miniatura aqui no aparelho
   } else {
     let foto = FOTOS.get(m.id) || null;
     if(!foto && m.temFoto){ foto = await idb.get(m.id); if(foto) FOTOS.set(m.id, foto); }
@@ -2676,7 +2506,7 @@ async function estimarItem(p){
 
 async function tocarFila(){
   if(rodandoFila) return;
-  if(!(geminiKey || openaiKey || groqKey) && !LIXO_FOTOS.length && !fotosPorEnviar().length) return;
+  if(!(geminiKey || openaiKey || groqKey)) return;
   rodandoFila = true;
   const gen = filaGeracao;
   const morta = () => gen !== filaGeracao;   // outra rodada assumiu
@@ -2684,17 +2514,6 @@ async function tocarFila(){
     let espera = 4000;
     while(!morta()){
       const lista = pendentes();
-      if(LIXO_FOTOS.length && accessToken){
-        const antes = LIXO_FOTOS.length;
-        await apagarFotosNoDrive();
-        if(LIXO_FOTOS.length !== antes) salvar();
-      }
-      // fotos já estimadas mas ainda não no Drive: envia sem segurar a estimativa
-      for(const p of fotosPorEnviar()){
-        if(morta()) return;
-        if(!accessToken) break;                 // sem sessão: fica para quando reconectar
-        try{ await enviarFoto(p); }catch(e){ console.warn("foto para o Drive adiada", e); break; }
-      }
       if(!lista.length) break;
       let avancou = false;
       for(const p of lista){
@@ -2820,39 +2639,7 @@ $("fm-peso").onsubmit = ev => {
 /* ---------- excluir refeição e treino ---------- */
 function descartarFoto(m){
   FOTOS.delete(m.id); THUMBS.delete(m.id); idb.del(m.id);
-  if(m.fotoId && !LIXO_FOTOS.includes(m.fotoId)) LIXO_FOTOS.push(m.fotoId);
 }
-// lixeira do Drive: recuperável por 30 dias; um 404 quer dizer que já não existe
-async function apagarFotosNoDrive(){
-  for(const id of [...LIXO_FOTOS]){
-    if(!accessToken) return;
-    try{
-      await drive(`https://www.googleapis.com/drive/v3/files/${id}`,
-        {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({trashed:true})});
-      LIXO_FOTOS = LIXO_FOTOS.filter(x => x !== id);
-    }catch(e){
-      if(e.status === 404) LIXO_FOTOS = LIXO_FOTOS.filter(x => x !== id);
-      else { console.warn("lixeira adiada", e); return; }
-    }
-  }
-}
-$("meals").addEventListener("click", async e => {
-  const b = e.target.closest(".del[data-i]"); if(!b) return;   // os × invisíveis do cabeçalho e do total não contam
-  const iso = histIso, arr = DIA_MEALS[iso] || [], i = +b.dataset.i, m = arr[i];
-  if(!m || !await confirmar(m.desc)) return;
-  if(arr[i] !== m) return;        // a lista mudou enquanto o modal estava aberto
-  descartarFoto(m); marcarApagado(iso, m);
-  arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll(); tocarFila();
-});
-$("workouts").addEventListener("click", async e => {
-  const b = e.target.closest(".del"); if(!b) return;
-  const iso = histIso, arr = DIA_WK[iso] || [], i = +b.dataset.i, w = arr[i];
-  if(!w || !await confirmar(w.t)) return;
-  if(arr[i] !== w) return;
-  descartarFoto(w); marcarApagado(iso, w);
-  arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll(); tocarFila();
-});
-
 /* ---------- histórico ---------- */
 // o histórico não tem limite para trás: setas andam um dia, o calendário pula direto
 let histIso = TODAY_ISO;
@@ -2897,127 +2684,265 @@ function setView(botao){
 }
 ABAS.forEach(([b])=> $(b).onclick = () => setView(b));
 
-/* ==================== intervals.icu ==================== */
-const LS_ICU = "fite.intervals";
-const ICU = "https://intervals.icu/api/v1";
-// os tipos são os mesmos do Strava/Garmin
-const ICU_MOD = {
-  Run:"corrida", TrailRun:"corrida", VirtualRun:"corrida", Treadmill:"corrida",
-  Ride:"bike", VirtualRide:"bike", MountainBikeRide:"bike", GravelRide:"bike", EBikeRide:"bike",
-  Swim:"natacao", OpenWaterSwim:"natacao", WeightTraining:"musculacao", Crossfit:"crossfit",
-  Walk:"caminhada", Hike:"caminhada",
-  Workout:"funcional", HighIntensityIntervalTraining:"funcional",
-  Elliptical:"aerobico", StairStepper:"aerobico", Rowing:"aerobico",
-  Soccer:"esporte", Tennis:"esporte", Basketball:"esporte",
+/* ==================== o diário no servidor ==================== */
+// Antes o app subia o arquivo inteiro e uma mescla decidia o que sobrevivia — foi assim
+// que quatro refeições sumiram em 21/09. Agora cada lançamento é uma linha no banco e a
+// tela manda só o que mudou: não existe mescla, então não existe gravação que apague a
+// outra. A memória aqui continua igual; o que mudou é o caminho até o servidor.
+const SUJOS = new Set();          // dias com alteração ainda não enviada
+const APAGAR = [];                // {tabela, sid} de itens excluídos aqui
+let ENVIADO_PESO = {}, ENVIADO_OCULTO = {}, ENVIADO_PERFIL = "";
+
+// a tela fala "café da manhã"; o banco guarda a chave. Sem o de-para, o backend cairia
+// no padrão e todo lançamento viraria almoço.
+const SLOT_CHAVE = {"café":"cafe", "lanche manhã":"lanche_manha", "almoço":"almoco",
+                    "lanche tarde":"lanche_tarde", "janta":"janta", "ceia":"ceia"};
+const SLOT_TELA = Object.fromEntries(Object.entries(SLOT_CHAVE).map(([k, v]) => [v, k]));
+
+const inteiro = v => Math.max(0, Math.round(Number(v) || 0));
+
+const refeicaoParaApi = (iso, m) => ({
+  dia: iso,
+  slot: SLOT_CHAVE[String(m.slot || "").toLowerCase()] || null,
+  descricao: (m.desc || "").trim() || "Refeição",
+  bruto: m.raw || null, interpretacao: m.interp || null,
+  kcal: inteiro(m.kc), p: inteiro(m.p), c: inteiro(m.c), g: inteiro(m.g),
+  itens: Array.isArray(m.itens) && m.itens.length
+    ? m.itens.map(i => ({n: String(i.n || i.nome || "").trim(), kc: inteiro(i.kc ?? i.kcal)}))
+             .filter(i => i.n)
+    : null,
+  llm: m.via || null,
+});
+const refeicaoDaApi = r => ({
+  id: r.id, sid: r.id, slot: SLOT_TELA[r.slot] || r.slot || "",
+  desc: r.descricao, raw: r.bruto || "", interp: r.interpretacao || "",
+  kc: r.kcal, p: r.p, c: r.c, g: r.g,
+  ...(r.itens?.length ? {itens: r.itens} : {}), via: r.llm || "",
+});
+
+const treinoParaApi = (iso, w) => ({
+  dia: iso, modalidade: w.mod || "outro",
+  titulo: (w.t || "").trim() || "Treino", detalhe: w.m || null, bruto: w.raw || null,
+  kcal: inteiro(w.kc), kcal_medido: !!w.kcMedido,
+  fonte: w.icu ? "intervals" : null, external_id: w.icu ? String(w.icu) : null,
+  llm: w.via || null,
+});
+const treinoDaApi = w => ({
+  id: w.id, sid: w.id, mod: w.modalidade, t: w.titulo, m: w.detalhe || "",
+  raw: w.bruto || "", kc: w.kcal, kcMedido: w.kcal_medido,
+  icu: w.external_id || null, via: w.llm || "",
+});
+
+const perfilParaApi = () => ({
+  sexo: PERF.sexo || null, nascimento: PERF.nasc || null,
+  altura_cm: PERF.altura || null, fator_rotina: FATOR_ROTINA,
+  externo_desde: TREINOS.desde || null,
+});
+
+// 400 dias: o histórico inteiro deste app cabe nisso e evita paginar por enquanto
+const lerServidor = () => {
+  const de = new Date(Date.now() - 400 * 864e5).toLocaleDateString("sv-SE");
+  return api(`diario?de=${de}&ate=${TODAY_ISO}`);
 };
-const icuCfg = () => { try{ return JSON.parse(localStorage.getItem(LS_ICU) || "{}"); }catch(e){ return {}; } };
-const icuGrava = c => { try{ localStorage.setItem(LS_ICU, JSON.stringify(c)); }catch(e){} };
-// Basic auth com usuário fixo "API_KEY", como a documentação manda
-const icuAuth = k => "Basic " + btoa("API_KEY:" + k);
-async function icuGet(caminho, chave){
-  const r = await fetchPrazo(ICU + caminho, {headers:{Authorization: icuAuth(chave)}}, 20000);
-  if(!r.ok){
-    const e = new Error(r.status === 401 || r.status === 403 ? "chave recusada" : `HTTP ${r.status}`);
-    e.status = r.status; throw e;
+
+// Um item sem `sid` nunca chegou ao servidor: foi lançado sem rede, ou o envio falhou.
+// Ele não pode estar na resposta, então adotar o servidor por cima o apagaria — este
+// é exatamente o tipo de sumiço que o app não pode ter. Eles voltam para a lista e os
+// dias deles seguem sujos, para a próxima gravação mandá-los.
+function adotarDoServidor(d){
+  const orfaos = {meal: {}, wk: {}};
+  for(const [iso, arr] of Object.entries(DIA_MEALS)){
+    const sem = (arr || []).filter(m => !m.sid);
+    if(sem.length) orfaos.meal[iso] = sem;
   }
-  return r.json();
+  for(const [iso, arr] of Object.entries(DIA_WK)){
+    const sem = (arr || []).filter(w => !w.sid);
+    if(sem.length) orfaos.wk[iso] = sem;
+  }
+
+  Object.keys(DIA_MEALS).forEach(k => delete DIA_MEALS[k]);
+  Object.keys(DIA_WK).forEach(k => delete DIA_WK[k]);
+  for(const r of d.refeicoes || []) (DIA_MEALS[r.dia] ||= []).push(refeicaoDaApi(r));
+  for(const w of d.treinos || []) (DIA_WK[w.dia] ||= []).push(treinoDaApi(w));
+
+  WEIGHTS = (d.medicoes || []).filter(m => m.metrica === "peso_kg")
+                              .map(m => ({d: m.dia, kg: m.valor}));
+  OCULTOS = {}; (d.ignorados || []).forEach(iso => { OCULTOS[iso] = true; });
+
+  const pf = d.perfil || {};
+  if(pf.sexo) PERF.sexo = pf.sexo;
+  if(pf.nascimento) PERF.nasc = pf.nascimento;
+  if(pf.altura_cm) PERF.altura = pf.altura_cm;
+  TREINOS.desde = pf.externo_desde || TREINOS.desde;
+
+  // marca o que já é igual ao servidor, para a próxima gravação mandar só o que mudar
+  for(const [iso, arr] of Object.entries(DIA_MEALS))
+    (arr || []).forEach(m => { m._enviado = JSON.stringify(refeicaoParaApi(iso, m)); });
+  for(const [iso, arr] of Object.entries(DIA_WK))
+    (arr || []).forEach(w => { w._enviado = JSON.stringify(treinoParaApi(iso, w)); });
+  ENVIADO_PESO = {}; WEIGHTS.forEach(w => { ENVIADO_PESO[w.d] = w.kg; });
+  ENVIADO_OCULTO = {...OCULTOS};
+  ENVIADO_PERFIL = JSON.stringify(perfilParaApi());
+  SUJOS.clear();
+
+  for(const [iso, itens] of Object.entries(orfaos.meal)){
+    (DIA_MEALS[iso] ||= []).push(...itens); SUJOS.add(iso);
+  }
+  for(const [iso, itens] of Object.entries(orfaos.wk)){
+    (DIA_WK[iso] ||= []).push(...itens); SUJOS.add(iso);
+  }
+  const quantos = Object.values(orfaos.meal).concat(Object.values(orfaos.wk))
+                        .reduce((n, a) => n + a.length, 0);
+  if(quantos) diag(`${quantos} lançamento(s) ainda não estavam no servidor — mantidos`);
+
+  sincHoje();
 }
+
+// Depois de abrir pelo cache: o que está aqui e não tem `sid`, ou mudou depois do último
+// envio, precisa ir para o servidor. Sem isto, um lançamento feito sem rede ficaria
+// preso neste aparelho para sempre, porque a lista de dias sujos não sobrevive ao reload.
+function remarcarSujos(){
+  for(const [iso, arr] of Object.entries(DIA_MEALS))
+    for(const m of arr || [])
+      if(!m.sid || m._enviado !== JSON.stringify(refeicaoParaApi(iso, m))) SUJOS.add(iso);
+  for(const [iso, arr] of Object.entries(DIA_WK))
+    for(const w of arr || [])
+      if(!w.sid || w._enviado !== JSON.stringify(treinoParaApi(iso, w))) SUJOS.add(iso);
+}
+
+async function enviarItem(tabela, iso, item, monta){
+  const corpo = monta(iso, item);
+  const assinatura = JSON.stringify(corpo);
+  if(item._enviado === assinatura) return;
+  if(item.sid){
+    try{
+      await apiEnvia(tabela, "PATCH", {...corpo, id: item.sid});
+    }catch(e){
+      // a linha não está mais lá (apagada em outro aparelho): o que está aqui vale, então
+      // volta a existir em vez de sumir sem ninguém ter mandado apagar
+      if(e.status === 400 && /não encontrad/i.test(e.message)){
+        item.sid = null;
+        const r = await apiEnvia(tabela, "POST", corpo);
+        item.sid = r.id;
+      }else throw e;
+    }
+  }else{
+    const r = await apiEnvia(tabela, "POST", corpo);
+    item.sid = r.id;
+  }
+  item._enviado = assinatura;
+}
+
+async function enviarPendentes(){
+  while(APAGAR.length){
+    const alvo = APAGAR[0];
+    try{
+      await api(`${alvo.tabela}?id=${encodeURIComponent(alvo.sid)}`, {method:"DELETE"});
+    }catch(e){
+      if(!e.permanente) throw e;      // rede/servidor: tenta de novo depois
+    }
+    APAGAR.shift();                   // 4xx aqui quer dizer que já não existe
+  }
+
+  for(const iso of [...SUJOS]){
+    for(const m of DIA_MEALS[iso] || []) await enviarItem("refeicao", iso, m, refeicaoParaApi);
+    for(const w of DIA_WK[iso] || []) await enviarItem("treino", iso, w, treinoParaApi);
+    SUJOS.delete(iso);
+  }
+
+  for(const w of WEIGHTS){
+    if(ENVIADO_PESO[w.d] === w.kg) continue;
+    await apiEnvia("medicao", "PUT", {dia: w.d, metrica: "peso_kg", valor: w.kg});
+    ENVIADO_PESO[w.d] = w.kg;
+  }
+  for(const dia of Object.keys(ENVIADO_PESO)){
+    if(WEIGHTS.some(w => w.d === dia)) continue;
+    try{ await api(`medicao?dia=${dia}&metrica=peso_kg`, {method:"DELETE"}); }
+    catch(e){ if(!e.permanente) throw e; }
+    delete ENVIADO_PESO[dia];
+  }
+
+  for(const iso of Object.keys(OCULTOS)){
+    if(ENVIADO_OCULTO[iso]) continue;
+    await apiEnvia("dia", "POST", {dia: iso});
+    ENVIADO_OCULTO[iso] = true;
+  }
+  for(const iso of Object.keys(ENVIADO_OCULTO)){
+    if(OCULTOS[iso]) continue;
+    try{ await api(`dia?dia=${iso}`, {method:"DELETE"}); }
+    catch(e){ if(!e.permanente) throw e; }
+    delete ENVIADO_OCULTO[iso];
+  }
+
+  const perfil = JSON.stringify(perfilParaApi());
+  if(perfil !== ENVIADO_PERFIL){
+    await api("perfil", {method:"PUT", body: perfil});
+    ENVIADO_PERFIL = perfil;
+  }
+}
+
+/* ==================== intervals.icu ==================== */
+// A chave mora no servidor e quem busca é o backend. Aqui fica só o estado da conta,
+// para a tela do perfil saber o que mostrar — e a importação deixa de depender de qual
+// aparelho está aberto.
+let ICU = {conectado:false, rotulo:null, ultima_busca:null, desde:null};
+let icuRodando = false, icuVisto = 0;
+
+async function icuVer(){
+  try{ ICU = await api("intervals"); }catch(e){ console.warn("intervals", e); }
+  renderIntegracoes();
+}
+
 async function icuConectar(){
-  const k = $("p-icu-key").value.trim() || icuCfg().k;
-  if(!k){ alert("Cole a chave de API do intervals.icu."); return; }
+  const campo = $("p-icu-key"), chave = campo.value.trim();
+  if(!chave){ campo.focus(); return; }
   const bt = $("p-icu-conectar");
   bt.disabled = true; bt.textContent = "Conectando…";
   try{
-    const a = await icuGet("/athlete/0", k);        // 0 = o dono da chave
-    icuGrava({k, atleta: a.name || a.id || "conectado", id: a.id});
-    marcarChave("icu");
-    TREINOS.desde = $("p-icu-desde").value || TREINOS.desde;
-    salvar();
-    $("p-icu-key").value = "";
+    // o backend confere a chave no serviço antes de guardar: chave errada falha agora
+    await apiEnvia("intervals", "PUT", {chave});
+    campo.value = "";                 // a chave some da tela assim que o servidor aceita
     bt.textContent = "Conectado";
+    await icuVer();
   }catch(e){
-    bt.textContent = e.message === "chave recusada" ? "Chave recusada" : "Falhou: " + e.message;
+    bt.textContent = /recusou/i.test(e.message || "") ? "Chave recusada" : "Falhou: " + e.message;
   }
   bt.disabled = false;
-  renderIntegracoes();
-  setTimeout(() => { bt.textContent = icuCfg().k ? "Reconectar" : "Conectar"; }, 3500);
+  setTimeout(() => { bt.textContent = ICU.conectado ? "Reconectar" : "Conectar"; }, 3500);
 }
-let icuRodando = false;
+
 async function icuSincronizar(auto){
-  const c = icuCfg();
-  if(!c.k || icuRodando) return;
+  if(!ICU.conectado || icuRodando) return;
   icuRodando = true;
   const bt = $("p-icu-sync");
   if(!auto){ bt.disabled = true; bt.textContent = "Buscando…"; }
   $("bt-wk-sync").classList.add("rodando");
   try{
-    const desde = TREINOS.desde || DAYS[0].d;
-    const campos = "id,name,type,start_date_local,start_date,moving_time,elapsed_time,distance,calories,average_speed";
-    const lista = await icuGet(`/athlete/0/activities?oldest=${desde}&limit=500&fields=${campos}`, c.k);
-    window.__icuUltimo = lista;                 // para inspeção no console, se precisar
-    let novos = 0, atualizados = 0, cascas = 0;
-    const montar = a => {
-      const mod = ICU_MOD[a.type] || "outro";
-      const km = (a.distance || 0) / 1000, min = Math.round((a.moving_time || a.elapsed_time || 0) / 60);
-      const det = [];
-      if(km >= 0.2 && ["corrida","bike","caminhada","natacao"].includes(mod))
-        det.push(km.toFixed(1).replace(".", ",") + " km");
-      if(min) det.push(min >= 60 ? `${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}` : `${min} min`);
-      if(mod === "corrida" && a.average_speed){ const sp = Math.round(1000 / a.average_speed);
-        det.push(`${Math.floor(sp/60)}:${String(sp%60).padStart(2,"0")} /km`); }
-      const kc = a.calories ? Math.round(a.calories) : (min ? estimarKcal(mod, min, String(a.start_date_local || a.start_date || "").slice(0,10)) : 0);
-      const casca = !a.name && !a.type && !min;   // veio sem conteúdo (Strava ainda não entregou)
-      return {mod, t: a.name || MOD_NOME[mod], m: det.join(" · "), kc, kcMedido: !!a.calories, casca};
-    };
-    for(const a of lista){
-      const iso = String(a.start_date_local || a.start_date || "").slice(0, 10);
-      if(!iso) continue;
-      const arr = DIA_WK[iso] ||= [];
-      const n = montar(a);
-      if(n.casca){ cascas++; console.warn("intervals.icu: atividade sem dados", a); }
-      const ja = arr.find(w => w.icu === a.id);
-      if(ja){
-        // já importado: se estava vazio (marcado ou não) e agora tem conteúdo, completa
-        const eraCasca = ja.casca || (ja.mod === "outro" && !ja.kc && !ja.m);
-        if(eraCasca && !n.casca){ Object.assign(ja, n); marcarDia(iso); recalcDia(iso); atualizados++; }
-        continue;
-      }
-      arr.push({id: novoId(), icu: a.id, raw: a.name || "", ...n});
-      marcarDia(iso); recalcDia(iso);
-      novos++;
-    }
-    const primeiraCasca = lista.find(a => { const n = montar(a); return n.casca; });
-    $("p-icu-diag").textContent = cascas
-      ? `${cascas} atividade(s) sem nome/tipo/tempo — o intervals.icu ainda não recebeu os dados. ` +
-        `Como veio: ${JSON.stringify(primeiraCasca).slice(0, 220)}`
-      : "";
-    icuGrava({...icuCfg(), auto: Date.now()});
-    if(novos || atualizados){ await salvar(); renderTudo(); }
-    if(auto) return;
-    bt.textContent = novos || atualizados
-      ? [novos && `${novos} novo${novos>1?"s":""}`, atualizados && `${atualizados} completado${atualizados>1?"s":""}`].filter(Boolean).join(" · ")
+    await enviarPendentes();          // o que foi lançado aqui sobe antes de reler
+    const r = await apiEnvia("intervals", "POST", TREINOS.desde ? {desde: TREINOS.desde} : {});
+    adotarDoServidor(await lerServidor());
+    gravarLocal(); recalcDays(); renderTudo();
+    if(!auto) bt.textContent = r.gravados
+      ? `${r.gravados} treino(s)` + (r.cascas ? ` · ${r.cascas} ainda sem dados lá` : "")
+      : r.cascas ? `${r.cascas} atividade(s) ainda sem dados no intervals.icu`
       : "Nada novo por lá";
   }catch(e){
     console.warn(e);
-    if(!auto) bt.textContent = e.message === "chave recusada" ? "Chave recusada — reconecte" : "Falhou: " + e.message;
+    if(!auto) bt.textContent = "Falhou: " + (e.message || e);
   }finally{
     icuRodando = false;
     $("bt-wk-sync").classList.remove("rodando");
     if(!auto){ bt.disabled = false; setTimeout(() => { bt.textContent = "Buscar treinos novos"; }, 3500); }
   }
 }
+
 // ao abrir o app ou voltar para ele: busca sozinho, no máximo a cada 15 min
 function icuAuto(){
-  const c = icuCfg();
-  if(!c.k || Date.now() - (c.auto || 0) < 15*60*1000) return;
+  if(!ICU.conectado || Date.now() - icuVisto < 15*60*1000) return;
+  icuVisto = Date.now();
   icuSincronizar(true);
 }
-// sem calorias medidas pelo aparelho: MET × peso × tempo
-function estimarKcal(mod, min, iso){
-  const MET = {corrida:9.8, bike:7.5, natacao:7.0, musculacao:5.0, crossfit:8.0,
-               caminhada:3.5, funcional:6.0, aerobico:6.5, esporte:7.0, outro:5.5};
-  return Math.round((MET[mod] || 5.5) * 3.5 * pesoEm(iso || TODAY_ISO) / 200 * min);
-}
+
 function renderIntegracoes(){
   $("p-gem-status").textContent = geminiKey ? "conectado" : "não configurado";
   $("p-oai-status").textContent = openaiKey ? "conectado" : "não configurado";
@@ -3029,24 +2954,19 @@ function renderIntegracoes(){
   $("p-gem-key").placeholder = geminiKey ? "•••••••• (trocar)" : "Cole a chave do Google AI Studio";
   $("p-versao").textContent = "versão do app: " + versaoLegivel(VERSAO);
   try{ $("p-tema").value = localStorage.getItem("fite.tema") || "claro"; }catch(e){}
-  const ic = icuCfg();
   $("p-icu-desde").value = TREINOS.desde || "";
-  $("p-icu-status").textContent = ic.k ? (ic.atleta ? `conectado · ${ic.atleta}` : "conectado") : "não conectado";
-  $("p-icu-sync").hidden = !ic.k;
-  $("bt-wk-sync").hidden = !ic.k;
-  $("p-icu-conectar").textContent = ic.k ? "Reconectar" : "Conectar";
-  $("p-icu-key").placeholder = ic.k ? "•••••••• (trocar)" : "Cole a chave do intervals.icu";
-  if(usuario) $("brand-quem").textContent =
-    "· " + (usuario.given_name || usuario.name || "");
+  $("p-icu-status").textContent = ICU.conectado
+    ? (ICU.rotulo ? `conectado · ${ICU.rotulo}` : "conectado") : "não conectado";
+  $("p-icu-sync").hidden = !ICU.conectado;
+  $("bt-wk-sync").hidden = !ICU.conectado;
+  $("p-icu-conectar").textContent = ICU.conectado ? "Reconectar" : "Conectar";
+  $("p-icu-key").placeholder = ICU.conectado ? "•••••••• (trocar)" : "Cole a chave do intervals.icu";
+  // o backend devolve e-mail e nome; foto de perfil não passa por ele
+  if(usuario) $("brand-quem").textContent = "· " + String(usuario.nome || "").split(" ")[0];
   if(usuario) $("p-conta").innerHTML =
-    `<img src="${usuario.picture}" alt=""><span>${usuario.email}</span>` +
-    `<button id="p-sair">sair</button>`;
-  const sair = $("p-sair");
-  if(sair) sair.onclick = () => {
-    try{ google.accounts.oauth2.revoke(accessToken); }catch(e){}
-    limparSessao();
-    location.reload();
-  };
+    `<span>${usuario.email}</span><button id="p-sair">sair</button>`;
+  const bs = $("p-sair");
+  if(bs) bs.onclick = sair;
 }
 $("p-tema").onchange = () => {
   const t = $("p-tema").value;
@@ -3057,7 +2977,7 @@ $("p-tema").onchange = () => {
   remedirBarras();
 };
 /* ---------- restaurar lançamentos por link (?restaurar=…) ---------- */
-// Serve para devolver o que se perdeu sem depender do Drive. Só acrescenta: item com a
+// Serve para devolver o que se perdeu sem depender do servidor. Só acrescenta: item com a
 // mesma descrição e as mesmas calorias no mesmo dia é considerado o mesmo e não entra de novo.
 const mesmaCoisa = (a, b) =>
   String(a.desc || a.t || "").trim().toLowerCase() === String(b.desc || b.t || "").trim().toLowerCase() &&
@@ -3102,49 +3022,6 @@ async function verRestauro(){
   }
 }
 
-/* ---------- recuperar de uma versão anterior do arquivo no Drive ---------- */
-async function listarVersoes(){
-  const st = $("p-rec-status"), lista = $("p-rec-lista");
-  st.textContent = "procurando…"; lista.innerHTML = "";
-  try{
-    const id = arquivoId || await acharArquivo();
-    if(!id){ st.textContent = "ainda não há arquivo no Drive"; return; }
-    arquivoId = id;
-    const r = await drive(`https://www.googleapis.com/drive/v3/files/${id}/revisions` +
-      `?fields=revisions(id,modifiedTime,size)&pageSize=200`);
-    const revs = (r.revisions || []).slice().reverse();          // mais recentes primeiro
-    st.textContent = `${revs.length} versão${revs.length===1?"":"ões"}`;
-    lista.innerHTML = revs.map(v => {
-      const d = new Date(v.modifiedTime);
-      const quando = d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) + " " +
-                     d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-      const kb = v.size ? ` · ${Math.round(v.size/1024)} KB` : "";
-      return `<div class="rlinha"><span class="q">${quando}${kb}</span>` +
-             `<button data-rev="${v.id}">Trazer de volta</button></div>`;
-    }).join("") || `<div class="rlinha"><span class="q">nenhuma versão guardada</span></div>`;
-  }catch(e){
-    st.textContent = "falhou: " + (e.message || e);
-  }
-}
-async function recuperarVersao(revId, bt){
-  bt.disabled = true; bt.textContent = "trazendo…";
-  try{
-    const r = await fetchPrazo(
-      `https://www.googleapis.com/drive/v3/files/${arquivoId}/revisions/${revId}?alt=media`,
-      {headers:{Authorization:"Bearer " + accessToken}}, 20000);
-    if(!r.ok) throw new Error("HTTP " + r.status);
-    const antigo = JSON.parse(await r.text());
-    const antes = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
-    adotarEstado(mesclarEstados(estadoAtual(), antigo));   // união: só acrescenta o que falta
-    const depois = Object.values(DIA_MEALS).flat().length + Object.values(DIA_WK).flat().length;
-    recalcDays(); renderAll();
-    await salvar();
-    bt.textContent = depois > antes ? `voltaram ${depois - antes}` : "nada faltava aqui";
-  }catch(e){
-    bt.textContent = "falhou: " + (e.message || e);
-  }
-  setTimeout(() => { bt.disabled = false; bt.textContent = "Trazer de volta"; }, 4000);
-}
 function listarBackupsLocais(){
   const st = $("p-rec-status"), lista = $("p-rec-lista");
   const ring = lerBackups();
@@ -3184,16 +3061,13 @@ $("p-exportar").onclick = () => {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 };
 $("p-rec-local").onclick = listarBackupsLocais;
-$("p-rec-listar").onclick = listarVersoes;
 $("p-rec-lista").addEventListener("click", e => {
-  const r = e.target.closest("button[data-rev]");
-  if(r) return recuperarVersao(r.dataset.rev, r);
   const l = e.target.closest("button[data-local]");
   if(l) recuperarLocal(+l.dataset.local, l);
 });
 $("p-icu-conectar").onclick = icuConectar;
 $("p-icu-sync").onclick = () => icuSincronizar(false);
-$("bt-wk-sync").onclick = () => { icuGrava({...icuCfg(), auto: 0}); icuSincronizar(true); };
+$("bt-wk-sync").onclick = () => icuSincronizar(false);
 $("p-icu-desde").addEventListener("change", () => { TREINOS.desde = $("p-icu-desde").value; salvar(); });
 $("p-groq-salvar").onclick = async () => {
   const k = $("p-groq-key").value.trim();
@@ -3285,8 +3159,8 @@ function abrirApp(){
   $("app").hidden = false;
   remedirBarras();      // as barras foram desenhadas com o app escondido, sem largura
   verRestauro();        // link de restauro, se veio um
-  if(avisoDrive){
-    $("aviso").textContent = avisoDrive;
+  if(avisoServidor){
+    $("aviso").textContent = avisoServidor;
     $("aviso").hidden = false;
   }
   try{ const aba = localStorage.getItem("fite.aba"); setView(ABAS.some(([b]) => b === aba) ? aba : "btn-full"); }catch(e){ setView("btn-full"); }
@@ -3301,7 +3175,7 @@ function abrirApp(){
 }
 
 async function boot(){
-  conferirVersao();     // também na porta: quem não passou do login precisa saber que há versão nova
+  conferirVersao();     // também na porta: quem não passou do login precisa saber
   try{
     const g = JSON.parse(localStorage.getItem(LS_GEMINI) || "null");
     if(g?.k){ geminiKey = g.k; geminiModelo = g.modelo; geminiCandidatos = g.candidatos || []; }
@@ -3309,106 +3183,75 @@ async function boot(){
     if(o?.k) openaiKey = o.k;
     const q = JSON.parse(localStorage.getItem(LS_GROQ) || "null");
     if(q?.k){ groqKey = q.k; groqTexto = q.texto || null; groqFoto = q.foto || null;
-              groqFotoSemJSON = !!q.fotoSemJSON; groqFotoMotivo = q.fotoMotivo || ""; groqTestadoEm = 0; }   // força nova descoberta de foto ao abrir
+              groqFotoSemJSON = !!q.fotoSemJSON; groqFotoMotivo = q.fotoMotivo || ""; groqTestadoEm = 0; }
   }catch(e){}
-  // chave que já existia aqui antes dos carimbos ganha um agora, senão nunca viaja para o Drive
-  [["gemini", geminiKey], ["openai", openaiKey], ["groq", groqKey], ["icu", icuCfg().k]]
+  [["gemini", geminiKey], ["openai", openaiKey], ["groq", groqKey]]
     .forEach(([n, k]) => { if(k && !TS_CHAVES[n]) marcarChave(n); });
 
   diag("iniciando");
   passo("g-carregando");
-  await esperarGIS();
-  diag("biblioteca do Google carregada");
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID, scope: ESCOPOS, callback: () => {},
-  });
-  // sessão ainda válida: entra direto, sem popup nem clique
-  const sessao = lerSessao();
-  if(sessao){
-    accessToken = sessao.t; tokenExpira = sessao.exp; usuario = sessao.u;
-    diag("sessão guardada, válida por mais " +
-      Math.round((sessao.exp - Date.now()) / 60000) + " min");
-    try{
-      await depoisDeEntrar();
-      return;
-    }catch(e){
-      diag("sessão guardada não serviu: " + (e?.message || e));
-      limparSessao();
-      accessToken = null;
-    }
-  }
-  // sessão vencida mas com dados no aparelho: o app abre; o Drive reconecta num toque
-  const velha = lerSessaoVencida(), localVelho = lerLocal();
-  if(velha?.u?.email && localVelho && EMAILS_OK.includes(await sha256(velha.u.email))){
-    usuario = velha.u; accessToken = null; tokenExpira = 0;
-    adotarEstado(localVelho);
-    diag("sessão vencida: abrindo com os dados do aparelho");
-    abrirApp();
-    setSync("local", "sessão do Google venceu · toque para reconectar");
+
+  // O app e o backend são o mesmo servidor. Aberto no endereço antigo — o GitHub Pages,
+  // que ainda está de pé com o app velho — não existe /api para ele chamar, e o erro
+  // apareceria como "não entrei". Melhor dizer o que é e levar para o lugar certo.
+  if(foraDeCasa()){
+    $("g-google").hidden = true;
+    $("g-erro").innerHTML = `O FiTê mudou de endereço. Abra em <a href="${CASA}">${CASA.replace(/^https:\/\//, "")}</a>` +
+      ` — e troque o atalho do celular.`;
+    $("g-erro").hidden = false;
+    passo("g-entrar");
     return;
   }
-  passo("g-entrar");
 
+  // o cookie de sessão vale 90 dias e o navegador o manda sozinho: quase sempre o app
+  // entra direto, sem nada na tela
+  let eu = null;
+  try{ eu = await quemSou(); }
+  catch(e){ diag("servidor não respondeu: " + (e.message || e)); }
+
+  if(eu){ diag("sessão de " + eu.email); await depoisDeEntrar(); return; }
+
+  diag("sem sessão: mostrando o botão do Google");
+  await esperarGIS();
+  montarBotaoGoogle();
+  passo("g-entrar");
 }
 
-let avisoDrive = null;
+let avisoServidor = null;
 async function depoisDeEntrar(){
   passo("g-carregando");
-  $("g-carregando-msg").textContent = "Buscando seus dados no Drive…";
-  const local = lerLocal();
-  if(local) adotarEstado(local); else sincHoje();   // o aparelho aparece na hora
-  diag(`local: ${Object.keys(local?.dias || {}).length} dia(s), hoje=${(local?.dias?.[TODAY_ISO] || []).length} item(ns)`);
-  diag("lendo o Drive");
-  try{
-    const remoto = await lerDrive();
-    diag(`drive: ${remoto ? Object.keys(remoto.dias || {}).length + " dia(s), hoje=" +
-      (remoto.dias?.[TODAY_ISO] || []).length + " item(ns)" : "sem arquivo"}`);
-    const antes = JSON.stringify(estadoAtual().dias);
-    adotarEstado(mesclarEstados(estadoAtual(), remoto));
-    gravarLocal();
-    const remotoDesatualizado = JSON.stringify(estadoAtual().dias) !== JSON.stringify(remoto?.dias || {});
-    diag(`mesclado: hoje=${MEALS.length} refeição(ões)` + (remotoDesatualizado ? " — Drive será atualizado" : ""));
-    if(remotoDesatualizado) salvar();
-  }catch(e){
-    console.warn("Drive", e);
-    diag("Drive falhou: " + (e.message || e));
-    avisoDrive = e.status === 403 && /has not been used|disabled/i.test(e.message || "")
-      ? "A Drive API não está ativada no projeto do Google Cloud. " +
-        "O app abre, mas não salva até você ativar."
-      : `Não consegui ler o Drive (${e.message || e}). O app abre, mas não salva.`;
-  }
-  sincHoje();
+  $("g-carregando-msg").textContent = "Buscando seu diário…";
 
+  // o cache do aparelho aparece na hora; o servidor manda logo depois
+  const cache = lerLocal();
+  if(cache) adotarEstado(cache); else sincHoje();
+  remarcarSujos();
+  diag(`cache: ${Object.keys(cache?.dias || {}).length} dia(s), ${SUJOS.size} por enviar`);
+
+  try{
+    // primeiro sobe o que ficou deste aparelho, depois lê: ler antes traria a resposta
+    // sem esses lançamentos
+    if(SUJOS.size || APAGAR.length) await enviarPendentes();
+    const d = await lerServidor();
+    adotarDoServidor(d);
+    gravarLocal();
+    diag(`servidor: ${(d.refeicoes || []).length} refeição(ões), ${(d.treinos || []).length} treino(s)`);
+  }catch(e){
+    console.warn("servidor", e);
+    diag("servidor falhou: " + (e.message || e));
+    if(e.status === 401){        // sessão caiu entre o /api/eu e agora
+      await esperarGIS(); montarBotaoGoogle(); passo("g-entrar"); return;
+    }
+    avisoServidor = `Não falei com o servidor (${e.message || e}). ` +
+      `O app abre com o que está neste aparelho e envia quando voltar.`;
+    setSync("local", "sem servidor · toque para tentar");
+  }
 
   diag("abrindo o app");
   abrirApp();
+  icuVer();                      // estado do intervals.icu para a tela do perfil
 }
 
-/* ---------- botões do portão: ligados sempre, mesmo quando o boot entra direto ---------- */
-$("g-google").onclick = async () => {
-  const bt = $("g-google"), rotulo = bt.querySelector("span");
-  bt.disabled = true; rotulo.textContent = "Abrindo…";
-  try{
-    diag("pedindo autorização ao Google");
-    await entrar();
-    diag("autorizado: " + (usuario?.email || "?"));
-    await depoisDeEntrar();
-  }catch(e){
-    console.warn("entrada", e);
-    bt.disabled = false; rotulo.textContent = "Fazer login com o Google";
-    passo("g-entrar");
-    if(e?.message === "nao-autorizado"){
-      $("g-negado-msg").textContent =
-        `${e.email} não está liberado neste app. Peça para ser incluído.`;
-      passo("g-negado");
-    }else{
-      $("g-erro").textContent = e?.message === "token-timeout"
-        ? "O Google não respondeu. Verifique se o navegador bloqueou o pop-up."
-        : `Não consegui entrar: ${e?.message || e?.type || e}`;
-      $("g-erro").hidden = false;
-    }
-  }
-};
 $("g-sair").onclick = () => location.reload();
 
 boot();

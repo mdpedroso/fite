@@ -5,9 +5,5 @@
       "source": "/api/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-store" }]
     }
-  ],
-  "rewrites": [
-    { "source": "/", "destination": "/novo.html" },
-    { "source": "/index.html", "destination": "/novo.html" }
   ]
 }
