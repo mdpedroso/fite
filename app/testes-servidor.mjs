@@ -65,6 +65,10 @@ function criarServidor() {
       if (metodo === "DELETE") { banco.dia.delete(par.get("dia")); return { ok: true }; }
     }
     if (rota === "perfil" && metodo === "PUT") { banco.perfil = corpo; return corpo; }
+    if (rota === "foto" && metodo === "POST") {
+      const caminho = `u/${++seq}.jpg`; (banco.fotos ||= new Map()).set(caminho, corpo.b64);
+      return { foto_url: caminho };
+    }
     if (rota.startsWith("diario")) {
       return {
         refeicoes: [...banco.refeicao.values()],
@@ -98,13 +102,15 @@ function criarAparelho(servidor) {
     TODAY_ISO: "2026-09-22",
     api: servidor.api, apiEnvia: servidor.apiEnvia,
     diag: () => {}, sincHoje: () => {}, console,
+    // a foto de um item, como o IndexedDB guardaria
+    fotoDoItem: async m => m.temFoto ? { mime: "image/jpeg", b64: "AAAA" } : null,
     // o cache do aparelho: guarda uma cópia a cada gravação, como o localStorage
     cache: null,
   };
   ambiente.gravarLocal = () => { ambiente.cache = JSON.parse(JSON.stringify(ambiente.DIA_MEALS)); return true; };
   const nomes = Object.keys(ambiente);
   const corpo = `${CAMADA}\n;return {SUJOS, APAGAR, adotarDoServidor, remarcarSujos, enviarPendentes,` +
-                ` lerServidor, refeicaoParaApi, treinoParaApi, refeicaoDaApi, treinoDaApi,` +
+                ` lerServidor, apagarNoServidor, refeicaoParaApi, treinoParaApi, refeicaoDaApi, treinoDaApi,` +
                 ` get WEIGHTS(){ return WEIGHTS; }, set WEIGHTS(v){ WEIGHTS = v; },` +
                 ` get OCULTOS(){ return OCULTOS; }, set OCULTOS(v){ OCULTOS = v; }};`;
   // WEIGHTS e OCULTOS são reatribuídos lá dentro; por isso entram por getter, senão o
@@ -280,6 +286,50 @@ await teste("dois envios ao mesmo tempo mandam a refeição uma vez", async () =
   app.SUJOS.add("2026-09-22");
   await Promise.all([app.enviarPendentes(), app.enviarPendentes()]);
   conferir("uma linha só", s.banco.refeicao.size === 1, `tem ${s.banco.refeicao.size}`);
+});
+
+await teste("apagar pela tela apaga no servidor", async () => {
+  const s = criarServidor(), app = criarAparelho(s);
+  const m = refeicao();
+  app.DIA_MEALS["2026-09-22"] = [m];
+  app.SUJOS.add("2026-09-22");
+  await app.enviarPendentes();
+  app.apagarNoServidor("refeicao", m); app.DIA_MEALS["2026-09-22"] = [];
+  await app.enviarPendentes();
+  conferir("sumiu do servidor", s.banco.refeicao.size === 0, `tem ${s.banco.refeicao.size}`);
+});
+
+await teste("apagar enquanto a refeição ainda sobe também apaga", async () => {
+  const s = criarServidor(), app = criarAparelho(s);
+  const m = refeicao();
+  app.DIA_MEALS["2026-09-22"] = [m];
+  app.SUJOS.add("2026-09-22");
+  const subindo = app.enviarPendentes();          // POST em voo
+  app.apagarNoServidor("refeicao", m); app.DIA_MEALS["2026-09-22"] = [];
+  await subindo;
+  await app.enviarPendentes();
+  conferir("não sobrou linha", s.banco.refeicao.size === 0, `tem ${s.banco.refeicao.size}`);
+});
+
+await teste("foto sobe junto e volta em qualquer aparelho", async () => {
+  const s = criarServidor(), app = criarAparelho(s);
+  app.DIA_MEALS["2026-09-22"] = [refeicao({ temFoto: true, raw: "", kc: 0, p: 0, c: 0, g: 0, pendente: true })];
+  app.SUJOS.add("2026-09-22");
+  await app.enviarPendentes();
+  const linha = [...s.banco.refeicao.values()][0];
+  conferir("a foto foi para o servidor", s.banco.fotos?.size === 1);
+  conferir("o lançamento nasceu com foto_url", !!linha.foto_url, String(linha.foto_url));
+
+  const outro = criarAparelho(s);             // outro celular, sem a foto guardada
+  outro.adotarDoServidor(await outro.lerServidor());
+  const m = outro.DIA_MEALS["2026-09-22"][0];
+  conferir("tem foto no outro aparelho", m.temFoto === true && m.foto_url === linha.foto_url);
+  conferir("só foto, não estimada: volta pendente", m.pendente === true);
+
+  s.limparChamadas();
+  outro.SUJOS.add("2026-09-22");
+  await outro.enviarPendentes();
+  conferir("não sobe a foto de novo", !s.chamadas().includes("POST foto"), s.chamadas().join());
 });
 
 // A marca de pendente não vai para o banco: sem isto, a refeição que a IA ainda não

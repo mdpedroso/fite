@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/((?!foto$).*)",
       "headers": [{ "key": "Cache-Control", "value": "no-store" }]
     }
   ]

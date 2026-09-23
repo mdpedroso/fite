@@ -1097,7 +1097,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922223550";
+const VERSAO = "20260922225609";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1716,9 +1716,9 @@ $("bt-meal").onclick   = () => abrirRefeicao(false, histIso);
 $("bt-duvida").onclick = () => abrirRefeicao(true, histIso);
 $("bt-wk").onclick     = () => { fotoWk.limpar(); abrir("dlg-wk","st-wk", histIso); };
 
-const FOTOS = new Map();   // id do item → imagem, enquanto a estimativa não sai
-// cópia no IndexedDB: uma foto de 1024 px tem ~200 KB e o localStorage não aguentaria várias;
-// aqui cabem centenas, e ela some assim que a estimativa é gravada
+const FOTOS = new Map();   // id do item → imagem, enquanto não subiu ou não foi estimada
+// cópia no IndexedDB até a foto estar no servidor e estimada: uma foto de 1024 px tem
+// ~200 KB e o localStorage não aguentaria várias
 const idb = (() => {
   let db = null;
   const abrir = () => db ? Promise.resolve(db) : new Promise((ok, falha) => {
@@ -1778,8 +1778,8 @@ function criarFoto(pref){
 const fotoMeal = criarFoto("foto"), fotoWk = criarFoto("wfoto");
 const limparFoto = () => fotoMeal.limpar();
 
-// miniaturas: memória → IndexedDB. Enquanto não houver bucket, a foto fica no aparelho
-// onde foi tirada: serve para a estimativa e para a miniatura, e não atravessa celulares.
+// miniaturas: memória → IndexedDB → servidor. A foto sobe para o bucket junto com o
+// lançamento, então aparece em qualquer aparelho; a cópia local só evita baixar de novo.
 const THUMBS = new Map();
 const blobParaB64 = blob => new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result.split(",")[1]); fr.readAsDataURL(blob); });
 async function fotoDoItem(m){
@@ -1787,7 +1787,16 @@ async function fotoDoItem(m){
   if(f) return f;
   f = await idb.get(m.id);
   if(f){ FOTOS.set(m.id, f); return f; }
-  return null;
+  if(!m.foto_url) return null;
+  try{
+    const r = await fetchPrazo("/api/foto?p=" + encodeURIComponent(m.foto_url), {credentials:"same-origin"}, 20000);
+    if(!r.ok) return null;
+    return {mime:"image/jpeg", b64: await blobParaB64(await r.blob())};
+  }catch(e){ return null; }
+}
+// já está no servidor e já foi estimada: a cópia do aparelho não serve mais
+function liberarFotoLocal(m){
+  if(m.foto_url && !m.pendente){ FOTOS.delete(m.id); idb.del(m.id); }
 }
 async function thumbDe(m){
   if(THUMBS.has(m.id)) return THUMBS.get(m.id);
@@ -1977,8 +1986,7 @@ function totaisRefeicao(r){
 async function estimarItem(p){
   const m = p.item;
   if(p.tipo === "meal"){
-    let foto = FOTOS.get(m.id) || null;
-    if(!foto && m.temFoto){ foto = await idb.get(m.id); if(foto) FOTOS.set(m.id, foto); }
+    const foto = m.temFoto ? await fotoDoItem(m) : null;
     if(!foto && !m.raw){
       const e = new Error("sem-material"); e.permanente = true; throw e;
     }
@@ -1991,10 +1999,10 @@ async function estimarItem(p){
       kc: t.kcal, p: t.p, c: t.c, g: t.g,
     });
     if(t.itens.length) m.itens = t.itens.map(i => ({n: i.nome, kc: i.kcal}));
-    delete m.pendente;          // a foto fica: vira miniatura aqui no aparelho
+    delete m.pendente;
+    liberarFotoLocal(m);
   } else {
-    let foto = FOTOS.get(m.id) || null;
-    if(!foto && m.temFoto){ foto = await idb.get(m.id); if(foto) FOTOS.set(m.id, foto); }
+    const foto = m.temFoto ? await fotoDoItem(m) : null;
     if(!foto && !m.raw){
       const e = new Error("sem-material"); e.permanente = true; throw e;
     }
@@ -2017,6 +2025,7 @@ async function estimarItem(p){
       m: String(r.m || ""), kc: m.kcalDito || Math.round(Number(r.kcal) || 0),
     });
     delete m.pendente; delete m.kcalDito;
+    liberarFotoLocal(m);
   }
   recalcDia(p.iso);
 }
@@ -2158,6 +2167,19 @@ $("fm-peso").onsubmit = ev => {
 function descartarFoto(m){
   FOTOS.delete(m.id); THUMBS.delete(m.id); idb.del(m.id);
 }
+// No banco vira `apagado_em` (DELETE da rota); aqui sai da lista e fica a lápide no cache.
+function excluirDaLista(e, lista, tabela, nome){
+  const b = e.target.closest(".del[data-i]"); if(!b) return;   // os × invisíveis do cabeçalho e do total não contam
+  const iso = histIso, arr = lista[iso] || [], i = +b.dataset.i, item = arr[i];
+  return (async () => {
+    if(!item || !await confirmar(nome(item))) return;
+    if(arr[i] !== item) return;        // a lista mudou enquanto o modal estava aberto
+    descartarFoto(item); marcarApagado(iso, item); apagarNoServidor(tabela, item);
+    arr.splice(i, 1); recalcDia(iso); salvarDia(iso); renderAll(); tocarFila();
+  })();
+}
+$("meals").addEventListener("click", e => excluirDaLista(e, DIA_MEALS, "refeicao", m => m.desc));
+$("workouts").addEventListener("click", e => excluirDaLista(e, DIA_WK, "treino", w => w.t));
 /* ---------- histórico ---------- */
 // o histórico não tem limite para trás: setas andam um dia, o calendário pula direto
 let histIso = TODAY_ISO;
@@ -2224,15 +2246,16 @@ const refeicaoParaApi = (iso, m) => ({
     ? m.itens.map(i => ({n: String(i.n || i.nome || "").trim(), kc: inteiro(i.kc ?? i.kcal)}))
              .filter(i => i.n)
     : null,
-  llm: m.via || null,
+  llm: m.via || null, foto_url: m.foto_url || null,
 });
 // O banco não guarda "pendente". Lançamento com texto, sem caloria e sem modelo que o
 // tenha estimado é um que a IA ainda não processou: volta para a fila em vez de ficar
 // na tela como 0 kcal para sempre.
-const naoEstimado = x => !x.llm && !x.kcal && !!x.bruto;
+const naoEstimado = x => !x.llm && !x.kcal && !!(x.bruto || x.foto_url);
+const fotoDaApi = x => x.foto_url ? {foto_url: x.foto_url, temFoto: true} : {};
 const refeicaoDaApi = r => ({
   ...(naoEstimado(r) ? {pendente: true} : {}),
-  id: r.id, sid: r.id,
+  id: r.id, sid: r.id, ...fotoDaApi(r),
   desc: r.descricao, raw: r.bruto || "", interp: r.interpretacao || "",
   kc: r.kcal, p: r.p, c: r.c, g: r.g,
   ...(r.itens?.length ? {itens: r.itens} : {}), via: r.llm || "",
@@ -2243,11 +2266,11 @@ const treinoParaApi = (iso, w) => ({
   titulo: (w.t || "").trim() || "Treino", detalhe: w.m || null, bruto: w.raw || null,
   kcal: inteiro(w.kc), kcal_medido: !!w.kcMedido,
   fonte: w.icu ? "intervals" : null, external_id: w.icu ? String(w.icu) : null,
-  llm: w.via || null,
+  llm: w.via || null, foto_url: w.foto_url || null,
 });
 const treinoDaApi = w => ({
   ...(naoEstimado(w) && !w.fonte ? {pendente: true} : {}),
-  id: w.id, sid: w.id, mod: w.modalidade, t: w.titulo, m: w.detalhe || "",
+  id: w.id, sid: w.id, ...fotoDaApi(w), mod: w.modalidade, t: w.titulo, m: w.detalhe || "",
   raw: w.bruto || "", kc: w.kcal, kcMedido: w.kcal_medido,
   icu: w.external_id || null, via: w.llm || "",
 });
@@ -2330,6 +2353,14 @@ function remarcarSujos(){
 }
 
 async function enviarItem(tabela, iso, item, monta){
+  // a foto sobe antes do lançamento, para ele já nascer com `foto_url`
+  if(item.temFoto && !item.foto_url){
+    const f = await fotoDoItem(item);
+    if(f){
+      item.foto_url = (await apiEnvia("foto", "POST", {b64: f.b64})).foto_url;
+      gravarLocal();
+    }
+  }
   const corpo = monta(iso, item);
   const assinatura = JSON.stringify(corpo);
   if(item._enviado === assinatura) return;
@@ -2352,8 +2383,17 @@ async function enviarItem(tabela, iso, item, monta){
     // nunca ter subido e é mandado de novo — foi assim que a refeição duplicou em 22/09
     item.sid = r.id;
     gravarLocal();
+    // apagado enquanto o POST viajava: a linha nasceu no banco e precisa morrer lá também
+    if(item._apagado) APAGAR.push({tabela, sid: item.sid});
   }
   item._enviado = assinatura;
+}
+
+// Apagar pela tela. Item que ainda não subiu não tem o que apagar lá — mas pode estar
+// subindo agora, e a marca faz o envio apagar assim que o banco der o id.
+function apagarNoServidor(tabela, item){
+  item._apagado = true;
+  if(item.sid) APAGAR.push({tabela, sid: item.sid});
 }
 
 // Um envio por vez: salvar, sincronizar e o intervals chamam isto, e dois envios juntos
@@ -2642,6 +2682,8 @@ function abrirApp(){
     $("aviso").hidden = false;
   }
   try{ const aba = localStorage.getItem("fite.aba"); setView(ABAS.some(([b]) => b === aba) && !$(aba).hidden ? aba : "btn-full"); }catch(e){ setView("btn-full"); }
+  // fotos que já estão no servidor e estimadas saem do aparelho (antes ficavam para sempre)
+  [...Object.values(DIA_MEALS).flat(), ...Object.values(DIA_WK).flat()].forEach(liberarFotoLocal);
   tocarFila();          // o que ficou pendente de outra sessão retoma agora
   icuAuto();            // treinos novos do relógio, sem precisar ir ao perfil
   conferirVersao();     // a página no ar pode ser mais nova que esta
