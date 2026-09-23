@@ -13,7 +13,7 @@ type Servico = {
   // Ordem de preferência; o que a chave não tiver é pulado.
   prefTexto: string[]; prefFoto: string[];
   fora: RegExp;                    // o que o /models lista mas não é modelo de conversa
-  extra?: Record<string, unknown>; // parâmetros próprios do serviço, testados junto
+  extra?: (modelo: string) => Record<string, unknown>; // parâmetros próprios, testados junto
   cabecalhos?: Record<string, string>;
   // onde conferir a chave antes de testar modelos, quando o /models é público e não a confere
   conferir?: string;
@@ -39,20 +39,24 @@ export const SERVICOS: Record<string, Servico> = {
                "gemini-flash-latest", "gemini-2.5-flash", "gemini-3.5-flash-lite"],
     fora: /tts|live|image|imagen|veo|embed|audio|transcri|translate|robotics|aqa|gemma|computer|omni|pro/i,
     // pensar demais só atrasa uma conta de caloria; "low" vale do 2.5 ao 3.x
-    extra: { reasoning_effort: "low" },
+    extra: () => ({ reasoning_effort: "low" }),
   },
   // Entrou em 23/09: um lugar só, crédito pré-pago no cartão, e o Gemini, o GPT e o Qwen
   // atrás da mesma chave. O /models lista o catálogo inteiro (não o da chave), então a
   // preferência pesa mais aqui; o teste real continua valendo.
   openrouter: {
     nome: "OpenRouter", base: "https://openrouter.ai/api/v1",
-    prefTexto: ["google/gemini-3.8-flash", "google/gemini-3.5-flash", "openai/gpt-5.4-mini",
-                "google/gemini-2.5-flash", "qwen/qwen3.8-flash"],
+    // Texto vai no lite: "quantas calorias tem uma banana" não pede modelo grande, e ele
+    // custa um sétimo do 3.8. Foto vai no 3.8, onde reconhecer o prato e a porção pesa.
+    prefTexto: ["google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite",
+                "google/gemini-3.8-flash", "openai/gpt-5.4-mini"],
     prefFoto: ["google/gemini-3.8-flash", "google/gemini-3.5-flash", "openai/gpt-5.4-mini",
-               "google/gemini-2.5-flash", "qwen/qwen3.8-flash"],
+               "google/gemini-2.5-flash"],
     // :batch não responde na hora e :free tem limite baixo e some sem aviso
     fora: /:batch|:free|image|audio|tts|embed|guard|safety/i,
-    extra: { reasoning: { effort: "low" } },
+    // os lite não pensam por padrão, e pedir esforço ligaria o raciocínio; nos outros o
+    // padrão é pensar muito, o que só atrasa uma conta de caloria
+    extra: m => /lite/.test(m) ? {} : { reasoning: { effort: "low" } },
     cabecalhos: { "HTTP-Referer": "https://www.fite.app.br", "X-Title": "FiTe" },
     conferir: "/key",
   },
@@ -99,7 +103,7 @@ type Teste = { ok: boolean; json?: boolean; status?: number; motivo?: string };
 async function testar(sv: Servico, chave: string, modelo: string, comImagem: boolean): Promise<Teste> {
   const tentar = async (json: boolean): Promise<Teste> => {
     const body: any = {
-      model: modelo, max_tokens: 60, ...sv.extra,
+      model: modelo, max_tokens: 1500, ...sv.extra?.(modelo),   // folga para o raciocínio
       messages: [{ role: "user", content: comImagem
         ? conteudo('Descreva a imagem em um JSON: {"desc": "..."}', { mime: "image/png", b64: PNG_TESTE })
         : 'Responda com um JSON: {"ok":true}' }],
@@ -259,7 +263,7 @@ async function estimarCom(c0: Conta, prompt: string, imagem: Imagem | null, jaRe
   const r = await fetch(`${sv.base}/chat/completions`, {
     method: "POST", headers: cabecalho(c.chave, sv),
     body: JSON.stringify({
-      model: modelo, temperature: 0.2, ...sv.extra,
+      model: modelo, temperature: 0.2, ...sv.extra?.(modelo),
       ...(semJson || (imagem && c.foto_sem_json) ? {} : { response_format: { type: "json_object" } }),
       messages: [{ role: "system", content: SISTEMA }, { role: "user", content: conteudo(prompt, imagem) }],
     }),
@@ -306,13 +310,48 @@ const EXTENSAO: Record<string, string> = {
 };
 export const MAX_AUDIO_B64 = 3_500_000;   // o Vercel recusa corpo acima de 4,5 MB
 
+// Pelo OpenRouter, a voz vai no mesmo Gemini lite do texto. Ele não aceita webm (o que o
+// Chrome do Android grava por padrão), então o app pede AAC ao gravar; o que chegar em
+// webm, ou falhar lá, cai no Whisper do Groq.
+const TRANSCRICAO_OR = ["google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite"];
+const FORMATO_OR: Record<string, string> = { m4a: "m4a", ogg: "ogg", mp3: "mp3", wav: "wav" };
+
+async function transcreverOpenRouter(chave: string, formato: string, b64: string): Promise<string> {
+  const sv = SERVICOS.openrouter!;
+  let ultimo = "";
+  for (const modelo of TRANSCRICAO_OR) {
+    const r = await fetch(`${sv.base}/chat/completions`, {
+      method: "POST", headers: cabecalho(chave, sv), signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({
+        model: modelo, temperature: 0,
+        messages: [{ role: "user", content: [
+          { type: "text", text: "Transcreva exatamente o que foi dito, sem comentar nem resumir. " +
+            "Responda só com o texto falado; se não houver fala, responda vazio. " + VOCABULARIO },
+          { type: "input_audio", input_audio: { data: b64, format: formato } },
+        ] }],
+      }),
+    }).catch(() => { throw new Recusa("o OpenRouter não respondeu a tempo", 503); });
+    if (r.ok) return String((await r.json())?.choices?.[0]?.message?.content ?? "").trim();
+    ultimo = `${r.status} ${await motivo(r)}`;
+    if (r.status !== 404 && r.status !== 400) break;   // modelo fora do ar ou formato: tenta o próximo
+  }
+  console.error("openrouter transcrição", ultimo);
+  throw new Recusa("não consegui transcrever agora", 503);
+}
+
 export async function transcrever(mime: string, b64: string): Promise<string> {
   const ext = EXTENSAO[mime.split(";")[0]!.trim()];
   if (!ext) throw new Recusa("formato de áudio que o app não conhece");
   if (!b64 || b64.length > MAX_AUDIO_B64) throw new Recusa("áudio vazio ou longo demais");
-  // só o Groq tem o Whisper; sem a chave dele, a voz fica de fora e o texto segue normal
+  const or = FORMATO_OR[ext] ? await conta("openrouter") : null;
   const c = await conta("groq");
-  if (!c) throw new Recusa("a voz precisa da chave do Groq; digite a refeição", 503);
+  if (or) {
+    try { return await transcreverOpenRouter(or.chave, FORMATO_OR[ext]!, b64); }
+    catch (e) { if (!c) throw e; }                    // com o Groq de reserva, tenta ele
+  }
+  if (!c) throw new Recusa(ext === "webm"
+    ? "este aparelho grava num formato que só o Groq transcreve; digite a refeição"
+    : "a voz precisa de uma chave do OpenRouter ou do Groq; digite a refeição", 503);
 
   const form = new FormData();
   form.append("file", new Blob([Buffer.from(b64, "base64")], { type: mime }), `fala.${ext}`);

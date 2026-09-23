@@ -55,7 +55,8 @@ Decisões que sustentam isso:
 - **Chave de IA no servidor**: chave no navegador é chave entregue. O app chama
   `/api/ia`, que chama o modelo com a chave da tabela `chave_ia`: a salva por último estima,
   a outra é reserva quando a primeira dá limite (429), cai (5xx) ou tem a chave recusada.
-  A voz (Whisper) só existe no Groq. Quem cadastra a chave é o
+  No OpenRouter, texto e voz vão no `gemini-2.5-flash-lite` e foto no `gemini-3.8-flash`;
+  voz gravada em webm (Chrome sem AAC) só o Whisper do Groq transcreve. Quem cadastra a chave é o
   admin, na aba Admin do app; quem usa o app não configura nada.
 - **Fotos pelo backend**: `/api/foto` sobe e devolve a foto; o caminho no bucket começa
   pelo id do usuário e só o dono lê. A cópia no aparelho (IndexedDB) só vive até a foto

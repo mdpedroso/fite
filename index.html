@@ -682,7 +682,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </section>
     <section class="card">
       <h2>Groq <span class="side" id="a-groq-status"></span></h2>
-      <p class="soon">Além de estimar, é quem transcreve a voz (Whisper): sem ela, o microfone não funciona.
+      <p class="soon">Reserva para estimar, e para a voz quando o aparelho grava num formato que o OpenRouter não lê (webm).
         Gere em <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>.</p>
       <div class="pform" style="margin-top:12px">
         <label>Chave de API
@@ -1175,7 +1175,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260923170525";
+const VERSAO = "20260923172225";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1786,8 +1786,10 @@ const voz = (() => {
   bt.hidden = false;
 
   const aviso = (txt, erro) => { $("st-meal").className = "addstatus" + (erro ? " err" : ""); $("st-meal").textContent = txt; };
-  // Android grava webm/opus, iPhone grava mp4/aac; o servidor aceita os dois
-  const tipo = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]
+  // AAC primeiro: o Gemini (pelo OpenRouter) não lê webm. O "audio/mp4" sem codec fica
+  // depois do webm porque o Chrome põe opus dentro dele, que o Gemini também não lê;
+  // no iPhone ele é AAC. Webm ainda vale: o servidor manda para o Whisper do Groq.
+  const tipo = ["audio/mp4;codecs=mp4a.40.2", "audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]
     .find(t => MediaRecorder.isTypeSupported(t)) || "";
 
   async function comecar(){
