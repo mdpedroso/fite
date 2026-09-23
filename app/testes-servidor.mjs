@@ -365,6 +365,8 @@ await teste("o app não fala com provedor de IA nem guarda chave", async () => {
   for (const host of ["api.groq.com", "api.openai.com", "generativelanguage.googleapis.com"])
     conferir(`nenhuma chamada a ${host}`, !html.includes(host));
   conferir("nenhuma chave no estado sincronizado", !/chaves\s*:/.test(html));
+  // a voz passa pelo Whisper no servidor; o reconhecimento do navegador erra em português
+  conferir("voz não usa o reconhecimento do navegador", !/SpeechRecognition/.test(html));
 });
 
 if (falhas) {

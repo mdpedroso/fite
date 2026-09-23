@@ -1,11 +1,12 @@
 // /api/ia — POST estima: recebe o pedido montado pela tela e devolve o JSON do modelo.
+// POST com `audio` transcreve a fala para o campo de texto (a pessoa confere antes de enviar).
 // GET e PUT são do admin: veem a situação e trocam a chave do Groq.
 //
 // A tela continua dona do prompt (é ela que sabe o formato da refeição e do treino); o
 // servidor só guarda a chave e fala com o modelo. Chave e estimativa moram na mesma rota
 // porque o plano gratuito do Vercel aceita 12 funções, e cada arquivo em api/ é uma.
 import { rota, corpoJson } from "../lib/rota.js";
-import { estimar, situacao, cadastrarGroq, type Imagem } from "../lib/ia.js";
+import { estimar, situacao, cadastrarGroq, transcrever, type Imagem } from "../lib/ia.js";
 import { texto, Recusa } from "../lib/validar.js";
 import type { Quem } from "../lib/sessao.js";
 
@@ -31,6 +32,10 @@ function exigirAdmin(quem: Quem) {
 export default rota({
   POST: async (req) => {
     const c = corpoJson(req);
+    if (c.audio) {
+      const a = c.audio as Record<string, unknown>;
+      return { texto: await transcrever(texto(a.mime, "tipo do áudio", 100), texto(a.b64, "áudio", 3_500_000)) };
+    }
     const { r, modelo } = await estimar(texto(c.prompt, "prompt", 20_000), imagem(c.imagem));
     return { r, motor: modelo };
   },

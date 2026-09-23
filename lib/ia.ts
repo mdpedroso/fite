@@ -196,3 +196,44 @@ export async function estimar(prompt: string, imagem: Imagem | null, jaRedescobr
   // `llm` guarda o modelo, não o provedor: é o que permite comparar estimativas depois
   return { r: lerJSON(String(txt)), modelo: "groq/" + modelo.replace(/^.*\//, "") };
 }
+
+// Áudio → texto. O whisper-large-v3-turbo transcreveu um áudio de teste em português sem
+// erro em meio segundo (22/09); o large-v3 empatou em acerto e foi mais lento. O reconhecimento
+// de voz do navegador ficava bem abaixo disso, e varia de aparelho para aparelho.
+const TRANSCRICAO = "whisper-large-v3-turbo";
+// o Groq descobre o formato pela extensão do nome do arquivo
+const EXTENSAO: Record<string, string> = {
+  "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/x-m4a": "m4a",
+  "audio/aac": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav",
+};
+export const MAX_AUDIO_B64 = 3_500_000;   // o Vercel recusa corpo acima de 4,5 MB
+
+export async function transcrever(mime: string, b64: string): Promise<string> {
+  const ext = EXTENSAO[mime.split(";")[0]!.trim()];
+  if (!ext) throw new Recusa("formato de áudio que o app não conhece");
+  if (!b64 || b64.length > MAX_AUDIO_B64) throw new Recusa("áudio vazio ou longo demais");
+  const c = await contaGroq();
+  if (!c) throw new Recusa("a IA ainda não foi configurada; peça ao admin", 503);
+
+  const form = new FormData();
+  form.append("file", new Blob([Buffer.from(b64, "base64")], { type: mime }), `fala.${ext}`);
+  form.append("model", TRANSCRICAO);
+  form.append("language", "pt");
+  form.append("temperature", "0");
+  form.append("response_format", "json");
+  // dá contexto ao modelo: fala curta sobre comida sai melhor sabendo do que se trata
+  form.append("prompt", "Descrição de refeição ou treino, em português do Brasil.");
+
+  const r = await fetch(`${GROQ}/audio/transcriptions`, {
+    method: "POST", headers: { Authorization: "Bearer " + c.chave }, body: form,
+    signal: AbortSignal.timeout(30_000),
+  }).catch(() => { throw new Recusa("o Groq não respondeu a tempo", 503); });
+  if (!r.ok) {
+    const msg = await motivo(r);
+    console.error("groq transcrição", r.status, msg);
+    if (r.status === 429) throw new Recusa("Groq no limite de requisições; tente de novo", 503);
+    if (r.status >= 500 || r.status === 401) throw new Recusa("não consegui transcrever agora", 503);
+    throw new Recusa(`o Groq recusou o áudio (${r.status})`);
+  }
+  return String((await r.json())?.text ?? "").trim();
+}

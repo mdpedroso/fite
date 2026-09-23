@@ -450,6 +450,19 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
 .addform textarea,.addform input,.addform select{font:inherit;font-size:14px;padding:9px 10px;
   border:1px solid var(--axis);border-radius:7px;background:var(--surface-2);color:var(--ink);width:100%}
 .addform textarea{resize:vertical;min-height:58px}
+/* microfone dentro do campo, no canto de baixo à direita; o texto não passa por baixo dele */
+.campo-voz{position:relative;display:flex;flex-direction:column}
+.campo-voz textarea{min-height:104px;padding-right:48px}
+.mic{position:absolute;right:8px;bottom:8px;width:36px;height:36px;border-radius:50%;
+  border:1px solid var(--hair);background:var(--surface);color:var(--marca);cursor:pointer;
+  display:grid;place-items:center;padding:0}
+.mic svg{width:19px;height:19px}
+.mic .i-parar,.mic .i-roda{display:none}
+.mic.gravando{background:var(--crit);border-color:var(--crit);color:#fff;animation:pulsa 1.2s ease-in-out infinite}
+.mic.gravando .i-mic{display:none}.mic.gravando .i-parar{display:block}
+.mic.ouvindo{cursor:default}.mic.ouvindo .i-mic{display:none}
+.mic.ouvindo .i-roda{display:block;width:16px;height:16px;border-radius:50%;
+  border:2px solid var(--hair);border-top-color:var(--marca);animation:roda .8s linear infinite}
 .addrow{display:flex;gap:8px}
 .addactions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .addactions button{font:inherit;font-size:13.5px;font-weight:600;padding:9px 15px;
@@ -671,8 +684,15 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   <button type="button" class="fechar" data-close="dlg-meal" aria-label="Fechar">×</button>
   <h3>Adicionar refeição</h3>
   <form class="addform" id="fm-meal">
-    <textarea id="in-meal" rows="2"
-      placeholder="O que você comeu? Ex: prato de feijoada e uma laranja"></textarea>
+    <div class="campo-voz">
+      <textarea id="in-meal" rows="4"
+        placeholder="O que você comeu? Ex: prato de feijoada e uma laranja"></textarea>
+      <button type="button" class="mic" id="bt-mic" title="Falar em vez de digitar" aria-label="Falar em vez de digitar" hidden>
+        <svg class="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <svg class="i-parar" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
+        <span class="i-roda"></span>
+      </button>
+    </div>
     <div class="fotoacoes" id="foto-acoes">
       <label class="foto"><input id="in-foto-cam" type="file" accept="image/*" capture="environment" hidden><span>Tirar foto</span></label>
       <label class="foto"><input id="in-foto-gal" type="file" accept="image/*" hidden><span>Da galeria</span></label>
@@ -1123,7 +1143,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260922234345";
+const VERSAO = "20260923071913";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1721,6 +1741,65 @@ function abrirRefeicao(consulta, dia){
   $("consulta").hidden = true; $("consulta").innerHTML = "";
   abrir("dlg-meal", "st-meal", dia);
 }
+/* ---------- falar em vez de digitar ---------- */
+// Grava no aparelho, o servidor transcreve (Whisper, no Groq) e o texto cai no campo para
+// a pessoa conferir e editar. O envio continua sendo o botão de sempre: a voz só troca o
+// digitar. O reconhecimento de voz do navegador ficou de fora de propósito: erra muito
+// em português e muda de aparelho para aparelho.
+const voz = (() => {
+  const bt = $("bt-mic"), campo = $("in-meal");
+  const MAX_MS = 2 * 60 * 1000;           // fala de refeição é curta; isto barra esquecer gravando
+  let rec = null, pedacos = [], parar = null, descartar = false;
+  if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return {cancelar(){}};
+  bt.hidden = false;
+
+  const aviso = (txt, erro) => { $("st-meal").className = "addstatus" + (erro ? " err" : ""); $("st-meal").textContent = txt; };
+  // Android grava webm/opus, iPhone grava mp4/aac; o servidor aceita os dois
+  const tipo = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]
+    .find(t => MediaRecorder.isTypeSupported(t)) || "";
+
+  async function comecar(){
+    let stream;
+    try{ stream = await navigator.mediaDevices.getUserMedia({audio: true}); }
+    catch(e){ aviso("Sem acesso ao microfone. Libere nas permissões do navegador.", true); return; }
+    pedacos = []; descartar = false;
+    rec = new MediaRecorder(stream, tipo ? {mimeType: tipo} : undefined);
+    rec.ondataavailable = e => { if(e.data.size) pedacos.push(e.data); };
+    rec.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());       // solta o microfone (some o aviso do celular)
+      clearTimeout(parar);
+      const mime = (rec.mimeType || tipo || "audio/webm").split(";")[0];
+      rec = null;
+      if(descartar || !pedacos.length){ bt.className = "mic"; aviso(""); return; }
+      enviar(new Blob(pedacos, {type: mime}), mime);
+    };
+    rec.start();
+    parar = setTimeout(() => rec?.stop(), MAX_MS);
+    bt.className = "mic gravando"; bt.title = bt.ariaLabel = "Parar e transcrever";
+    aviso("Ouvindo… toque de novo para parar.");
+  }
+
+  async function enviar(blob, mime){
+    bt.className = "mic ouvindo"; bt.disabled = true; aviso("Transcrevendo…");
+    try{
+      const d = await api("ia", {method: "POST", prazo: 45000,
+        body: JSON.stringify({audio: {mime, b64: await blobParaB64(blob)}})});
+      const t = (d.texto || "").trim();
+      if(!t){ aviso("Não entendi o áudio. Tente de novo.", true); return; }
+      // soma ao que já estava escrito: dá para falar em partes
+      campo.value = campo.value.trim() ? campo.value.trim() + " " + t : t;
+      aviso("");
+      campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length);
+    }catch(e){ aviso(e.message || "Não consegui transcrever.", true); }
+    finally{ bt.className = "mic"; bt.disabled = false; bt.title = bt.ariaLabel = "Falar em vez de digitar"; }
+  }
+
+  bt.onclick = () => { if(rec) rec.stop(); else if(!bt.disabled) comecar(); };
+  // fechou o diálogo gravando: o áudio é jogado fora, não vira texto num campo que sumiu
+  return {cancelar(){ if(rec){ descartar = true; rec.stop(); } }};
+})();
+$("dlg-meal").addEventListener("close", () => voz.cancelar());
+
 // fechou o tira-dúvida (X, Esc ou fora): volta em branco na próxima vez
 $("dlg-meal").addEventListener("close", () => {
   if(!modoConsulta) return;
