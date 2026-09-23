@@ -1,8 +1,13 @@
 #!/bin/sh
 # os testes de dados travam o commit: perder lançamento não pode virar rotina
 node app/testes-dados.mjs || exit 1
-# carimba a versão no index.html e em versao.txt; o app compara os dois para avisar de versão nova
+# carimba a versão nos dois apps e em versao.txt; cada um compara com o servidor para
+# avisar que há versão nova. Enquanto o app velho existir, os dois carregam o mesmo carimbo.
 V=$(date +%Y%m%d%H%M%S)
-sed -i '' "s/^const VERSAO = \"[^\"]*\";/const VERSAO = \"$V\";/" index.html
+for f in index.html novo.html; do
+  [ -f "$f" ] || continue
+  sed -i '' "s/^const VERSAO = \"[^\"]*\";/const VERSAO = \"$V\";/" "$f"
+  git add "$f"
+done
 printf '%s\n' "$V" > versao.txt
-git add index.html versao.txt
+git add versao.txt
