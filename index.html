@@ -71,10 +71,6 @@ header{
 .mais.azul{background:var(--consumo);color:#fff}
 .mais.verde{background:var(--gasto-3);color:var(--sobre-treino)}
 .mais.cinza{background:var(--ink-2);color:var(--surface)}
-/* tirar dúvida: mesmo contorno do atualizar, com "?" no lugar da cruz */
-.mais.duvida{right:46px;background:var(--surface-2);color:var(--ink-2);border:1.5px solid var(--grid);
-  font-size:15px;font-weight:700;line-height:1;font-family:inherit}
-.mais.duvida::before,.mais.duvida::after{display:none}
 .consulta{background:var(--surface-2);border-radius:10px;padding:12px 14px;margin:2px 0 4px}
 .consulta .kc{font-size:26px;font-weight:600;letter-spacing:-.02em}
 .consulta .kc small{font-size:14px;font-weight:500;color:var(--ink-3);margin-left:4px}
@@ -83,6 +79,14 @@ header{
 .consulta ul{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--grid);font-size:13px}
 .consulta li{display:flex;justify-content:space-between;gap:12px;padding:2px 0;color:var(--ink-2)}
 .consulta li b{font-weight:600;color:var(--ink);white-space:nowrap}
+/* mais específico que .addform label, que empilha e põe em caixa alta */
+.addform .consulta .qtd{flex-direction:row;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;
+  font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink-2)}
+.addform .consulta .qtd input{width:90px;font-size:16px;padding:6px 8px;background:var(--surface)}
+.consulta .atalhos{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.consulta .atalhos button{font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:99px;
+  border:1px solid var(--grid);background:var(--surface);color:var(--ink-2);cursor:pointer}
+.consulta .add.depois{background:var(--surface);color:var(--ink);border:1px solid var(--axis)}
 .consulta .via{font-size:11.5px;color:var(--ink-3);margin-top:8px}
 .consulta .add{display:block;width:100%;margin-top:12px;font:inherit;font-size:13.5px;font-weight:600;
   padding:10px 15px;border-radius:7px;border:0;cursor:pointer;background:var(--marca);color:#fff}
@@ -124,7 +128,7 @@ section.card{position:relative;background:var(--surface);border:1px solid var(--
 h2{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 11px}
 .mais ~ h2, h2:has(~ .mais){padding-right:34px}
-h2:has(~ .mais.gira:not([hidden])), h2:has(~ .mais.duvida){padding-right:70px}
+h2:has(~ .mais.gira:not([hidden])){padding-right:70px}
 /* o total herda a fonte do título; só o separador e o peso mudam */
 h2 .tot{opacity:.62;font-weight:600}
 h2 .tot:not(:empty)::before{content:"· "}
@@ -380,6 +384,8 @@ h2 .side{float:right;text-transform:none;letter-spacing:0;font-weight:500;color:
   padding:10px;margin-top:18px;max-height:190px;overflow:auto;white-space:pre-wrap}
 
 .fotoacoes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#dlg-meal .fotoacoes{grid-template-columns:1fr 1fr 1fr}
+.foto{text-align:center;line-height:1.25}
 .foto{display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;
   color:var(--in);border:1px dashed var(--axis);border-radius:8px;padding:10px;cursor:pointer}
 .fotoprev{display:flex;align-items:center;gap:12px}
@@ -569,7 +575,6 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   <div class="grid">
     <section class="card">
       <h2 class="t-ref">Refeições <span class="tot" id="meals-total"></span></h2>
-      <button class="mais duvida" id="bt-duvida" title="Tirar dúvida: quanto tem?" aria-label="Tirar dúvida sobre uma refeição">?</button>
       <button class="mais azul" id="bt-meal" aria-label="Adicionar refeição">+</button>
       <div class="meals" id="meals"></div>
     </section>
@@ -686,7 +691,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
   <form class="addform" id="fm-meal">
     <div class="campo-voz">
       <textarea id="in-meal" rows="4"
-        placeholder="O que você comeu? Ex: prato de feijoada e uma laranja"></textarea>
+        placeholder="O que você comeu? Ex: prato de feijoada e uma laranja. Produto embalado: os números do código de barras."></textarea>
       <button type="button" class="mic" id="bt-mic" title="Falar em vez de digitar" aria-label="Falar em vez de digitar" hidden>
         <svg class="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
         <svg class="i-parar" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
@@ -696,6 +701,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     <div class="fotoacoes" id="foto-acoes">
       <label class="foto"><input id="in-foto-cam" type="file" accept="image/*" capture="environment" hidden><span>Tirar foto</span></label>
       <label class="foto"><input id="in-foto-gal" type="file" accept="image/*" hidden><span>Da galeria</span></label>
+      <label class="foto"><input id="in-ean-cam" type="file" accept="image/*" capture="environment" hidden><span>Código de barras</span></label>
     </div>
     <div class="fotoprev" id="foto-prev" hidden>
       <img id="foto-img" alt="prévia da foto">
@@ -703,7 +709,7 @@ dialog h3{margin:0 0 13px;padding-right:32px;font-size:12px;font-weight:700;lett
     </div>
     <div class="consulta" id="consulta" hidden></div>
     <div class="addactions">
-      <button type="submit" class="btn-go" id="bt-meal-go">Estimar e adicionar</button>
+      <button type="submit" class="btn-go" id="bt-meal-go">Estimar</button>
       <span class="addstatus" id="st-meal"></span>
     </div>
   </form>
@@ -1143,7 +1149,7 @@ const $ = id => document.getElementById(id);
 /* ==================== versão publicada ==================== */
 // VERSAO é carimbada no commit (hook pre-commit). versao.txt no servidor diz qual está no ar;
 // se for outra, a tarja aparece e o toque recarrega.
-const VERSAO = "20260923072444";
+const VERSAO = "20260923131341";
 let versaoNoAr = null, versaoVista = 0;
 async function conferirVersao(){
   if(Date.now() - versaoVista < 20000) return;        // no máximo uma consulta a cada 20 s
@@ -1719,28 +1725,28 @@ const perfilTexto = () =>
   `${PERF.sexo==="m"?"homem":"mulher"}, ${idade()} anos, ${pesoAtual()} kg, ${PERF.altura} cm`;
 
 let alvoDia = TODAY_ISO;     // em que dia o modal vai gravar
-let modoConsulta = false, sobrouDeConsulta = false;
-function limparRefeicao(){
+// Estimar primeiro e só então adicionar: a pessoa vê o número antes de ele entrar no dia,
+// e quem só queria saber "quanto tem" fecha sem registrar nada.
+function descartarResultado(){
   ultimaConsulta = null;
-  $("in-meal").value = ""; limparFoto();
   $("consulta").hidden = true; $("consulta").innerHTML = "";
+  $("bt-meal-go").hidden = false;
+}
+function limparRefeicao(){
+  descartarResultado();
+  $("in-meal").value = ""; limparFoto();
   $("st-meal").textContent = "";
 }
-function abrirRefeicao(consulta, dia){
-  // o tira-dúvida sempre abre em branco, e o que sobrou dele não vaza para o "+".
-  // Não dá para depender só do evento "close": o navegador o entrega num quadro de
-  // animação, que não acontece com a aba em segundo plano.
-  if(consulta || sobrouDeConsulta) limparRefeicao();
-  sobrouDeConsulta = consulta;
-  modoConsulta = consulta;
-  $("dlg-meal").querySelector("h3").textContent = consulta ? "Tirar dúvida" : "Adicionar refeição";
-  $("bt-meal-go").textContent = consulta ? "Estimar" : "Estimar e adicionar";
-  $("in-meal").placeholder = consulta
-    ? "Quanto tem? Ex: uma coxinha e um suco de laranja"
-    : "O que você comeu? Ex: prato de feijoada e uma laranja";
-  $("consulta").hidden = true; $("consulta").innerHTML = "";
+// O rascunho (texto e foto) sobrevive a fechar sem querer; o resultado não, porque o
+// botão dele diz em que dia grava e o dia pode ter mudado.
+function abrirRefeicao(dia){
+  descartarResultado();
   abrir("dlg-meal", "st-meal", dia);
 }
+// mexeu no que descreveu: o número mostrado já não é daquilo
+$("in-meal").addEventListener("input", descartarResultado);
+["in-foto-cam", "in-foto-gal"].forEach(id => $(id).addEventListener("change", descartarResultado));
+$("foto-tirar").addEventListener("click", descartarResultado);
 /* ---------- falar em vez de digitar ---------- */
 // Grava no aparelho, o servidor transcreve (Whisper, no Groq) e o texto cai no campo para
 // a pessoa conferir e editar. O envio continua sendo o botão de sempre: a voz só troca o
@@ -1800,12 +1806,6 @@ const voz = (() => {
 })();
 $("dlg-meal").addEventListener("close", () => voz.cancelar());
 
-// fechou o tira-dúvida (X, Esc ou fora): volta em branco na próxima vez
-$("dlg-meal").addEventListener("close", () => {
-  if(!modoConsulta) return;
-  limparRefeicao();
-  modoConsulta = sobrouDeConsulta = false;
-});
 function abrir(dlgId, statusId, dia){
   alvoDia = dia || TODAY_ISO;
   $(statusId).textContent = ""; $(statusId).className = "addstatus";
@@ -1820,8 +1820,7 @@ document.querySelectorAll("[data-close]").forEach(b=>{
   b.onclick = () => $(b.dataset.close).close();
 });
 $("sync").onclick = sincronizarAgora;
-$("bt-meal").onclick   = () => abrirRefeicao(false, histIso);
-$("bt-duvida").onclick = () => abrirRefeicao(true, histIso);
+$("bt-meal").onclick   = () => abrirRefeicao(histIso);
 $("bt-wk").onclick     = () => { fotoWk.limpar(); abrir("dlg-wk","st-wk", histIso); };
 
 const FOTOS = new Map();   // id do item → imagem, enquanto não subiu ou não foi estimada
@@ -1979,24 +1978,18 @@ async function comIA(statusEl, botao, trabalho){
   }
 }
 
+const escHtml = x => String(x ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const rotuloAdd = () => `Adicionar refeição${alvoDia === TODAY_ISO ? "" : " em " + dayShort(alvoDia)}`;
+// só dígitos (com espaço, como vem impresso): é código de barras, não descrição
+const soCodigo = t => /^\d[\d ]{6,16}\d$/.test(t) ? t.replace(/ /g, "") : null;
+
 $("fm-meal").onsubmit = ev => {
   ev.preventDefault();
   const texto = $("in-meal").value.trim();
   const foto = fotoMeal.get();
   if(!texto && !foto) return;
-  if(modoConsulta){ consultar(texto, foto); return; }   // só mostra, não registra
-  // entra na lista imediatamente; a estimativa chega depois
-  const id = novoId();
-  if(foto){ FOTOS.set(id, foto); idb.set(id, foto); }
-  (DIA_MEALS[alvoDia] ||= []).push({
-    id, desc: texto || "Refeição pela foto",
-    kc:0, p:0, c:0, g:0, pendente:true, raw:texto, temFoto: !!foto, novo:true,
-  });
-  depoisDeGravar();
-  $("in-meal").value = "";
-  limparFoto();
-  $("dlg-meal").close();
-  tocarFila();
+  const ean = !foto && soCodigo(texto);
+  if(ean) buscarProduto(ean); else consultar(texto, foto);
 };
 
 // gostou da resposta: a mesma estimativa vira refeição, sem chamar a IA de novo
@@ -2007,39 +2000,137 @@ function adicionarConsulta(){
   const id = novoId();
   if(u.foto){ FOTOS.set(id, u.foto); idb.set(id, u.foto); }
   (DIA_MEALS[alvoDia] ||= []).push({
-    id, desc: u.texto || String(u.r.desc || "Refeição pela foto"),
-    interp: String(u.r.desc || ""), via: u.via, raw: u.texto, temFoto: !!u.foto, novo: true,
+    id, desc: u.desc, interp: u.interp, via: u.via, raw: u.raw, temFoto: !!u.foto, novo: true,
     kc: u.tot.kcal, p: u.tot.p, c: u.tot.c, g: u.tot.g,
     ...(u.tot.itens.length ? {itens: u.tot.itens.map(i => ({n: i.nome, kc: i.kcal}))} : {}),
   });
-  ultimaConsulta = null;
   depoisDeGravar();
   limparRefeicao();
   $("dlg-meal").close();
   tocarFila();
 }
-// tira-dúvida: estima na hora e mostra no próprio modal; nada entra no dia
+// a IA não respondeu (sem rede, fora do ar): o que a pessoa descreveu não se perde —
+// entra como pendente e a fila estima quando der
+function adicionarSemEstimativa(texto, foto){
+  const id = novoId();
+  if(foto){ FOTOS.set(id, foto); idb.set(id, foto); }
+  (DIA_MEALS[alvoDia] ||= []).push({
+    id, desc: texto || "Refeição pela foto",
+    kc:0, p:0, c:0, g:0, pendente:true, raw:texto, temFoto: !!foto, novo:true,
+  });
+  depoisDeGravar();
+  limparRefeicao();
+  $("dlg-meal").close();
+  tocarFila();
+}
+function mostrarResultado(html){
+  const box = $("consulta");
+  box.innerHTML = html + `<button type="button" class="add" id="bt-consulta-add">${rotuloAdd()}</button>`;
+  $("bt-consulta-add").onclick = adicionarConsulta;
+  box.hidden = false;
+  $("bt-meal-go").hidden = true;      // com o número na tela, o próximo passo é adicionar
+}
+// estima na hora e mostra no próprio modal; só entra no dia se a pessoa tocar em adicionar
 async function consultar(texto, foto){
   const bt = $("bt-meal-go"), st = $("st-meal"), box = $("consulta");
+  descartarResultado();
   bt.disabled = true; st.className = "addstatus"; st.textContent = "Estimando…";
   try{
     const r = await estimarJSON(promptRefeicao(texto, foto), foto);
-    const tot = totaisRefeicao(r), esc = x => String(x || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-    box.innerHTML =
+    const tot = totaisRefeicao(r);
+    mostrarResultado(
       `<div class="kc num">${fmt(tot.kcal)}<small>kcal</small></div>` +
       `<div class="mac">P ${tot.p} g · C ${tot.c} g · G ${tot.g} g</div>` +
-      (r.desc ? `<div class="como">${esc(r.desc)}</div>` : "") +
-      (tot.itens.length ? `<ul>${tot.itens.map(i => `<li><span>${esc(i.nome)}</span><b class="num">${fmt(i.kcal)} kcal</b></li>`).join("")}</ul>` : "") +
-      `<div class="via">estimativa${ultimoMotor ? " · " + esc(ultimoMotor) : ""} · não foi registrado</div>` +
-      `<button type="button" class="add" id="bt-consulta-add">Adicionar refeição${alvoDia === TODAY_ISO ? "" : " em " + dayShort(alvoDia)}</button>`;
-    ultimaConsulta = {texto, foto, r, tot, via: ultimoMotor};
-    $("bt-consulta-add").onclick = adicionarConsulta;
-    box.hidden = false;
+      (r.desc ? `<div class="como">${escHtml(r.desc)}</div>` : "") +
+      (tot.itens.length ? `<ul>${tot.itens.map(i => `<li><span>${escHtml(i.nome)}</span><b class="num">${fmt(i.kcal)} kcal</b></li>`).join("")}</ul>` : "") +
+      `<div class="via">estimativa${ultimoMotor ? " · " + escHtml(ultimoMotor) : ""}</div>`);
+    ultimaConsulta = {
+      desc: texto || String(r.desc || "Refeição pela foto"),   // o que a pessoa escreveu manda
+      interp: String(r.desc || ""), raw: texto, foto, tot, via: ultimoMotor,
+    };
     st.textContent = "";
   }catch(e){
     st.textContent = erroMsg(e); st.className = "addstatus err";
+    box.innerHTML = `<button type="button" class="add depois" id="bt-add-depois">${rotuloAdd()} sem estimativa — a IA estima depois</button>`;
+    $("bt-add-depois").onclick = () => adicionarSemEstimativa(texto, foto);
+    box.hidden = false;
   }
   bt.disabled = false;
+}
+
+/* ---------- código de barras ---------- */
+// Produto embalado não precisa de estimativa: a tabela da embalagem está na base do Open
+// Food Facts, consultada pelo servidor. A leitura do código é no aparelho — o Android lê
+// nativo; o iPhone não tem o leitor no navegador e baixa um (ZXing, ~1 MB) na primeira vez.
+async function lerCodigoDeBarras(file){
+  const img = await createImageBitmap(file);
+  const formatos = ["ean_13", "ean_8", "upc_a"];
+  let Leitor = window.BarcodeDetector;
+  try{ if(Leitor && !(await Leitor.getSupportedFormats()).includes("ean_13")) Leitor = null; }
+  catch(e){ Leitor = null; }
+  if(!Leitor) Leitor = (await import("https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/es/ponyfill.js")).BarcodeDetector;
+  const achados = await new Leitor({formats: formatos}).detect(img);
+  return achados.map(a => a.rawValue).find(v => /^\d{8,14}$/.test(v)) || null;
+}
+$("in-ean-cam").addEventListener("change", async e => {
+  const f = e.target.files?.[0];
+  e.target.value = "";
+  if(!f) return;
+  const st = $("st-meal");
+  descartarResultado();
+  st.className = "addstatus"; st.textContent = "Lendo o código…";
+  let ean = null;
+  try{ ean = await lerCodigoDeBarras(f); }catch(err){ console.warn("leitor de código", err); }
+  if(!ean){
+    st.className = "addstatus err";
+    st.textContent = "Não consegui ler. Tente de novo mais perto, ou digite os números no campo e toque em Estimar.";
+    return;
+  }
+  $("in-meal").value = ean;
+  buscarProduto(ean);
+});
+async function buscarProduto(ean){
+  const bt = $("bt-meal-go"), st = $("st-meal");
+  descartarResultado();
+  bt.disabled = true; st.className = "addstatus"; st.textContent = "Buscando o produto…";
+  try{
+    const {produto} = await api("ia", {method: "POST", body: JSON.stringify({ean})});
+    if(produto){ mostrarProduto(produto); st.textContent = ""; }
+    else{
+      st.className = "addstatus err";
+      st.textContent = "Produto sem tabela na base. Tire foto da tabela nutricional da embalagem e toque em Estimar.";
+    }
+  }catch(e){ st.className = "addstatus err"; st.textContent = e.message || "Não consegui buscar o produto."; }
+  bt.disabled = false;
+}
+function mostrarProduto(pr){
+  const un = pr.unidade, nomeTodo = pr.nome + (pr.marca && !pr.nome.toLowerCase().includes(pr.marca.toLowerCase()) ? " · " + pr.marca : "");
+  const atalho = (q, rot) => q ? `<button type="button" data-q="${q}">${rot} (${fmt(q)} ${un})</button>` : "";
+  mostrarResultado(
+    `<div class="kc num" id="pr-kc"></div><div class="mac" id="pr-mac"></div>` +
+    `<div class="como">${escHtml(nomeTodo)}</div>` +
+    `<label class="qtd">Quanto: <input type="text" inputmode="decimal" id="pr-q" value="${pr.porcao || pr.embalagem || 100}"> ${un}</label>` +
+    `<div class="atalhos">${atalho(pr.porcao, "1 porção")}${pr.embalagem !== pr.porcao ? atalho(pr.embalagem, "embalagem") : ""}</div>` +
+    `<div class="via">tabela da embalagem · Open Food Facts · ${escHtml(pr.ean)}</div>`);
+  // a conta é nossa: tabela por 100 × quantidade
+  const calcular = () => {
+    const q = Number($("pr-q").value.replace(",", "."));
+    const ok = q > 0 && q <= 10000;
+    $("bt-consulta-add").disabled = !ok;
+    if(!ok){ ultimaConsulta = null; $("pr-kc").innerHTML = "—"; $("pr-mac").textContent = ""; return; }
+    const v = k => Math.round(pr.por100[k] * q / 100);
+    const qtd = `${fmt(q)} ${un}`;
+    const tot = {kcal: v("kcal"), p: v("p"), c: v("c"), g: v("g"), itens: [{nome: `${pr.nome} (${qtd})`, kcal: v("kcal")}]};
+    $("pr-kc").innerHTML = `${fmt(tot.kcal)}<small>kcal</small>`;
+    $("pr-mac").textContent = `P ${tot.p} g · C ${tot.c} g · G ${tot.g} g`;
+    ultimaConsulta = {desc: `${pr.nome} · ${qtd}`, interp: nomeTodo, raw: `código de barras ${pr.ean} · ${qtd}`,
+                      foto: null, tot, via: "openfoodfacts"};
+  };
+  $("pr-q").oninput = calcular;
+  // Enter no campo da quantidade não reenvia o formulário (buscaria o produto de novo)
+  $("pr-q").onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); if(ultimaConsulta) adicionarConsulta(); } };
+  $("consulta").querySelectorAll("[data-q]").forEach(b => b.onclick = () => { $("pr-q").value = b.dataset.q; calcular(); });
+  calcular();
 }
 
 $("fm-wk").onsubmit = ev => {
@@ -2091,12 +2182,13 @@ const pendentes = () => {
   return out;
 };
 
-// o mesmo pedido serve para registrar e para tirar dúvida; na dúvida vem também o detalhe por item
+// o mesmo pedido serve para a estimativa mostrada no modal e para a fila de pendentes
 function promptRefeicao(raw, foto){
   return (foto
       ? `Olhe a foto da refeição e estime calorias e macronutrientes, para ${perfilTexto()}.\n` +
         (raw ? `A pessoa descreveu assim: "${raw}"\n` : "") +
-        `Estime as porções pelo que aparece no prato.\n`
+        `Estime as porções pelo que aparece no prato. Se a foto for de embalagem ou tabela ` +
+        `nutricional, use os valores impressos nela.\n`
       : `Estime calorias e macronutrientes desta refeição brasileira, para ${perfilTexto()}.\n` +
         `Refeição: "${raw}"\n`) +
     `Use porções brasileiras típicas quando a quantidade não for dita.\n` +

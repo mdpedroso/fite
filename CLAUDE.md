@@ -291,3 +291,5 @@ número na cara.
 | 22/09 | App sempre claro, sem tema | não interessa |
 | 22/09 | Usuário pré-cadastrado por nós | saber a URL e ter Gmail não pode dar acesso |
 | 22/09 | App não carimba slot (café, ceia…) | não interessa; nem pela hora, nem pelo modelo |
+| 23/09 | Um só botão "+": estima, mostra, e só então adiciona | o "?" duplicava o modal; ver o número antes de gravar serve aos dois usos |
+| 23/09 | Código de barras: leitura no aparelho, tabela do Open Food Facts via `/api/ia` | industrializado tem número de fábrica, melhor que estimativa; sem rota nova (limite de 12) |

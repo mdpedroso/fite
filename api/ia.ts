@@ -1,5 +1,6 @@
 // /api/ia — POST estima: recebe o pedido montado pela tela e devolve o JSON do modelo.
 // POST com `audio` transcreve a fala para o campo de texto (a pessoa confere antes de enviar).
+// POST com `ean` busca o produto embalado pelo código de barras (a tabela dispensa a IA).
 // GET e PUT são do admin: veem a situação e trocam a chave do Groq.
 //
 // A tela continua dona do prompt (é ela que sabe o formato da refeição e do treino); o
@@ -7,6 +8,7 @@
 // porque o plano gratuito do Vercel aceita 12 funções, e cada arquivo em api/ é uma.
 import { rota, corpoJson } from "../lib/rota.js";
 import { estimar, situacao, cadastrarGroq, transcrever, type Imagem } from "../lib/ia.js";
+import { buscarProduto } from "../lib/produto.js";
 import { texto, Recusa } from "../lib/validar.js";
 import type { Quem } from "../lib/sessao.js";
 
@@ -35,6 +37,9 @@ export default rota({
     if (c.audio) {
       const a = c.audio as Record<string, unknown>;
       return { texto: await transcrever(texto(a.mime, "tipo do áudio", 100), texto(a.b64, "áudio", 3_500_000)) };
+    }
+    if (c.ean !== undefined) {
+      return { produto: await buscarProduto(texto(c.ean, "código de barras", 20).replace(/\D/g, "")) };
     }
     const { r, modelo } = await estimar(texto(c.prompt, "prompt", 20_000), imagem(c.imagem));
     return { r, motor: modelo };
