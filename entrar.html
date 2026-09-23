@@ -2,16 +2,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FiTê — entrar</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700&display=swap">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
-  :root{ color-scheme: light; }
+  /* a mesma marca do app: o acento do "ê" é desenhado, não é fonte */
+  :root{ color-scheme: light; --marca:#0e5b7d; --marca-2:#8cc63f; }
+  .logo{ font-family:Archivo,system-ui,sans-serif; font-weight:700; font-size:46px;
+         letter-spacing:-.035em; color:var(--marca); line-height:1; white-space:nowrap;
+         margin-bottom:26px; }
+  .logo .e{ position:relative; display:inline-block; }
+  .logo .e::before{ content:""; position:absolute; left:50%; top:-.22em;
+    width:.56em; height:.25em; background:var(--marca-2); transform:translateX(-50%);
+    clip-path:polygon(50% 0,100% 100%,74% 100%,50% 40%,26% 100%,0 100%); }
   body{ margin:0; min-height:100dvh; display:flex; align-items:center; justify-content:center;
         font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         background:#f6f7f9; color:#111; padding:24px; }
   .cartao{ width:100%; max-width:360px; background:#fff; border:1px solid #e4e6ea; border-radius:16px;
            padding:28px 24px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.05); }
-  h1{ font-size:22px; margin:0 0 4px; letter-spacing:-.01em; }
-  p{ margin:0 0 20px; color:#6b7280; font-size:14px; }
+  p{ margin:0 0 22px; color:#6b7280; font-size:14px; }
   #botao{ display:flex; justify-content:center; min-height:44px; }
   #aviso{ margin-top:18px; font-size:14px; white-space:pre-wrap; text-align:left; }
   #aviso.ruim{ color:#b42318; }
@@ -21,7 +30,7 @@
 </style>
 
 <div class="cartao">
-  <h1>FiTê</h1>
+  <div class="logo">FiT<span class="e">e</span></div>
   <p>Entre com a conta Google cadastrada.</p>
   <div id="botao"></div>
   <div id="aviso"></div>
