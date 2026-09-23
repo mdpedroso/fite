@@ -5,5 +5,12 @@
       "source": "/api/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-store" }]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://mdpedroso.github.io/fite/",
+      "permanent": false
+    }
   ]
 }
