@@ -17,6 +17,12 @@ function storage(caminho: string) {
     throw new Recusa("o armazenamento de fotos não está configurado", 503);
   }
   // chave nova (sb_secret_) vai só no apikey; a antiga (service_role) é JWT e vai nos dois
+  // chave com quebra de linha ou espaço (colada em duas linhas) quebra o cabeçalho, e a
+  // mensagem de erro do fetch traria a chave inteira: barra antes, sem nunca logar o valor
+  if (/\s/.test(chave)) {
+    console.error("storage: SUPABASE_SECRET_KEY tem espaço ou quebra de linha");
+    throw new Recusa("o armazenamento de fotos está mal configurado", 503);
+  }
   const cab: Record<string, string> = { apikey: chave };
   if (!chave.startsWith("sb_")) cab.Authorization = "Bearer " + chave;
   return { url: `${url.replace(/\/$/, "")}/storage/v1/object/${BUCKET}/${caminho}`, cab };
@@ -31,7 +37,7 @@ export async function guardarFoto(usuario: string, b64: string): Promise<string>
     method: "POST", headers: { ...cab, "content-type": "image/jpeg" },
     body: Buffer.from(b64, "base64"), signal: AbortSignal.timeout(20_000),
   }).catch(e => {
-    console.error("storage upload falhou", new URL(url).host, String(e?.cause || e));
+    console.error("storage upload falhou", new URL(url).host, (e as Error)?.name ?? "erro");
     throw new Recusa("o armazenamento não respondeu", 503);
   });
   if (!r.ok) {
@@ -48,8 +54,9 @@ export async function lerFoto(usuario: string, caminho: string): Promise<Buffer>
   const { url, cab } = storage(caminho);
   const r = await fetch(url, { headers: cab, signal: AbortSignal.timeout(20_000) })
     .catch(e => {
-      // o host diz se SUPABASE_URL está certo; a chave nunca vai para o log
-      console.error("storage download falhou", new URL(url).host, String(e?.cause || e));
+      // o host diz se SUPABASE_URL está certo; só o tipo do erro vai para o log: a
+      // mensagem do fetch pode conter os cabeçalhos, e com eles a chave
+      console.error("storage download falhou", new URL(url).host, (e as Error)?.name ?? "erro");
       throw new Recusa("o armazenamento não respondeu", 503);
     });
   if (r.status === 400 || r.status === 404) throw new Recusa("foto não encontrada", 404);
